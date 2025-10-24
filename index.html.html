@@ -781,6 +781,7 @@
                         <img src="https://i.ibb.co/Y4H1km0F/Imagem-Controlla-Sistema-removebg-preview.png" alt="Controlla Logo">
                     </div>
                     <div class="logo-text">Cｏｎｔｒｏｌｌａ</div>
+                </div>
                 <nav>
                     <ul>
                         <li><a href="#" class="nav-link active" data-target="search-section">🔍 Buscar</a></li>
@@ -956,7 +957,7 @@
                 
                 <div id="encosta-content">
                     <div class="empty-state">
-                        <i>🚛</i>
+                        <div>🚛</div>
                         <p>Carregando lista de veículos para encosta...</p>
                     </div>
                 </div>
@@ -1021,7 +1022,7 @@
                             <tr>
                                 <td colspan="7" style="text-align: center; padding: 40px;">
                                     <div class="empty-state">
-                                        <i>📋</i>
+                                        <div>📋</div>
                                         <p>Clique em "Gerar Relatório" para visualizar os dados</p>
                                     </div>
                                 </td>
@@ -1408,6 +1409,7 @@
             }
             return false;
         }
+        
         // ========== FUNÇÃO initializeData ========== //
         async function initializeData() {
             console.log('=== INICIANDO SISTEMA CONTROLLA ===');
@@ -2212,6 +2214,10 @@
                     <td>${row[2] !== undefined ? row[2] : '-'}</td>
                     <td>${row[13] !== undefined ? row[13] : '-'}</td>
                     <td>${row[5] !== undefined ? row[5] : '-'}</td>
+                    <td>${row[6] !== undefined ? row[6] : '-'}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small">Ver</button>
+                    </td>
                 `;
                 tableBody.appendChild(tr);
             });
@@ -2304,7 +2310,7 @@
                     <tr>
                         <td colspan="7" style="text-align: center; padding: 40px;">
                             <div class="empty-state">
-                                <i>📋</i>
+                                <div>📋</div>
                                 <p>Nenhum dado de processo encontrado</p>
                             </div>
                         </td>
@@ -2409,7 +2415,7 @@
             if (filteredDrivers.length === 0) {
                 encostaContent.innerHTML = `
                     <div class="empty-state">
-                        <i>📋</i>
+                        <div>📋</div>
                         <p>Nenhum veículo encontrado para exibir na encosta.</p>
                     </div>
                 `;
