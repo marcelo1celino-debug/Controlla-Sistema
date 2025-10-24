@@ -1204,11 +1204,10 @@
 
     <script>
         // ========== CONFIGURAÇÃO SUPABASE ========== //
-        // ESTAS CONFIGURAÇÕES SERÃO ATUALIZADAS DEPOIS DO DEPLOY
-        const SUPABASE_URL = 'https://seu-projeto.supabase.co'; // VOCÊ VAI ATUALIZAR ISSO
-        const SUPABASE_ANON_KEY = 'sua-chave-anon-aqui'; // VOCÊ VAI ATUALIZAR ISSO
+        const SUPABASE_URL = 'https://seu-projeto.supabase.co';
+        const SUPABASE_ANON_KEY = 'sua-chave-anon-aqui';
 
-        // Inicializar Supabase (funciona mesmo sem credenciais válidas)
+        // Inicializar Supabase
         const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : {
             from: () => ({
                 select: () => Promise.resolve({ data: null, error: new Error('Supabase não configurado') }),
@@ -1266,7 +1265,6 @@
 
         // ========== SISTEMA DE PRESERVAÇÃO DE DADOS ========== //
 
-        // Função para salvar dados de processo separadamente
         function saveProcessData() {
             const processData = {};
             
@@ -1289,7 +1287,6 @@
             console.log('💾 Dados de processo salvos:', Object.keys(processData).length, 'registros');
         }
 
-        // Função para carregar dados de processo
         function loadProcessData() {
             const savedProcessData = localStorage.getItem('processData');
             if (savedProcessData) {
@@ -1307,14 +1304,11 @@
 
         // ========== SISTEMA SUPABASE (COM FALLBACK) ========== //
 
-        // Função para salvar dados (tenta Supabase, fallback para localStorage)
         async function saveData() {
             console.log('💾 Salvando dados...');
             
-            // Sempre salva no localStorage primeiro (mais rápido)
             saveToLocalStorage();
             
-            // Tenta salvar no Supabase se estiver configurado
             if (SUPABASE_URL && SUPABASE_URL !== 'https://seu-projeto.supabase.co') {
                 try {
                     await saveToSupabase();
@@ -1326,11 +1320,9 @@
             }
         }
 
-        // Função para carregar dados (tenta Supabase, fallback para localStorage)
         async function loadData() {
             console.log('📂 Carregando dados...');
             
-            // Tenta carregar do Supabase primeiro se estiver configurado
             if (SUPABASE_URL && SUPABASE_URL !== 'https://seu-projeto.supabase.co') {
                 try {
                     const success = await loadFromSupabase();
@@ -1343,12 +1335,10 @@
                 }
             }
             
-            // Fallback para localStorage
             updateConnectionStatus(false);
             return loadFromLocalStorage();
         }
 
-        // Funções específicas do Supabase
         async function saveToSupabase() {
             if (!SUPABASE_URL || SUPABASE_URL === 'https://seu-projeto.supabase.co') {
                 throw new Error('Supabase não configurado');
@@ -1419,7 +1409,6 @@
             return false;
         }
 
-        // Funções de fallback (localStorage)
         function saveToLocalStorage() {
             localStorage.setItem('driversData', JSON.stringify(driversData));
             localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
@@ -1437,7 +1426,6 @@
             return false;
         }
 
-        // Atualizar status da conexão
         function updateConnectionStatus(online) {
             isOnline = online;
             const statusElement = document.getElementById('connection-status');
@@ -1447,21 +1435,18 @@
             }
         }
 
-        // ========== FUNÇÃO initializeData ATUALIZADA ========== //
+        // ========== FUNÇÃO initializeData ========== //
         async function initializeData() {
             console.log('=== INICIANDO SISTEMA CONTROLLA ===');
             
-            // Tentar carregar dados
             const hasData = await loadData();
             
-            // Se não há dados em nenhum lugar, criar exemplos
             if (!hasData || driversData.length === 0) {
                 console.log('Criando dados de exemplo...');
                 createSampleData();
                 await saveData();
             }
 
-            // Carregar e aplicar dados de processo
             const processData = loadProcessData();
             let restoredCount = 0;
 
@@ -1484,9 +1469,112 @@
             console.log('✅ Sistema inicializado com sucesso!');
         }
 
+        // ========== FUNÇÃO createSampleData ========== //
+        function createSampleData() {
+            console.log('=== CRIANDO DADOS DE EXEMPLO ===');
+            
+            const sampleDrivers = [
+                {
+                    ticket: '1001',
+                    driverName: 'João Silva',
+                    supplier: 'Transportes ABC',
+                    cd: 'CD001',
+                    truckPlate: 'ABC1234',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 08:30',
+                    arrivalDateTime: '15/10/2023 08:35',
+                    contatoFeito: '15/10/2023 08:40',
+                    liberacaoEntregue: '15/10/2023 09:15',
+                    encostouDoca: '15/10/2023 09:45'
+                },
+                {
+                    ticket: '1002', 
+                    driverName: 'Maria Santos',
+                    supplier: 'Logística XYZ',
+                    cd: 'CD002',
+                    truckPlate: 'XYZ5678',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 09:00',
+                    arrivalDateTime: '15/10/2023 09:05',
+                    contatoFeito: '15/10/2023 09:10',
+                    liberacaoEntregue: '15/10/2023 10:30',
+                    encostouDoca: '15/10/2023 11:00'
+                },
+                {
+                    ticket: '1003',
+                    driverName: 'Pedro Oliveira',
+                    supplier: 'Transportes ABC', 
+                    cd: 'CD001',
+                    truckPlate: 'DEF9012',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '16/10/2023 07:30',
+                    arrivalDateTime: '16/10/2023 07:35',
+                    contatoFeito: '16/10/2023 07:40',
+                    liberacaoEntregue: '16/10/2023 08:20',
+                    encostouDoca: '-'
+                }
+            ];
+            
+            driversData = sampleDrivers;
+            suppliersList = ['Transportes ABC', 'Logística XYZ'];
+            cdList = ['CD001', 'CD002'];
+            
+            console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
+        }
+
+        // ========== FUNÇÃO updateDatabaseStats CORRIGIDA ========== //
+        function updateDatabaseStats() {
+            try {
+                const totalDrivers = driversData.length;
+                
+                const suppliers = driversData
+                    .map(d => d.supplier)
+                    .filter(supplier => supplier && supplier !== '-' && supplier !== '');
+                const totalSuppliers = [...new Set(suppliers)].length;
+                
+                const activeProcesses = driversData.filter(d => 
+                    d.arrivalDateTime && d.arrivalDateTime !== '-' && 
+                    (!d.releaseTime || d.releaseTime === '-' || d.releaseTime === '')
+                ).length;
+                
+                const completedToday = driversData.filter(d => {
+                    try {
+                        if (!d.releaseTime || d.releaseTime === '-' || d.releaseTime === '' || d.releaseTime === null || d.releaseTime === undefined) {
+                            return false;
+                        }
+                        
+                        const releaseStr = String(d.releaseTime);
+                        const today = new Date();
+                        const todayDay = today.getDate().toString().padStart(2, '0');
+                        const todayMonth = (today.getMonth() + 1).toString().padStart(2, '0');
+                        const todayYear = today.getFullYear();
+                        const todayFormatted = `${todayDay}/${todayMonth}/${todayYear}`;
+                        
+                        return releaseStr.includes(todayFormatted);
+                        
+                    } catch (error) {
+                        console.log('Erro ao verificar data de liberação:', d.releaseTime, error);
+                        return false;
+                    }
+                }).length;
+                
+                document.getElementById('total-drivers').textContent = totalDrivers;
+                document.getElementById('total-suppliers').textContent = totalSuppliers;
+                document.getElementById('active-processes').textContent = activeProcesses;
+                document.getElementById('completed-today').textContent = completedToday;
+                
+            } catch (error) {
+                console.error('❌ Erro em updateDatabaseStats:', error);
+                
+                document.getElementById('total-drivers').textContent = driversData.length || '0';
+                document.getElementById('total-suppliers').textContent = '0';
+                document.getElementById('active-processes').textContent = '0';
+                document.getElementById('completed-today').textContent = '0';
+            }
+        }
+
         // ========== CONFIGURAÇÃO DE EVENT LISTENERS ========== //
         function setupEventListeners() {
-            // Navegação
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -1495,7 +1583,6 @@
                 });
             });
             
-            // Tabs
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', function() {
                     const tabId = this.getAttribute('data-tab');
@@ -1503,31 +1590,26 @@
                 });
             });
             
-            // Busca de senha
             document.getElementById('search-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const ticket = document.getElementById('ticket-input').value.trim();
                 if (ticket) searchDriver(ticket);
             });
             
-            // Botão para ir para etapas
             document.getElementById('go-to-process').addEventListener('click', function() {
                 showSection('process-section');
                 renderProcessTimeline();
             });
             
-            // Relatório
             document.getElementById('report-generate').addEventListener('click', generateReport);
             document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
             document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
             
-            // Upload de arquivo
             document.getElementById('upload-btn').addEventListener('click', function() {
                 document.getElementById('file-input').click();
             });
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             
-            // Backup e sincronização
             document.getElementById('backup-process-btn').addEventListener('click', backupProcessData);
             document.getElementById('sync-supabase-btn').addEventListener('click', async function() {
                 this.disabled = true;
@@ -1543,7 +1625,6 @@
                 }
             });
             
-            // Drag and drop
             const uploadArea = document.getElementById('upload-area');
             uploadArea.addEventListener('dragover', function(e) {
                 e.preventDefault();
@@ -1559,11 +1640,9 @@
                 if (files.length > 0) handleFile(files[0]);
             });
             
-            // Confirmação de upload
             document.getElementById('confirm-upload').addEventListener('click', confirmUpload);
             document.getElementById('cancel-upload').addEventListener('click', cancelUpload);
             
-            // Filtros
             document.getElementById('reset-drivers-btn').addEventListener('click', function() {
                 document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
                 renderDriversTable();
@@ -1574,7 +1653,7 @@
             setupFilterListeners();
         }
 
-        // ========== FUNÇÃO registerProcessStep ATUALIZADA ========== //
+        // ========== FUNÇÃO registerProcessStep ========== //
         async function registerProcessStep(ticket, stepField) {
             console.log('=== REGISTRAR ETAPA ===');
             
@@ -1592,37 +1671,30 @@
                 };
             }
             
-            // Garantir propriedades
             if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
             if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
             if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
             
-            // Registrar data/hora
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             
-            // Registrar etapa
             currentDriver[stepField] = formattedDateTime;
             
-            // Adicionar à base se necessário
             if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
                 driversData.push(currentDriver);
             }
             
-            // SALVAR DADOS (localStorage + Supabase)
             saveProcessData();
             await saveData();
             
-            // Atualizar interface
             displayDriverInfo(currentDriver);
             renderProcessTimeline();
             
-            // Mensagem
             const stepName = getStepName(stepField);
             alert(`✅ ${stepName} registrado com sucesso!\nData: ${formattedDateTime}\n\n📋 Registro preservado em nuvem.`);
         }
 
-        // ========== FUNÇÃO confirmUpload ATUALIZADA ========== //
+        // ========== FUNÇÃO confirmUpload ========== //
         async function confirmUpload() {
             if (!window.uploadData) return;
             
@@ -1631,13 +1703,11 @@
             const newSuppliers = new Set();
             const newCDs = new Set();
             
-            // Carregar dados de processo existentes
             const processData = loadProcessData();
             
             rows.forEach((row) => {
                 const driver = {};
                 
-                // Mapear colunas
                 headers.forEach((header, colIndex) => {
                     if (header && columnMapping[header]) {
                         driver[columnMapping[header]] = row[colIndex];
@@ -1645,14 +1715,12 @@
                 });
                 
                 if (driver.ticket) {
-                    // Preservar dados de processo
                     if (processData[driver.ticket]) {
                         const savedProcess = processData[driver.ticket];
                         driver.contatoFeito = savedProcess.contatoFeito;
                         driver.liberacaoEntregue = savedProcess.liberacaoEntregue;
                         driver.encostouDoca = savedProcess.encostouDoca;
                     } else {
-                        // Inicializar campos
                         if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
                         if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
                         if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -1668,7 +1736,6 @@
             suppliersList = Array.from(newSuppliers);
             cdList = Array.from(newCDs);
             
-            // SALVAR NOVOS DADOS
             saveProcessData();
             await saveData();
             
@@ -1679,40 +1746,70 @@
             alert(`✅ Upload concluído! \n${newDrivers.length} registros carregados\n${Object.keys(processData).length} processos preservados`);
         }
 
-        // ========== FUNÇÕES RESTANTES (MANTIDAS) ========== //
-        // [Todas as outras funções permanecem EXATAMENTE como estavam]
-        // searchDriver, displayDriverInfo, renderProcessTimeline, getStepName,
-        // generateReport, exportReportToExcel, clearReportFilters, updateDatabaseStats,
-        // renderDriversTable, deleteDriver, clearDatabase, handleFileUpload, handleFile,
-        // previewData, cancelUpload, formatDateTime, formatDateTimeWithExtraMinute,
-        // formatDateTimeWithExtraMinuteForCalled, calculateWaitTime, renderEncostaList,
-        // createSampleData, etc...
-
-        // Função para backup de dados de processo
-        function backupProcessData() {
-            const processData = loadProcessData();
-            const dataStr = JSON.stringify(processData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `backup_processos_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-            alert(`📦 Backup exportado!\n${Object.keys(processData).length} registros.`);
+        // ========== FUNÇÕES DE FORMATAÇÃO ========== //
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                return convertExcelDate(dateTimeStr);
+            }
+            
+            return dateTimeStr.toString().trim() || '-';
         }
 
-        // Função auxiliar para obter o nome da etapa
-        function getStepName(stepField) {
-            const stepNames = {
-                'contatoFeito': 'Contato Feito',
-                'liberacaoEntregue': 'Liberação Entregue',
-                'encostouDoca': 'Encostou em Doca'
-            };
-            return stepNames[stepField] || stepField;
+        function convertExcelDate(excelNumber) {
+            try {
+                const date = XLSX.SSF.parse_date_code(excelNumber);
+                const day = date.d.toString().padStart(2, '0');
+                const month = date.m.toString().padStart(2, '0');
+                const year = date.y;
+                const hours = date.H.toString().padStart(2, '0');
+                const minutes = date.M.toString().padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            } catch (e) {
+                return excelNumber.toString();
+            }
         }
 
-        // Mostrar seção
+        function formatDateTimeWithExtraMinute(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            try {
+                let date;
+                
+                if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
+                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                } else {
+                    date = new Date(dateTimeStr);
+                }
+                
+                if (isNaN(date.getTime())) {
+                    return formatDateTime(dateTimeStr);
+                }
+                
+                date.setMinutes(date.getMinutes() + 1);
+                
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+                
+            } catch (e) {
+                return formatDateTime(dateTimeStr);
+            }
+        }
+
+        function formatDateTimeWithExtraMinuteForCalled(dateTimeStr) {
+            return formatDateTimeWithExtraMinute(dateTimeStr);
+        }
+
+        // ========== FUNÇÕES DE NAVEGAÇÃO ========== //
         function showSection(sectionId) {
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
@@ -1723,7 +1820,6 @@
             else if (sectionId === 'encosta-section') renderEncostaList();
         }
 
-        // Mostrar tab
         function showTab(tabId) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1731,7 +1827,7 @@
             document.getElementById(tabId).classList.add('active');
         }
 
-        // Buscar motorista
+        // ========== FUNÇÕES DE BUSCA E EXIBIÇÃO ========== //
         function searchDriver(ticket) {
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (driver) {
@@ -1745,9 +1841,7 @@
             }
         }
 
-        // Exibir informações do motorista
         function displayDriverInfo(driver) {
-            // Informações básicas
             document.getElementById('driver-ticket').textContent = driver.ticket || '-';
             document.getElementById('driver-name').textContent = driver.driverName || '-';
             document.getElementById('driver-supplier').textContent = driver.supplier || '-';
@@ -1757,7 +1851,6 @@
             document.getElementById('driver-status').textContent = driver.status || '-';
             document.getElementById('driver-called').textContent = formatDateTimeWithExtraMinuteForCalled(driver.called) || '-';
             
-            // Veículo e carga
             document.getElementById('driver-truck-plate').textContent = driver.truckPlate || '-';
             document.getElementById('driver-trailer-plate').textContent = driver.trailerPlate || '-';
             document.getElementById('driver-equipment-type').textContent = driver.equipmentType || '-';
@@ -1767,7 +1860,6 @@
             document.getElementById('driver-nf-value').textContent = driver.nfValue || '-';
             document.getElementById('driver-load').textContent = driver.load || '-';
             
-            // Processo e tempos
             document.getElementById('driver-conf-start').textContent = formatDateTime(driver.confStart) || '-';
             document.getElementById('driver-conf-end').textContent = formatDateTime(driver.confEnd) || '-';
             document.getElementById('driver-crit-start').textContent = formatDateTime(driver.critStart) || '-';
@@ -1778,7 +1870,6 @@
             document.getElementById('driver-process-status').textContent = getProcessStatus(driver) || '-';
         }
 
-        // Obter status do processo
         function getProcessStatus(driver) {
             if (driver.encostouDoca && driver.encostouDoca !== '-') return 'Encostou em Doca';
             if (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') return 'Liberação Entregue';
@@ -1786,7 +1877,16 @@
             return 'Aguardando Contato';
         }
 
-        // Renderizar timeline do processo
+        function getStepName(stepField) {
+            const stepNames = {
+                'contatoFeito': 'Contato Feito',
+                'liberacaoEntregue': 'Liberação Entregue',
+                'encostouDoca': 'Encostou em Doca'
+            };
+            return stepNames[stepField] || stepField;
+        }
+
+        // ========== FUNÇÃO renderProcessTimeline ========== //
         function renderProcessTimeline() {
             if (!currentDriver) return;
             
@@ -1890,159 +1990,6 @@
             });
         }
 
-        // [CONTINUA... Todas as outras funções do sistema]
-        // Por questão de espaço, mantive apenas as funções principais atualizadas
-        // As demais funções (generateReport, renderDriversTable, etc) permanecem IGUAIS
-
-        // Inicializar aplicação
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeData();
-        });
-        // ========== FUNÇÃO createSampleData ========== //
-        function createSampleData() {
-            console.log('=== CRIANDO DADOS DE EXEMPLO ===');
-            
-            const sampleDrivers = [
-                {
-                    ticket: '1001',
-                    driverName: 'João Silva',
-                    supplier: 'Transportes ABC',
-                    cd: 'CD001',
-                    truckPlate: 'ABC1234',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '15/10/2023 08:30',
-                    arrivalDateTime: '15/10/2023 08:35',
-                    contatoFeito: '15/10/2023 08:40',
-                    liberacaoEntregue: '15/10/2023 09:15',
-                    encostouDoca: '15/10/2023 09:45'
-                },
-                {
-                    ticket: '1002', 
-                    driverName: 'Maria Santos',
-                    supplier: 'Logística XYZ',
-                    cd: 'CD002',
-                    truckPlate: 'XYZ5678',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '15/10/2023 09:00',
-                    arrivalDateTime: '15/10/2023 09:05',
-                    contatoFeito: '15/10/2023 09:10',
-                    liberacaoEntregue: '15/10/2023 10:30',
-                    encostouDoca: '15/10/2023 11:00'
-                },
-                {
-                    ticket: '1003',
-                    driverName: 'Pedro Oliveira',
-                    supplier: 'Transportes ABC', 
-                    cd: 'CD001',
-                    truckPlate: 'DEF9012',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '16/10/2023 07:30',
-                    arrivalDateTime: '16/10/2023 07:35',
-                    contatoFeito: '16/10/2023 07:40',
-                    liberacaoEntregue: '16/10/2023 08:20',
-                    encostouDoca: '-'
-                },
-                {
-                    ticket: '1004',
-                    driverName: 'Ana Costa',
-                    supplier: 'Cargas Rápidas',
-                    cd: 'CD003',
-                    truckPlate: 'GHI3456',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '16/10/2023 10:00',
-                    arrivalDateTime: '16/10/2023 10:05',
-                    contatoFeito: '16/10/2023 10:10',
-                    liberacaoEntregue: '-',
-                    encostouDoca: '-'
-                },
-                {
-                    ticket: '1005',
-                    driverName: 'Carlos Souza',
-                    supplier: 'Logística XYZ',
-                    cd: 'CD002',
-                    truckPlate: 'JKL7890',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '16/10/2023 14:00',
-                    arrivalDateTime: '16/10/2023 14:05',
-                    contatoFeito: '-',
-                    liberacaoEntregue: '-',
-                    encostouDoca: '-'
-                }
-            ];
-            
-            driversData = sampleDrivers;
-            suppliersList = ['Transportes ABC', 'Logística XYZ', 'Cargas Rápidas'];
-            cdList = ['CD001', 'CD002', 'CD003'];
-            
-            console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
-        }
-
-        // ========== FUNÇÕES DE FORMATAÇÃO DE DATA ========== //
-        function formatDateTime(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
-            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
-            
-            // Se for número do Excel (serial date), converter para data
-            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                return convertExcelDate(dateTimeStr);
-            }
-            
-            // Manter original para outros casos
-            return dateTimeStr.toString().trim() || '-';
-        }
-
-        function convertExcelDate(excelNumber) {
-            try {
-                const date = XLSX.SSF.parse_date_code(excelNumber);
-                const day = date.d.toString().padStart(2, '0');
-                const month = date.m.toString().padStart(2, '0');
-                const year = date.y;
-                const hours = date.H.toString().padStart(2, '0');
-                const minutes = date.M.toString().padStart(2, '0');
-                return `${day}/${month}/${year} ${hours}:${minutes}`;
-            } catch (e) {
-                return excelNumber.toString();
-            }
-        }
-
-        function formatDateTimeWithExtraMinute(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
-            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
-            
-            try {
-                let date;
-                
-                if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
-                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
-                } else {
-                    date = new Date(dateTimeStr);
-                }
-                
-                if (isNaN(date.getTime())) {
-                    return formatDateTime(dateTimeStr);
-                }
-                
-                // ADICIONAR 1 MINUTO
-                date.setMinutes(date.getMinutes() + 1);
-                
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                const year = date.getFullYear();
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
-                
-                return `${day}/${month}/${year} ${hours}:${minutes}`;
-                
-            } catch (e) {
-                return formatDateTime(dateTimeStr);
-            }
-        }
-
-        function formatDateTimeWithExtraMinuteForCalled(dateTimeStr) {
-            return formatDateTimeWithExtraMinute(dateTimeStr);
-        }
-
         // ========== FUNÇÕES DE FILTRO ========== //
         function setupColumnFilters() {
             let filterTimeout;
@@ -2094,7 +2041,6 @@
             renderDriversTable(filteredData);
         }
 
-        // Estado dos filtros
         let activeFilters = {
             ticket: '',
             driver: '',
@@ -2171,25 +2117,7 @@
             renderDriversTable(filteredData);
         }
 
-        // ========== FUNÇÕES DE ATUALIZAÇÃO DA INTERFACE ========== //
-        function updateDatabaseStats() {
-            const totalDrivers = driversData.length;
-            const totalSuppliers = [...new Set(driversData.map(d => d.supplier))].length;
-            const activeProcesses = driversData.filter(d => 
-                d.arrivalDateTime && !d.releaseTime
-            ).length;
-            const completedToday = driversData.filter(d => {
-                if (!d.releaseTime) return false;
-                const today = new Date().toISOString().split('T')[0];
-                return d.releaseTime.includes(today.split('-').reverse().join('/'));
-            }).length;
-            
-            document.getElementById('total-drivers').textContent = totalDrivers;
-            document.getElementById('total-suppliers').textContent = totalSuppliers;
-            document.getElementById('active-processes').textContent = activeProcesses;
-            document.getElementById('completed-today').textContent = completedToday;
-        }
-
+        // ========== FUNÇÃO renderDriversTable ========== //
         function renderDriversTable(filteredData = null) {
             const dataToShow = filteredData || driversData;
             const tableBody = document.getElementById('drivers-table-body');
@@ -2618,11 +2546,24 @@
             }
         }
 
+        // ========== FUNÇÃO backupProcessData ========== //
+        function backupProcessData() {
+            const processData = loadProcessData();
+            const dataStr = JSON.stringify(processData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup_processos_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            alert(`📦 Backup exportado!\n${Object.keys(processData).length} registros.`);
+        }
+
         // ========== INICIALIZAÇÃO ========== //
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
         });
-
     </script>
 </body>
 </html>
