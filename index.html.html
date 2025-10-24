@@ -1898,6 +1898,730 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
         });
+        // ========== FUNÇÃO createSampleData ========== //
+        function createSampleData() {
+            console.log('=== CRIANDO DADOS DE EXEMPLO ===');
+            
+            const sampleDrivers = [
+                {
+                    ticket: '1001',
+                    driverName: 'João Silva',
+                    supplier: 'Transportes ABC',
+                    cd: 'CD001',
+                    truckPlate: 'ABC1234',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 08:30',
+                    arrivalDateTime: '15/10/2023 08:35',
+                    contatoFeito: '15/10/2023 08:40',
+                    liberacaoEntregue: '15/10/2023 09:15',
+                    encostouDoca: '15/10/2023 09:45'
+                },
+                {
+                    ticket: '1002', 
+                    driverName: 'Maria Santos',
+                    supplier: 'Logística XYZ',
+                    cd: 'CD002',
+                    truckPlate: 'XYZ5678',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 09:00',
+                    arrivalDateTime: '15/10/2023 09:05',
+                    contatoFeito: '15/10/2023 09:10',
+                    liberacaoEntregue: '15/10/2023 10:30',
+                    encostouDoca: '15/10/2023 11:00'
+                },
+                {
+                    ticket: '1003',
+                    driverName: 'Pedro Oliveira',
+                    supplier: 'Transportes ABC', 
+                    cd: 'CD001',
+                    truckPlate: 'DEF9012',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '16/10/2023 07:30',
+                    arrivalDateTime: '16/10/2023 07:35',
+                    contatoFeito: '16/10/2023 07:40',
+                    liberacaoEntregue: '16/10/2023 08:20',
+                    encostouDoca: '-'
+                },
+                {
+                    ticket: '1004',
+                    driverName: 'Ana Costa',
+                    supplier: 'Cargas Rápidas',
+                    cd: 'CD003',
+                    truckPlate: 'GHI3456',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '16/10/2023 10:00',
+                    arrivalDateTime: '16/10/2023 10:05',
+                    contatoFeito: '16/10/2023 10:10',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-'
+                },
+                {
+                    ticket: '1005',
+                    driverName: 'Carlos Souza',
+                    supplier: 'Logística XYZ',
+                    cd: 'CD002',
+                    truckPlate: 'JKL7890',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '16/10/2023 14:00',
+                    arrivalDateTime: '16/10/2023 14:05',
+                    contatoFeito: '-',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-'
+                }
+            ];
+            
+            driversData = sampleDrivers;
+            suppliersList = ['Transportes ABC', 'Logística XYZ', 'Cargas Rápidas'];
+            cdList = ['CD001', 'CD002', 'CD003'];
+            
+            console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
+        }
+
+        // ========== FUNÇÕES DE FORMATAÇÃO DE DATA ========== //
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            // Se for número do Excel (serial date), converter para data
+            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                return convertExcelDate(dateTimeStr);
+            }
+            
+            // Manter original para outros casos
+            return dateTimeStr.toString().trim() || '-';
+        }
+
+        function convertExcelDate(excelNumber) {
+            try {
+                const date = XLSX.SSF.parse_date_code(excelNumber);
+                const day = date.d.toString().padStart(2, '0');
+                const month = date.m.toString().padStart(2, '0');
+                const year = date.y;
+                const hours = date.H.toString().padStart(2, '0');
+                const minutes = date.M.toString().padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            } catch (e) {
+                return excelNumber.toString();
+            }
+        }
+
+        function formatDateTimeWithExtraMinute(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            try {
+                let date;
+                
+                if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
+                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                } else {
+                    date = new Date(dateTimeStr);
+                }
+                
+                if (isNaN(date.getTime())) {
+                    return formatDateTime(dateTimeStr);
+                }
+                
+                // ADICIONAR 1 MINUTO
+                date.setMinutes(date.getMinutes() + 1);
+                
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+                
+            } catch (e) {
+                return formatDateTime(dateTimeStr);
+            }
+        }
+
+        function formatDateTimeWithExtraMinuteForCalled(dateTimeStr) {
+            return formatDateTimeWithExtraMinute(dateTimeStr);
+        }
+
+        // ========== FUNÇÕES DE FILTRO ========== //
+        function setupColumnFilters() {
+            let filterTimeout;
+            
+            document.querySelectorAll('.column-filter').forEach(input => {
+                input.addEventListener('input', function() {
+                    clearTimeout(filterTimeout);
+                    filterTimeout = setTimeout(() => {
+                        filterTableByColumns();
+                    }, 300);
+                });
+            });
+        }
+
+        function filterTableByColumns() {
+            if (driversData.length === 0) {
+                renderDriversTable([]);
+                return;
+            }
+            
+            const filters = [];
+            let hasActiveFilter = false;
+            
+            document.querySelectorAll('.column-filter').forEach((input, index) => {
+                filters[index] = input.value.trim().toLowerCase();
+                if (filters[index]) hasActiveFilter = true;
+            });
+            
+            if (!hasActiveFilter) {
+                renderDriversTable();
+                return;
+            }
+            
+            const filteredData = driversData.filter(driver => {
+                if (filters[0] && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(filters[0]))) return false;
+                if (filters[1] && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(filters[1]))) return false;
+                if (filters[2] && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(filters[2]))) return false;
+                if (filters[3] && (!driver.cd || !driver.cd.toString().toLowerCase().includes(filters[3]))) return false;
+                if (filters[4] && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(filters[4]))) return false;
+                if (filters[5] && (!driver.status || !driver.status.toString().toLowerCase().includes(filters[5]))) return false;
+                if (filters[6]) {
+                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
+                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(filters[6])) return false;
+                }
+                
+                return true;
+            });
+            
+            renderDriversTable(filteredData);
+        }
+
+        // Estado dos filtros
+        let activeFilters = {
+            ticket: '',
+            driver: '',
+            supplier: '',
+            status: '',
+            plate: '',
+            arrival: ''
+        };
+
+        function setupFilterListeners() {
+            document.getElementById('filter-ticket').addEventListener('input', function() {
+                activeFilters.ticket = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-driver').addEventListener('input', function() {
+                activeFilters.driver = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-supplier').addEventListener('input', function() {
+                activeFilters.supplier = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-status').addEventListener('input', function() {
+                activeFilters.status = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-plate').addEventListener('input', function() {
+                activeFilters.plate = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-arrival').addEventListener('input', function() {
+                activeFilters.arrival = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            let filteredData = driversData.filter(driver => {
+                if (activeFilters.ticket && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(activeFilters.ticket))) {
+                    return false;
+                }
+                
+                if (activeFilters.driver && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(activeFilters.driver))) {
+                    return false;
+                }
+                
+                if (activeFilters.supplier && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(activeFilters.supplier))) {
+                    return false;
+                }
+                
+                if (activeFilters.status && (!driver.status || !driver.status.toString().toLowerCase().includes(activeFilters.status))) {
+                    return false;
+                }
+                
+                if (activeFilters.plate && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(activeFilters.plate))) {
+                    return false;
+                }
+                
+                if (activeFilters.arrival) {
+                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
+                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(activeFilters.arrival)) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            renderDriversTable(filteredData);
+        }
+
+        // ========== FUNÇÕES DE ATUALIZAÇÃO DA INTERFACE ========== //
+        function updateDatabaseStats() {
+            const totalDrivers = driversData.length;
+            const totalSuppliers = [...new Set(driversData.map(d => d.supplier))].length;
+            const activeProcesses = driversData.filter(d => 
+                d.arrivalDateTime && !d.releaseTime
+            ).length;
+            const completedToday = driversData.filter(d => {
+                if (!d.releaseTime) return false;
+                const today = new Date().toISOString().split('T')[0];
+                return d.releaseTime.includes(today.split('-').reverse().join('/'));
+            }).length;
+            
+            document.getElementById('total-drivers').textContent = totalDrivers;
+            document.getElementById('total-suppliers').textContent = totalSuppliers;
+            document.getElementById('active-processes').textContent = activeProcesses;
+            document.getElementById('completed-today').textContent = completedToday;
+        }
+
+        function renderDriversTable(filteredData = null) {
+            const dataToShow = filteredData || driversData;
+            const tableBody = document.getElementById('drivers-table-body');
+            
+            tableBody.innerHTML = '';
+            
+            if (dataToShow.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="8" style="text-align: center;">Nenhum motorista encontrado</td>`;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            const displayData = dataToShow.slice(0, 1000);
+            
+            displayData.forEach(driver => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${driver.ticket || '-'}</td>
+                    <td>${driver.driverName || '-'}</td>
+                    <td>${driver.supplier || '-'}</td>
+                    <td>${driver.cd || '-'}</td>
+                    <td>${driver.truckPlate || '-'}</td>
+                    <td>${driver.status || '-'}</td>
+                    <td>${formatDateTime(driver.arrivalDateTime) || '-'}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small view-driver" data-ticket="${driver.ticket}">Ver</button>
+                        <button class="btn btn-danger btn-small delete-driver" data-ticket="${driver.ticket}">Excluir</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            document.querySelectorAll('.view-driver').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const ticket = this.getAttribute('data-ticket');
+                    searchDriver(ticket);
+                    showSection('search-section');
+                });
+            });
+            
+            document.querySelectorAll('.delete-driver').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const ticket = this.getAttribute('data-ticket');
+                    deleteDriver(ticket);
+                });
+            });
+            
+            setupColumnFilters();
+        }
+
+        function deleteDriver(ticket) {
+            if (confirm(`Tem certeza que deseja excluir a senha ${ticket}?`)) {
+                driversData = driversData.filter(d => d.ticket !== ticket);
+                saveData();
+                renderDriversTable();
+                updateDatabaseStats();
+                
+                if (currentDriver && currentDriver.ticket === ticket) {
+                    currentDriver = null;
+                    document.getElementById('driver-result').style.display = 'none';
+                }
+            }
+        }
+
+        function clearDatabase() {
+            if (confirm('Tem certeza que deseja limpar toda a base de dados? Esta ação não pode ser desfeita.')) {
+                driversData = [];
+                suppliersList = [];
+                cdList = [];
+                saveData();
+                renderDriversTable();
+                updateDatabaseStats();
+                
+                if (currentDriver) {
+                    currentDriver = null;
+                    document.getElementById('driver-result').style.display = 'none';
+                }
+            }
+        }
+
+        // ========== FUNÇÕES DE UPLOAD ========== //
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                
+                if (jsonData.length > 0) previewData(jsonData);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function previewData(data) {
+            const headers = data[0];
+            const previewRows = data.slice(1, 11);
+            
+            document.getElementById('upload-success').textContent = 
+                `Arquivo carregado com sucesso! ${data.length - 1} registros encontrados.`;
+            
+            const tableBody = document.getElementById('preview-table-body');
+            tableBody.innerHTML = '';
+            
+            previewRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row[0] !== undefined ? row[0] : '-'}</td>
+                    <td>${row[7] !== undefined ? row[7] : '-'}</td>
+                    <td>${row[3] !== undefined ? row[3] : '-'}</td>
+                    <td>${row[2] !== undefined ? row[2] : '-'}</td>
+                    <td>${row[13] !== undefined ? row[13] : '-'}</td>
+                    <td>${row[5] !== undefined ? row[5] : '-'}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            
+            document.getElementById('file-preview').style.display = 'block';
+            
+            window.uploadData = {
+                headers: headers,
+                rows: data.slice(1)
+            };
+        }
+
+        function cancelUpload() {
+            document.getElementById('file-preview').style.display = 'none';
+            document.getElementById('file-input').value = '';
+            window.uploadData = null;
+        }
+
+        // ========== FUNÇÕES DE RELATÓRIO ========== //
+        function generateReport() {
+            console.log('📋 Gerando relatório de processos...');
+            
+            const startDate = document.getElementById('report-start-date').value;
+            const endDate = document.getElementById('report-end-date').value;
+            
+            let filteredData = driversData.filter(driver => {
+                const hasProcessData = driver.contatoFeito !== '-' || 
+                                     driver.liberacaoEntregue !== '-' || 
+                                     driver.encostouDoca !== '-';
+                
+                if (!hasProcessData) return false;
+                if (!startDate && !endDate) return true;
+                
+                let driverDate = null;
+                if (driver.contatoFeito !== '-') {
+                    driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+                } else if (driver.liberacaoEntregue !== '-') {
+                    driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
+                } else if (driver.encostouDoca !== '-') {
+                    driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
+                }
+                
+                if (!driverDate) return false;
+                if (startDate && driverDate < startDate) return false;
+                if (endDate && driverDate > endDate) return false;
+                
+                return true;
+            });
+            
+            updateReportStats(filteredData);
+            renderReportTable(filteredData);
+        }
+
+        function extractDateFromProcessDateTime(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '-' || dateTimeStr === '') return null;
+            
+            try {
+                const parts = dateTimeStr.split(' ');
+                if (parts.length < 2) return null;
+                const datePart = parts[0];
+                const [day, month, year] = datePart.split('/');
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function updateReportStats(data) {
+            const totalProcesses = data.length;
+            const completedProcesses = data.filter(d => d.encostouDoca && d.encostouDoca !== '-').length;
+            const inProgressProcesses = data.filter(d => 
+                (d.contatoFeito !== '-' && d.liberacaoEntregue !== '-' && d.encostouDoca === '-') ||
+                (d.contatoFeito !== '-' && d.liberacaoEntregue === '-' && d.encostouDoca === '-')
+            ).length;
+            const pendingProcesses = data.filter(d => 
+                d.contatoFeito === '-' && d.liberacaoEntregue === '-' && d.encostouDoca === '-'
+            ).length;
+
+            document.getElementById('total-processes').textContent = totalProcesses;
+            document.getElementById('completed-processes').textContent = completedProcesses;
+            document.getElementById('in-progress-processes').textContent = inProgressProcesses;
+            document.getElementById('pending-processes').textContent = pendingProcesses;
+        }
+
+        function renderReportTable(data) {
+            const tableBody = document.getElementById('report-table-body');
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px;">
+                            <div class="empty-state">
+                                <i>📋</i>
+                                <p>Nenhum dado de processo encontrado</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let tableHTML = '';
+            
+            data.forEach(driver => {
+                const status = getProcessStatus(driver);
+                let rowClass = '';
+                
+                if (status === 'Encostou em Doca') rowClass = 'completed';
+                else if (status === 'Liberação Entregue' || status === 'Contato Feito') rowClass = 'in-progress';
+                else rowClass = 'pending';
+                
+                tableHTML += `
+                    <tr class="${rowClass}">
+                        <td>${driver.ticket || '-'}</td>
+                        <td>${driver.driverName || '-'}</td>
+                        <td>${driver.supplier || '-'}</td>
+                        <td>${driver.contatoFeito || '-'}</td>
+                        <td>${driver.liberacaoEntregue || '-'}</td>
+                        <td>${driver.encostouDoca || '-'}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = tableHTML;
+        }
+
+        function exportReportToExcel() {
+            const startDate = document.getElementById('report-start-date').value;
+            const endDate = document.getElementById('report-end-date').value;
+            
+            let filteredData = driversData.filter(driver => {
+                const hasProcessData = driver.contatoFeito !== '-' || 
+                                     driver.liberacaoEntregue !== '-' || 
+                                     driver.encostouDoca !== '-';
+                if (!hasProcessData) return false;
+                if (!startDate && !endDate) return true;
+                
+                let driverDate = null;
+                if (driver.contatoFeito !== '-') driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+                else if (driver.liberacaoEntregue !== '-') driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
+                else if (driver.encostouDoca !== '-') driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
+                
+                if (!driverDate) return false;
+                if (startDate && driverDate < startDate) return false;
+                if (endDate && driverDate > endDate) return false;
+                return true;
+            });
+            
+            if (filteredData.length === 0) {
+                alert('Não há dados para exportar.');
+                return;
+            }
+            
+            const excelData = filteredData.map(driver => ({
+                'Senha': driver.ticket || '',
+                'Contato Feito': driver.contatoFeito || '',
+                'Liberação Entregue': driver.liberacaoEntregue || '',
+                'Encostou em Doca': driver.encostouDoca || '',
+                'Motorista': driver.driverName || '',
+                'Fornecedor': driver.supplier || '',
+                'Status': getProcessStatus(driver) || ''
+            }));
+            
+            const ws = XLSX.utils.json_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Relatorio_Processos');
+            
+            const today = new Date().toISOString().split('T')[0];
+            const fileName = `relatorio_processos_${today}.xlsx`;
+            
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function clearReportFilters() {
+            document.getElementById('report-start-date').value = '';
+            document.getElementById('report-end-date').value = '';
+            generateReport();
+        }
+
+        // ========== FUNÇÕES DA ENCOSTA ========== //
+        function renderEncostaList() {
+            const encostaContent = document.getElementById('encosta-content');
+            
+            let filteredDrivers = driversData.filter(driver => 
+                driver.status && driver.status.toString().trim() === 'AGENDADO'
+            );
+            
+            filteredDrivers.sort((a, b) => {
+                const waitTimeA = calculateWaitTimeValue(a.arrivalDateTime);
+                const waitTimeB = calculateWaitTimeValue(b.arrivalDateTime);
+                return waitTimeB - waitTimeA;
+            });
+            
+            if (filteredDrivers.length === 0) {
+                encostaContent.innerHTML = `
+                    <div class="empty-state">
+                        <i>📋</i>
+                        <p>Nenhum veículo encontrado para exibir na encosta.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let encostaHTML = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers[0]?.load || '-'}</div>
+                        <div class="stat-label">Primeiro da Fila</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Chegada</h3>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Senha</th>
+                                <th>Motorista</th>
+                                <th>Fornecedor</th>
+                                <th>Placa Cavalo</th>
+                                <th>Horário Chegada</th>
+                                <th>Status</th>
+                                <th>Tempo de Espera</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                
+                encostaHTML += `
+                    <tr>
+                        <td><strong>${index + 1}º</strong></td>
+                        <td>${driver.ticket || '-'}</td>
+                        <td>${driver.driverName || '-'}</td>
+                        <td>${driver.supplier || '-'}</td>
+                        <td>${driver.truckPlate || '-'}</td>
+                        <td>${formatDateTime(driver.arrivalDateTime)}</td>
+                        <td>${driver.status || '-'}</td>	
+                        <td>${waitTime}</td>
+                    </tr>
+                `;
+            });
+            
+            encostaHTML += `</tbody></table></div>`;
+            encostaContent.innerHTML = encostaHTML;
+        }
+
+        function calculateWaitTime(arrivalDateTime) {
+            if (!arrivalDateTime || arrivalDateTime === '-') return '00:00';
+            
+            try {
+                let arrival;
+                
+                if (typeof arrivalDateTime === 'number') {
+                    const dateObj = XLSX.SSF.parse_date_code(arrivalDateTime);
+                    arrival = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                } else {
+                    arrival = new Date(arrivalDateTime);
+                }
+                
+                const now = new Date();
+                if (isNaN(arrival.getTime())) return '00:00';
+                
+                const diffMs = now - arrival;
+                if (diffMs < 0) return '00:00';
+                
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                
+                return `${diffHours.toString().padStart(2, '0')}:${diffMinutes.toString().padStart(2, '0')}`;
+                
+            } catch (e) {
+                return '00:00';
+            }
+        }
+
+        function calculateWaitTimeValue(arrivalDateTime) {
+            if (!arrivalDateTime || arrivalDateTime === '-') return 0;
+            
+            try {
+                let arrival;
+                
+                if (typeof arrivalDateTime === 'number') {
+                    const dateObj = XLSX.SSF.parse_date_code(arrivalDateTime);
+                    arrival = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                } else {
+                    arrival = new Date(arrivalDateTime);
+                }
+                
+                const now = new Date();
+                if (isNaN(arrival.getTime())) return 0;
+                
+                return now - arrival;
+                
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        // ========== INICIALIZAÇÃO ========== //
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeData();
+        });
 
     </script>
 </body>
