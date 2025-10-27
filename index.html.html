@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlla - Sistema de Controle de Comparecimento</title>
     
-    <!-- FAVICON TEMPORÁRIO - Substituirei pelo seu quando enviar -->
+    <!-- FAVICON TEMPORÁRIO -->
    <link rel="icon" type="image/x-icon" href="favicon.ico.ico">
     
     <link rel="manifest" href="/manifest.json">
@@ -778,6 +778,42 @@
             font-size: 0.7rem;
             margin-left: 10px;
         }
+
+        /* ========== NOVOS ESTILOS PARA STATUS DE CARGA ========== */
+        .status-gerada {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .status-pendente {
+            background-color: var(--warning-color);
+            color: var(--dark-text);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .carga-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .carga-info {
+            background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%);
+            border-left: 4px solid var(--primary-color);
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -958,6 +994,21 @@
             <!-- Seção de Encosta -->
             <section id="encosta-section" class="section">
                 <h1>Encosta - Ranking por Horário de Chegada</h1>
+                
+                <div class="carga-info">
+                    <strong>📋 Status de Carga:</strong> O sistema verifica automaticamente se a carga está gerada no arquivo TXT.
+                    <br><strong>🔄 Atualização:</strong> Carregue um novo arquivo TXT para atualizar os status.
+                </div>
+                
+                <div class="carga-controls">
+                    <input type="file" id="carga-file-input" class="file-input" accept=".txt" style="display: none;">
+                    <button class="btn btn-primary" id="upload-carga-btn">📁 Carregar Arquivo de Carga (TXT)</button>
+                    <button class="btn btn-success" id="refresh-carga-btn">🔄 Atualizar Status</button>
+                    <button class="btn btn-warning" id="debug-carga-btn">🐛 Debug Carga</button>
+                    <span id="carga-file-info" style="font-size: 0.9rem; color: #666; margin-left: 10px;">
+                        Nenhum arquivo carregado
+                    </span>
+                </div>
                 
                 <div class="alert alert-info">
                     <strong>Ranking baseado no horário de chegada (coluna G):</strong> Veículos são ordenados pelos que chegaram mais cedo.
@@ -1219,6 +1270,11 @@
         let driversData = [];
         let suppliersList = [];
         let cdList = [];
+        
+        // ========== NOVO: SISTEMA DE CARGA ========== //
+        let cargaData = new Set(); // Usar Set para busca mais eficiente
+        let currentCargaFile = null; // Referência ao arquivo atual
+
         // Mapeamento de colunas
         const columnMapping = {
             'SENHA': 'ticket',
@@ -1261,7 +1317,6 @@
         };
 
         // ========== SISTEMA DE PRESERVAÇÃO DE DADOS ========== //
-
         function saveProcessData() {
             const processData = {};
             
@@ -1299,8 +1354,124 @@
             return {};
         }
 
-        // ========== SISTEMA SUPABASE (COM FALLBACK) ========== //
+        // ========== NOVO: SISTEMA DE CARGA - FUNÇÕES ========== //
+        function saveCargaData() {
+            const cargaArray = Array.from(cargaData);
+            localStorage.setItem('cargaData', JSON.stringify(cargaArray));
+            console.log('💾 Dados de carga salvos:', cargaArray.length, 'cargas geradas');
+        }
 
+        function loadCargaData() {
+            const savedCargaData = localStorage.getItem('cargaData');
+            if (savedCargaData) {
+                try {
+                    const cargaArray = JSON.parse(savedCargaData);
+                    cargaData = new Set(cargaArray);
+                    console.log('📂 Dados de carga carregados:', cargaArray.length, 'cargas geradas');
+                    return true;
+                } catch (e) {
+                    console.error('Erro ao carregar dados de carga:', e);
+                    cargaData = new Set();
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        function checkCargaStatus(ticket) {
+            // Encontra o motorista pela senha
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (!driver || !driver.load) return false;
+            
+            // Verifica se a carga do motorista está na lista de cargas geradas
+            return cargaData.has(driver.load.toString().trim());
+        }
+
+        function getCargaStatus(ticket) {
+            const hasCarga = checkCargaStatus(ticket);
+            return {
+                status: hasCarga ? 'Gerado' : 'Pendente',
+                class: hasCarga ? 'status-gerada' : 'status-pendente'
+            };
+        }
+
+        async function handleCargaFileUpload(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const content = e.target.result;
+                processCargaFile(content, file.name);
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function processCargaFile(content, fileName) {
+            try {
+                // Limpa dados anteriores
+                cargaData = new Set();
+                
+                // Divide o conteúdo por linhas
+                const lines = content.split('\n');
+                let processedCount = 0;
+                
+                // Pula o cabeçalho e processa cada linha
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    // Ignora linhas vazias
+                    if (line === '') continue;
+                    
+                    // Divide por ponto e vírgula
+                    const parts = line.split(';');
+                    
+                    // A coluna CARGA é a 4ª coluna (índice 3)
+                    if (parts.length >= 4) {
+                        const carga = parts[3].trim();
+                        
+                        // Adiciona a carga ao Set (ignora vazias)
+                        if (carga && carga !== '') {
+                            cargaData.add(carga);
+                            processedCount++;
+                        }
+                    }
+                }
+                
+                // Salva os dados
+                saveCargaData();
+                
+                // Atualiza a interface
+                document.getElementById('carga-file-info').textContent = 
+                    `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
+                
+                // Atualiza a lista da encosta
+                renderEncostaList();
+                
+                alert(`✅ Arquivo de carga processado com sucesso!\n${cargaData.size} cargas geradas identificadas.`);
+                
+            } catch (error) {
+                console.error('Erro ao processar arquivo de carga:', error);
+                alert('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.');
+            }
+        }
+
+        // FUNÇÃO PARA VERIFICAR CARGA ESPECÍFICA (útil para debug)
+        function debugCargaStatus(ticket) {
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (!driver) {
+                console.log(`❌ Senha ${ticket} não encontrada`);
+                alert(`❌ Senha ${ticket} não encontrada na base de dados`);
+                return;
+            }
+            
+            const hasCarga = checkCargaStatus(ticket);
+            console.log(`🔍 Debug Carga - Senha: ${ticket}, Carga: ${driver.load || 'N/A'}, Status: ${hasCarga ? 'Gerado' : 'Pendente'}`);
+            console.log(`📊 Cargas no sistema: ${Array.from(cargaData).slice(0, 5).join(', ')}${cargaData.size > 5 ? '...' : ''}`);
+            
+            alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
+        }
+
+        // ========== SISTEMA SUPABASE (COM FALLBACK) ========== //
         async function saveData() {
             console.log('💾 Salvando dados...');
             
@@ -1445,6 +1616,9 @@
 
             console.log('🔄 Dados de processo aplicados:', restoredCount, 'registros');
             
+            // ========== CARREGA DADOS DE CARGA ========== //
+            loadCargaData();
+            
             updateDatabaseStats();
             renderDriversTable();
             setupEventListeners();
@@ -1466,6 +1640,7 @@
                     status: 'AGENDADO',
                     scheduleDateTime: '15/10/2023 08:30',
                     arrivalDateTime: '15/10/2023 08:35',
+                    load: '26568216',
                     contatoFeito: '15/10/2023 08:40',
                     liberacaoEntregue: '15/10/2023 09:15',
                     encostouDoca: '15/10/2023 09:45'
@@ -1476,9 +1651,10 @@
                     supplier: 'Logística XYZ',
                     cd: 'CD002',
                     truckPlate: 'XYZ5678',
-                    status: 'CONFERENCIA',
+                    status: 'AGENDADO',
                     scheduleDateTime: '15/10/2023 09:00',
                     arrivalDateTime: '15/10/2023 09:05',
+                    load: '26555322',
                     contatoFeito: '15/10/2023 09:10',
                     liberacaoEntregue: '15/10/2023 10:30',
                     encostouDoca: '15/10/2023 11:00'
@@ -1489,9 +1665,10 @@
                     supplier: 'Transportes ABC', 
                     cd: 'CD001',
                     truckPlate: 'DEF9012',
-                    status: 'PARA AGENDAR',
+                    status: 'AGENDADO',
                     scheduleDateTime: '16/10/2023 07:30',
                     arrivalDateTime: '16/10/2023 07:35',
+                    load: '20251562',
                     contatoFeito: '16/10/2023 07:40',
                     liberacaoEntregue: '16/10/2023 08:20',
                     encostouDoca: '-'
@@ -1505,19 +1682,21 @@
                     status: 'FINALIZADO',
                     scheduleDateTime: '16/10/2023 10:00',
                     arrivalDateTime: '16/10/2023 10:05',
+                    load: '26573980',
                     contatoFeito: '16/10/2023 10:15',
                     liberacaoEntregue: '16/10/2023 11:30',
                     encostouDoca: '16/10/2023 12:00'
                 },
                 {
-                    ticket: '1005',
+                    ticket: '38685628',
                     driverName: 'Ana Costa',
                     supplier: 'Transportes ABC',
                     cd: 'CD001',
                     truckPlate: 'JKL7890',
-                    status: 'LIBERADO P/ PGTO',
+                    status: 'AGENDADO',
                     scheduleDateTime: '16/10/2023 11:00',
                     arrivalDateTime: '16/10/2023 11:05',
+                    load: '26568216',
                     contatoFeito: '16/10/2023 11:20',
                     liberacaoEntregue: '16/10/2023 12:45',
                     encostouDoca: '16/10/2023 13:15'
@@ -1531,7 +1710,7 @@
             console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
         }
 
-        // ========== FUNÇÃO updateDatabaseStats ATUALIZADA ========== //
+        // ========== FUNÇÃO updateDatabaseStats ========== //
         function updateDatabaseStats() {
             try {
                 const totalDrivers = driversData.length;
@@ -1541,32 +1720,26 @@
                     .filter(supplier => supplier && supplier !== '-' && supplier !== '');
                 const totalSuppliers = [...new Set(suppliers)].length;
                 
-                // ========== NOVA LÓGICA PARA PROCESSOS ATIVOS ========== //
-                // Considera apenas os status: AGENDADO, CONFERENCIA, PARA AGENDAR
-                // Exclui: LIBERADO P/ PGTO e outros status
+                // LÓGICA PARA PROCESSOS ATIVOS
                 const activeProcesses = driversData.filter(d => {
                     const status = d.status ? d.status.toString().trim().toUpperCase() : '';
                     const statusAtivos = ['AGENDADO', 'CONFERENCIA', 'PARA AGENDAR'];
                     return statusAtivos.includes(status);
                 }).length;
                 
-                // ========== NOVA LÓGICA PARA FINALIZADOS HOJE ========== //
-                // Considera apenas registros com status "FINALIZADO" na coluna F
+                // LÓGICA PARA FINALIZADOS HOJE
                 const completedToday = driversData.filter(d => {
                     try {
                         const status = d.status ? d.status.toString().trim().toUpperCase() : '';
                         
-                        // Verifica se o status é "FINALIZADO"
                         if (status !== 'FINALIZADO') {
                             return false;
                         }
                         
-                        // Verifica se tem data de chegada (para garantir que é um processo válido)
                         if (!d.arrivalDateTime || d.arrivalDateTime === '-' || d.arrivalDateTime === '') {
                             return false;
                         }
                         
-                        // Tenta extrair a data da chegada para verificar se é hoje
                         const arrivalStr = String(d.arrivalDateTime);
                         const today = new Date();
                         const todayDay = today.getDate().toString().padStart(2, '0');
@@ -1633,6 +1806,35 @@
                 document.getElementById('file-input').click();
             });
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            
+            // ========== NOVOS EVENT LISTENERS PARA CARGA ========== //
+            document.getElementById('upload-carga-btn').addEventListener('click', function() {
+                document.getElementById('carga-file-input').click();
+            });
+            
+            document.getElementById('carga-file-input').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    currentCargaFile = file;
+                    handleCargaFileUpload(file);
+                }
+            });
+            
+            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
+                if (currentCargaFile) {
+                    handleCargaFileUpload(currentCargaFile);
+                } else {
+                    alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
+                }
+            });
+            
+            // EVENT LISTENER PARA O BOTÃO DEBUG
+            document.getElementById('debug-carga-btn').addEventListener('click', function() {
+                const ticket = prompt("Digite a senha para verificar o status da carga:");
+                if (ticket) {
+                    debugCargaStatus(ticket);
+                }
+            });
             
             document.getElementById('backup-process-btn').addEventListener('click', backupProcessData);
             document.getElementById('sync-supabase-btn').addEventListener('click', async function() {
@@ -2500,7 +2702,7 @@
             generateReport();
         }
 
-        // ========== FUNÇÕES DA ENCOSTA ========== //
+        // ========== FUNÇÕES DA ENCOSTA ATUALIZADAS ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             
@@ -2513,6 +2715,11 @@
                 const waitTimeB = calculateWaitTimeValue(b.arrivalDateTime);
                 return waitTimeB - waitTimeA;
             });
+
+            // CALCULAR APENAS AS CARGAS COM STATUS "GERADO"
+            const cargasGeradasCount = filteredDrivers.filter(driver => 
+                checkCargaStatus(driver.ticket)
+            ).length;
             
             if (filteredDrivers.length === 0) {
                 encostaContent.innerHTML = `
@@ -2531,8 +2738,12 @@
                         <div class="stat-label">Veículos na Fila</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers[0]?.load || '-'}</div>
-                        <div class="stat-label">Primeiro da Fila</div>
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
                     </div>
                 </div>
                 
@@ -2546,9 +2757,11 @@
                                 <th>Motorista</th>
                                 <th>Fornecedor</th>
                                 <th>Placa Cavalo</th>
+                                <th>Carga</th>
                                 <th>Horário Chegada</th>
                                 <th>Status</th>
                                 <th>Tempo de Espera</th>
+                                <th>Status Carga</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2556,6 +2769,7 @@
             
             filteredDrivers.forEach((driver, index) => {
                 const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                const cargaStatus = getCargaStatus(driver.ticket);
                 
                 encostaHTML += `
                     <tr>
@@ -2564,9 +2778,11 @@
                         <td>${driver.driverName || '-'}</td>
                         <td>${driver.supplier || '-'}</td>
                         <td>${driver.truckPlate || '-'}</td>
+                        <td>${driver.load || '-'}</td>
                         <td>${formatDateTime(driver.arrivalDateTime)}</td>
                         <td>${driver.status || '-'}</td>	
                         <td>${waitTime}</td>
+                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
                     </tr>
                 `;
             });
