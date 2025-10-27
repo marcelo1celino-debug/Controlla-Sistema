@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlla - Sistema de Controle de Comparecimento</title>
     
-    <!-- FAVICON TEMPORÁRIO -->
-   <link rel="icon" type="image/x-icon" href="favicon.ico.ico">
-    
-    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/x-icon" href="favicon.ico.ico">
     <meta name="theme-color" content="#013A63">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -771,7 +768,7 @@
         }
 
         .status-online {
-            background-color: var(--secondary-color);
+            background-color: var(--primary-color);
             color: white;
             padding: 4px 8px;
             border-radius: 12px;
@@ -833,6 +830,70 @@
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
+
+        /* ========== NOVO ESTILO PARA STATUS DO PROCESSO ========== */
+        .status-processo {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            text-align: center;
+            display: inline-block;
+            min-width: 120px;
+        }
+
+        .status-aguardando {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+        }
+
+        .status-contato {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-liberacao {
+            background-color: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .status-doca {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* ========== NOVOS ESTILOS PARA SINCRONIZAÇÃO ========== */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            font-size: 0.8rem;
+            margin-left: 15px;
+        }
+
+        .sync-online {
+            background-color: rgba(46, 204, 113, 0.2);
+            color: var(--secondary-color);
+            border: 1px solid var(--secondary-color);
+        }
+
+        .sync-offline {
+            background-color: rgba(241, 196, 15, 0.2);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .sync-error {
+            background-color: rgba(231, 76, 60, 0.2);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
     </style>
 </head>
 <body>
@@ -854,6 +915,9 @@
                         <li><a href="#" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
                     </ul>
                 </nav>
+                <div id="sync-status" class="sync-status sync-online">
+                    <span>🟢 Online</span>
+                </div>
             </div>
         </div>
     </header>
@@ -1191,7 +1255,6 @@
                     <div class="dashboard-controls">
                         <button class="btn btn-warning" id="reset-drivers-btn">Limpar Todos os Filtros</button>
                         <button class="btn btn-danger" id="clear-database-btn">Limpar Base de Dados</button>
-                        <button class="btn btn-outline" id="backup-process-btn">💾 Backup Processos</button>
                         <button class="btn btn-success" id="sync-supabase-btn">🔄 Sincronizar Supabase</button>
                     </div>
                     
@@ -1273,26 +1336,22 @@
 
     <script>
         // ========== CONFIGURAÇÃO SUPABASE ========== //
-        const SUPABASE_URL = 'https://seu-projeto.supabase.co';
-        const SUPABASE_ANON_KEY = 'sua-chave-anon-aqui';
+        const SUPABASE_URL = 'https://nuebpjbozdcawkkgnqfe.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51ZWJwamJvemRjYXdra2ducWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1ODczOTYsImV4cCI6MjA3NzE2MzM5Nn0.2hpn6WyYJovBeoY50EeRcx3_qcgCgI6QKGKkkNi3AlI';
 
         // Inicializar Supabase
-        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : {
-            from: () => ({
-                select: () => Promise.resolve({ data: null, error: new Error('Supabase não configurado') }),
-                upsert: () => Promise.resolve({ data: null, error: new Error('Supabase não configurado') })
-            })
-        };
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Estado da aplicação
         let currentDriver = null;
         let driversData = [];
         let suppliersList = [];
         let cdList = [];
+        let isOnline = true;
         
-        // ========== NOVO: SISTEMA DE CARGA ========== //
-        let cargaData = new Set(); // Usar Set para busca mais eficiente
-        let currentCargaFile = null; // Referência ao arquivo atual
+        // ========== SISTEMA DE CARGA ========== //
+        let cargaData = new Set();
+        let currentCargaFile = null;
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -1335,45 +1394,295 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
-        // ========== SISTEMA DE PRESERVAÇÃO DE DADOS ========== //
-        function saveProcessData() {
-            const processData = {};
-            
-            driversData.forEach(driver => {
-                if (driver.ticket && (
-                    driver.contatoFeito !== '-' || 
-                    driver.liberacaoEntregue !== '-' || 
-                    driver.encostouDoca !== '-'
-                )) {
-                    processData[driver.ticket] = {
-                        contatoFeito: driver.contatoFeito,
-                        liberacaoEntregue: driver.liberacaoEntregue,
-                        encostouDoca: driver.encostouDoca,
-                        lastUpdated: new Date().toISOString()
-                    };
-                }
-            });
-            
-            localStorage.setItem('processData', JSON.stringify(processData));
-            console.log('💾 Dados de processo salvos:', Object.keys(processData).length, 'registros');
-        }
+        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
+        function setupRealtimeSubscription() {
+            try {
+                const subscription = supabase
+                    .channel('drivers-channel')
+                    .on('postgres_changes', 
+                        { 
+                            event: '*', 
+                            schema: 'public', 
+                            table: 'drivers' 
+                        }, 
+                        (payload) => {
+                            console.log('🔄 Mudança recebida em tempo real:', payload);
+                            handleRealtimeUpdate(payload);
+                        }
+                    )
+                    .subscribe();
 
-        function loadProcessData() {
-            const savedProcessData = localStorage.getItem('processData');
-            if (savedProcessData) {
-                try {
-                    const processData = JSON.parse(savedProcessData);
-                    console.log('📂 Dados de processo carregados:', Object.keys(processData).length, 'registros');
-                    return processData;
-                } catch (e) {
-                    console.error('Erro ao carregar dados de processo:', e);
-                    return {};
-                }
+                return subscription;
+            } catch (error) {
+                console.log('⚠️ Sincronização em tempo real não disponível:', error.message);
+                return null;
             }
-            return {};
         }
 
-        // ========== NOVO: SISTEMA DE CARGA - FUNÇÕES ========== //
+        function handleRealtimeUpdate(payload) {
+            const { eventType, new: newRecord, old: oldRecord } = payload;
+            
+            switch (eventType) {
+                case 'INSERT':
+                    if (!driversData.find(d => d.ticket === newRecord.ticket)) {
+                        driversData.push({
+                            ticket: newRecord.ticket,
+                            driverName: newRecord.driver_name,
+                            supplier: newRecord.supplier,
+                            cd: newRecord.cd,
+                            status: newRecord.status,
+                            arrivalDateTime: newRecord.arrival_date_time,
+                            scheduleDateTime: newRecord.schedule_date_time,
+                            truckPlate: newRecord.truck_plate,
+                            trailerPlate: newRecord.trailer_plate,
+                            contatoFeito: newRecord.contato_feito || '-',
+                            liberacaoEntregue: newRecord.liberacao_entregue || '-',
+                            encostouDoca: newRecord.encostou_doca || '-',
+                            load: newRecord.load,
+                            nfNumber: newRecord.nf_number,
+                            nfEmission: newRecord.nf_emission,
+                            nfValue: newRecord.nf_value,
+                            equipmentType: newRecord.equipment_type,
+                            equipmentQty: newRecord.equipment_qty,
+                            confStart: newRecord.conf_start,
+                            confEnd: newRecord.conf_end,
+                            critStart: newRecord.crit_start,
+                            critEnd: newRecord.crit_end,
+                            critTime: newRecord.crit_time,
+                            releaseTime: newRecord.release_time,
+                            warehouse: newRecord.warehouse,
+                            called: newRecord.called
+                        });
+                    }
+                    break;
+
+                case 'UPDATE':
+                    const index = driversData.findIndex(d => d.ticket === newRecord.ticket);
+                    if (index !== -1) {
+                        driversData[index] = {
+                            ...driversData[index],
+                            driverName: newRecord.driver_name,
+                            supplier: newRecord.supplier,
+                            cd: newRecord.cd,
+                            status: newRecord.status,
+                            arrivalDateTime: newRecord.arrival_date_time,
+                            scheduleDateTime: newRecord.schedule_date_time,
+                            truckPlate: newRecord.truck_plate,
+                            trailerPlate: newRecord.trailer_plate,
+                            contatoFeito: newRecord.contato_feito || '-',
+                            liberacaoEntregue: newRecord.liberacao_entregue || '-',
+                            encostouDoca: newRecord.encostou_doca || '-',
+                            load: newRecord.load,
+                            nfNumber: newRecord.nf_number,
+                            nfEmission: newRecord.nf_emission,
+                            nfValue: newRecord.nf_value,
+                            equipmentType: newRecord.equipment_type,
+                            equipmentQty: newRecord.equipment_qty,
+                            confStart: newRecord.conf_start,
+                            confEnd: newRecord.conf_end,
+                            critStart: newRecord.crit_start,
+                            critEnd: newRecord.crit_end,
+                            critTime: newRecord.crit_time,
+                            releaseTime: newRecord.release_time,
+                            warehouse: newRecord.warehouse,
+                            called: newRecord.called
+                        };
+                    }
+                    break;
+
+                case 'DELETE':
+                    driversData = driversData.filter(d => d.ticket !== oldRecord.ticket);
+                    break;
+            }
+
+            updateDatabaseStats();
+            renderDriversTable();
+            
+            if (document.getElementById('encosta-section').classList.contains('active')) {
+                renderEncostaList();
+            }
+            
+            if (document.getElementById('report-section').classList.contains('active')) {
+                generateReport();
+            }
+
+            showSyncNotification('🔄 Dados atualizados em tempo real');
+        }
+
+        function showSyncNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-success';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 1000;
+                max-width: 300px;
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function updateSyncStatus(online) {
+            isOnline = online;
+            const syncElement = document.getElementById('sync-status');
+            
+            if (online) {
+                syncElement.className = 'sync-status sync-online';
+                syncElement.innerHTML = '<span>🟢 Online</span>';
+            } else {
+                syncElement.className = 'sync-status sync-offline';
+                syncElement.innerHTML = '<span>🟡 Offline</span>';
+            }
+        }
+
+        // ========== FUNÇÕES SUPABASE ========== //
+        async function saveData() {
+            console.log('💾 Salvando dados no Supabase...');
+            
+            try {
+                await saveToSupabase();
+                console.log('✅ Dados salvos no Supabase');
+                updateSyncStatus(true);
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao salvar no Supabase:', error);
+                updateSyncStatus(false);
+                saveToLocalStorage();
+                return false;
+            }
+        }
+
+        async function loadData() {
+            console.log('📂 Carregando dados do Supabase...');
+            
+            try {
+                const success = await loadFromSupabase();
+                if (success) {
+                    updateSyncStatus(true);
+                    return true;
+                } else {
+                    console.log('📂 Nenhum dado no Supabase, tentando localStorage...');
+                    return loadFromLocalStorage();
+                }
+            } catch (error) {
+                console.log('❌ Erro ao carregar do Supabase, usando localStorage:', error);
+                updateSyncStatus(false);
+                return loadFromLocalStorage();
+            }
+        }
+
+        async function saveToSupabase() {
+            const driversToSave = driversData.map(driver => ({
+                ticket: driver.ticket,
+                driver_name: driver.driverName,
+                supplier: driver.supplier,
+                cd: driver.cd,
+                status: driver.status,
+                arrival_date_time: driver.arrivalDateTime,
+                schedule_date_time: driver.scheduleDateTime,
+                truck_plate: driver.truckPlate,
+                trailer_plate: driver.trailerPlate,
+                contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
+                liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
+                encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+                load: driver.load,
+                nf_number: driver.nfNumber,
+                nf_emission: driver.nfEmission,
+                nf_value: driver.nfValue,
+                equipment_type: driver.equipmentType,
+                equipment_qty: driver.equipmentQty,
+                conf_start: driver.confStart,
+                conf_end: driver.confEnd,
+                crit_start: driver.critStart,
+                crit_end: driver.critEnd,
+                crit_time: driver.critTime,
+                release_time: driver.releaseTime,
+                warehouse: driver.warehouse,
+                called: driver.called,
+                updated_at: new Date().toISOString()
+            }));
+
+            const { error } = await supabase
+                .from('drivers')
+                .upsert(driversToSave, { 
+                    onConflict: 'ticket',
+                    ignoreDuplicates: false 
+                });
+
+            if (error) throw error;
+            
+            console.log('✅ Dados salvos no Supabase:', driversToSave.length, 'registros');
+            return true;
+        }
+
+        async function loadFromSupabase() {
+            const { data, error } = await supabase
+                .from('drivers')
+                .select('*')
+                .order('updated_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                driversData = data.map(item => ({
+                    ticket: item.ticket,
+                    driverName: item.driver_name,
+                    supplier: item.supplier,
+                    cd: item.cd,
+                    status: item.status,
+                    arrivalDateTime: item.arrival_date_time,
+                    scheduleDateTime: item.schedule_date_time,
+                    truckPlate: item.truck_plate,
+                    trailerPlate: item.trailer_plate,
+                    contatoFeito: item.contato_feito || '-',
+                    liberacaoEntregue: item.liberacao_entregue || '-',
+                    encostouDoca: item.encostou_doca || '-',
+                    load: item.load,
+                    nfNumber: item.nf_number,
+                    nfEmission: item.nf_emission,
+                    nfValue: item.nf_value,
+                    equipmentType: item.equipment_type,
+                    equipmentQty: item.equipment_qty,
+                    confStart: item.conf_start,
+                    confEnd: item.conf_end,
+                    critStart: item.crit_start,
+                    critEnd: item.crit_end,
+                    critTime: item.crit_time,
+                    releaseTime: item.release_time,
+                    warehouse: item.warehouse,
+                    called: item.called
+                }));
+
+                console.log('📂 Dados carregados do Supabase:', driversData.length, 'registros');
+                return true;
+            }
+            return false;
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('driversData', JSON.stringify(driversData));
+            localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
+            localStorage.setItem('cdList', JSON.stringify(cdList));
+            console.log('💾 Dados salvos no localStorage (fallback)');
+        }
+
+        function loadFromLocalStorage() {
+            const savedData = localStorage.getItem('driversData');
+            if (savedData) {
+                driversData = JSON.parse(savedData);
+                console.log('📂 Dados carregados do localStorage:', driversData.length, 'registros');
+                return true;
+            }
+            return false;
+        }
+
+        // ========== SISTEMA DE CARGA ========== //
         function saveCargaData() {
             const cargaArray = Array.from(cargaData);
             localStorage.setItem('cargaData', JSON.stringify(cargaArray));
@@ -1398,11 +1707,8 @@
         }
 
         function checkCargaStatus(ticket) {
-            // Encontra o motorista pela senha
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (!driver || !driver.load) return false;
-            
-            // Verifica se a carga do motorista está na lista de cargas geradas
             return cargaData.has(driver.load.toString().trim());
         }
 
@@ -1427,28 +1733,17 @@
 
         function processCargaFile(content, fileName) {
             try {
-                // Limpa dados anteriores
                 cargaData = new Set();
-                
-                // Divide o conteúdo por linhas
                 const lines = content.split('\n');
                 let processedCount = 0;
                 
-                // Pula o cabeçalho e processa cada linha
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
-                    
-                    // Ignora linhas vazias
                     if (line === '') continue;
                     
-                    // Divide por ponto e vírgula
                     const parts = line.split(';');
-                    
-                    // A coluna CARGA é a 4ª coluna (índice 3)
                     if (parts.length >= 4) {
                         const carga = parts[3].trim();
-                        
-                        // Adiciona a carga ao Set (ignora vazias)
                         if (carga && carga !== '') {
                             cargaData.add(carga);
                             processedCount++;
@@ -1456,14 +1751,11 @@
                     }
                 }
                 
-                // Salva os dados
                 saveCargaData();
                 
-                // Atualiza a interface
                 document.getElementById('carga-file-info').textContent = 
                     `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
                 
-                // Atualiza a lista da encosta
                 renderEncostaList();
                 
                 alert(`✅ Arquivo de carga processado com sucesso!\n${cargaData.size} cargas geradas identificadas.`);
@@ -1474,7 +1766,6 @@
             }
         }
 
-        // FUNÇÃO PARA VERIFICAR CARGA ESPECÍFICA (útil para debug)
         function debugCargaStatus(ticket) {
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (!driver) {
@@ -1485,159 +1776,11 @@
             
             const hasCarga = checkCargaStatus(ticket);
             console.log(`🔍 Debug Carga - Senha: ${ticket}, Carga: ${driver.load || 'N/A'}, Status: ${hasCarga ? 'Gerado' : 'Pendente'}`);
-            console.log(`📊 Cargas no sistema: ${Array.from(cargaData).slice(0, 5).join(', ')}${cargaData.size > 5 ? '...' : ''}`);
             
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
         }
 
-        // ========== FUNÇÃO PARA IR AO PROCESSO DA ENCOSTA ========== //
-        function goToProcessFromEncosta(ticket) {
-            console.log('=== REDIRECIONANDO PARA PROCESSO DA ENCOSTA ===');
-            
-            // Busca o motorista pela senha
-            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
-            
-            if (driver) {
-                currentDriver = driver;
-                
-                // Atualiza o campo de busca
-                document.getElementById('ticket-input').value = ticket;
-                
-                // Mostra as informações do motorista
-                displayDriverInfo(driver);
-                document.getElementById('driver-result').style.display = 'block';
-                document.getElementById('driver-not-found').style.display = 'none';
-                
-                // Redireciona para a seção de processo
-                showSection('process-section');
-                renderProcessTimeline();
-                
-                console.log(`✅ Redirecionado para processo da senha: ${ticket}`);
-            } else {
-                console.log(`❌ Senha ${ticket} não encontrada`);
-                alert(`❌ Senha ${ticket} não encontrada na base de dados`);
-            }
-        }
-
-        // ========== SISTEMA SUPABASE (COM FALLBACK) ========== //
-        async function saveData() {
-            console.log('💾 Salvando dados...');
-            
-            saveToLocalStorage();
-            
-            if (SUPABASE_URL && SUPABASE_URL !== 'https://seu-projeto.supabase.co') {
-                try {
-                    await saveToSupabase();
-                } catch (error) {
-                    console.log('📴 Fallback para localStorage');    
-                }
-            }
-        }
-
-        async function loadData() {
-            console.log('📂 Carregando dados...');
-            
-            if (SUPABASE_URL && SUPABASE_URL !== 'https://seu-projeto.supabase.co') {
-                try {
-                    const success = await loadFromSupabase();
-                    if (success) {
-                        return true;
-                    }
-                } catch (error) {
-                    console.log('📴 Erro ao carregar do Supabase, usando localStorage');
-                }
-            }
-            return loadFromLocalStorage();
-        }
-
-        async function saveToSupabase() {
-            if (!SUPABASE_URL || SUPABASE_URL === 'https://seu-projeto.supabase.co') {
-                throw new Error('Supabase não configurado');
-            }
-
-            for (const driver of driversData) {
-                const { error } = await supabase
-                    .from('drivers')
-                    .upsert({
-                        ticket: driver.ticket,
-                        driver_name: driver.driverName,
-                        supplier: driver.supplier,
-                        cd: driver.cd,
-                        status: driver.status,
-                        arrival_date_time: driver.arrivalDateTime,
-                        schedule_date_time: driver.scheduleDateTime,
-                        truck_plate: driver.truckPlate,
-                        trailer_plate: driver.trailerPlate,
-                        contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                        liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                        encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
-                        updated_at: new Date().toISOString()
-                    }, { 
-                        onConflict: 'ticket',
-                        ignoreDuplicates: false 
-                    });
-                
-                if (error) {
-                    console.error('Erro ao salvar no Supabase:', error);
-                    throw error;
-                }
-            }
-            console.log('✅ Dados salvos no Supabase');
-            return true;
-        }
-
-        async function loadFromSupabase() {
-            if (!SUPABASE_URL || SUPABASE_URL === 'https://seu-projeto.supabase.co') {
-                throw new Error('Supabase não configurado');
-            }
-
-            const { data, error } = await supabase
-                .from('drivers')
-                .select('*')
-                .order('updated_at', { ascending: false });
-
-            if (error) throw error;
-
-            if (data && data.length > 0) {
-                driversData = data.map(item => ({
-                    ticket: item.ticket,
-                    driverName: item.driver_name,
-                    supplier: item.supplier,
-                    cd: item.cd,
-                    status: item.status,
-                    arrivalDateTime: item.arrival_date_time,
-                    scheduleDateTime: item.schedule_date_time,
-                    truckPlate: item.truck_plate,
-                    trailerPlate: item.trailer_plate,
-                    contatoFeito: item.contato_feito || '-',
-                    liberacaoEntregue: item.liberacao_entregue || '-',
-                    encostouDoca: item.encostou_doca || '-'
-                }));
-
-                console.log('📂 Dados carregados do Supabase:', driversData.length, 'registros');
-                return true;
-            }
-            return false;
-        }
-
-        function saveToLocalStorage() {
-            localStorage.setItem('driversData', JSON.stringify(driversData));
-            localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
-            localStorage.setItem('cdList', JSON.stringify(cdList));
-            console.log('💾 Dados salvos no localStorage');
-        }
-
-        function loadFromLocalStorage() {
-            const savedData = localStorage.getItem('driversData');
-            if (savedData) {
-                driversData = JSON.parse(savedData);
-                console.log('📂 Dados carregados do localStorage:', driversData.length, 'registros');
-                return true;
-            }
-            return false;
-        }
-        
-        // ========== FUNÇÃO initializeData ========== //
+        // ========== FUNÇÕES PRINCIPAIS ========== //
         async function initializeData() {
             console.log('=== INICIANDO SISTEMA CONTROLLA ===');
             
@@ -1649,24 +1792,10 @@
                 await saveData();
             }
 
-            const processData = loadProcessData();
-            let restoredCount = 0;
-
-            driversData.forEach(driver => {
-                if (driver.ticket && processData[driver.ticket]) {
-                    const savedProcess = processData[driver.ticket];
-                    driver.contatoFeito = savedProcess.contatoFeito;
-                    driver.liberacaoEntregue = savedProcess.liberacaoEntregue;
-                    driver.encostouDoca = savedProcess.encostouDoca;
-                    restoredCount++;
-                }
-            });
-
-            console.log('🔄 Dados de processo aplicados:', restoredCount, 'registros');
+            // Configurar sincronização em tempo real
+            setupRealtimeSubscription();
             
-            // ========== CARREGA DADOS DE CARGA ========== //
             loadCargaData();
-            
             updateDatabaseStats();
             renderDriversTable();
             setupEventListeners();
@@ -1674,7 +1803,6 @@
             console.log('✅ Sistema inicializado com sucesso!');
         }
 
-        // ========== FUNÇÃO createSampleData ========== //
         function createSampleData() {
             console.log('=== CRIANDO DADOS DE EXEMPLO ===');
             
@@ -1706,48 +1834,6 @@
                     contatoFeito: '15/10/2023 09:10',
                     liberacaoEntregue: '15/10/2023 10:30',
                     encostouDoca: '15/10/2023 11:00'
-                },
-                {
-                    ticket: '1003',
-                    driverName: 'Pedro Oliveira',
-                    supplier: 'Transportes ABC', 
-                    cd: 'CD001',
-                    truckPlate: 'DEF9012',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '16/10/2023 07:30',
-                    arrivalDateTime: '16/10/2023 07:35',
-                    load: '20251562',
-                    contatoFeito: '16/10/2023 07:40',
-                    liberacaoEntregue: '16/10/2023 08:20',
-                    encostouDoca: '-'
-                },
-                {
-                    ticket: '1004',
-                    driverName: 'Carlos Souza',
-                    supplier: 'Logística XYZ',
-                    cd: 'CD002',
-                    truckPlate: 'GHI3456',
-                    status: 'FINALIZADO',
-                    scheduleDateTime: '16/10/2023 10:00',
-                    arrivalDateTime: '16/10/2023 10:05',
-                    load: '26573980',
-                    contatoFeito: '16/10/2023 10:15',
-                    liberacaoEntregue: '16/10/2023 11:30',
-                    encostouDoca: '16/10/2023 12:00'
-                },
-                {
-                    ticket: '38685628',
-                    driverName: 'Ana Costa',
-                    supplier: 'Transportes ABC',
-                    cd: 'CD001',
-                    truckPlate: 'JKL7890',
-                    status: 'AGENDADO',
-                    scheduleDateTime: '16/10/2023 11:00',
-                    arrivalDateTime: '16/10/2023 11:05',
-                    load: '26568216',
-                    contatoFeito: '16/10/2023 11:20',
-                    liberacaoEntregue: '16/10/2023 12:45',
-                    encostouDoca: '16/10/2023 13:15'
                 }
             ];
             
@@ -1758,7 +1844,6 @@
             console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
         }
 
-        // ========== FUNÇÃO updateDatabaseStats ========== //
         function updateDatabaseStats() {
             try {
                 const totalDrivers = driversData.length;
@@ -1768,37 +1853,25 @@
                     .filter(supplier => supplier && supplier !== '-' && supplier !== '');
                 const totalSuppliers = [...new Set(suppliers)].length;
                 
-                // LÓGICA PARA PROCESSOS ATIVOS
                 const activeProcesses = driversData.filter(d => {
                     const status = d.status ? d.status.toString().trim().toUpperCase() : '';
                     const statusAtivos = ['AGENDADO', 'CONFERENCIA', 'PARA AGENDAR'];
                     return statusAtivos.includes(status);
                 }).length;
                 
-                // LÓGICA PARA FINALIZADOS HOJE
                 const completedToday = driversData.filter(d => {
                     try {
                         const status = d.status ? d.status.toString().trim().toUpperCase() : '';
-                        
-                        if (status !== 'FINALIZADO') {
-                            return false;
-                        }
-                        
-                        if (!d.arrivalDateTime || d.arrivalDateTime === '-' || d.arrivalDateTime === '') {
-                            return false;
-                        }
-                        
+                        if (status !== 'FINALIZADO') return false;
+                        if (!d.arrivalDateTime || d.arrivalDateTime === '-' || d.arrivalDateTime === '') return false;
                         const arrivalStr = String(d.arrivalDateTime);
                         const today = new Date();
                         const todayDay = today.getDate().toString().padStart(2, '0');
                         const todayMonth = (today.getMonth() + 1).toString().padStart(2, '0');
                         const todayYear = today.getFullYear();
                         const todayFormatted = `${todayDay}/${todayMonth}/${todayYear}`;
-                        
                         return arrivalStr.includes(todayFormatted);
-                        
                     } catch (error) {
-                        console.log('Erro ao verificar finalizado hoje:', d.status, error);
                         return false;
                     }
                 }).length;
@@ -1810,309 +1883,11 @@
                 
             } catch (error) {
                 console.error('❌ Erro em updateDatabaseStats:', error);
-                
                 document.getElementById('total-drivers').textContent = driversData.length || '0';
                 document.getElementById('total-suppliers').textContent = '0';
                 document.getElementById('active-processes').textContent = '0';
                 document.getElementById('completed-today').textContent = '0';
             }
-        }
-
-        // ========== CONFIGURAÇÃO DE EVENT LISTENERS ========== //
-        function setupEventListeners() {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const target = this.getAttribute('data-target');
-                    showSection(target);
-                });
-            });
-            
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    showTab(tabId);
-                });
-            });
-            
-            document.getElementById('search-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const ticket = document.getElementById('ticket-input').value.trim();
-                if (ticket) searchDriver(ticket);
-            });
-            
-            document.getElementById('go-to-process').addEventListener('click', function() {
-                showSection('process-section');
-                renderProcessTimeline();
-            });
-            
-            document.getElementById('report-generate').addEventListener('click', generateReport);
-            document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
-            document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
-            
-            document.getElementById('upload-btn').addEventListener('click', function() {
-                document.getElementById('file-input').click();
-            });
-            document.getElementById('file-input').addEventListener('change', handleFileUpload);
-            
-            // ========== NOVOS EVENT LISTENERS PARA CARGA ========== //
-            document.getElementById('upload-carga-btn').addEventListener('click', function() {
-                document.getElementById('carga-file-input').click();
-            });
-            
-            document.getElementById('carga-file-input').addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    currentCargaFile = file;
-                    handleCargaFileUpload(file);
-                }
-            });
-            
-            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
-                if (currentCargaFile) {
-                    handleCargaFileUpload(currentCargaFile);
-                } else {
-                    alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
-                }
-            });
-            
-            // EVENT LISTENER PARA O BOTÃO DEBUG
-            document.getElementById('debug-carga-btn').addEventListener('click', function() {
-                const ticket = prompt("Digite a senha para verificar o status da carga:");
-                if (ticket) {
-                    debugCargaStatus(ticket);
-                }
-            });
-            
-            document.getElementById('backup-process-btn').addEventListener('click', backupProcessData);
-            document.getElementById('sync-supabase-btn').addEventListener('click', async function() {
-                this.disabled = true;
-                this.innerHTML = '⏳ Sincronizando...';
-                try {
-                    await saveData();
-                    alert('✅ Sincronização concluída!');
-                } catch (error) {
-                    alert('❌ Erro na sincronização: ' + error.message);
-                } finally {
-                    this.disabled = false;
-                    this.innerHTML = '🔄 Sincronizar Supabase';
-                }
-            });
-            
-            const uploadArea = document.getElementById('upload-area');
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                this.classList.add('dragover');
-            });
-            uploadArea.addEventListener('dragleave', function() {
-                this.classList.remove('dragover');
-            });
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) handleFile(files[0]);
-            });
-            
-            document.getElementById('confirm-upload').addEventListener('click', confirmUpload);
-            document.getElementById('cancel-upload').addEventListener('click', cancelUpload);
-            
-            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
-                document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
-                renderDriversTable();
-            });
-            
-            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
-            setupColumnFilters();
-            setupFilterListeners();
-        }
-
-        // ========== FUNÇÃO registerProcessStep ========== //
-        async function registerProcessStep(ticket, stepField) {
-            console.log('=== REGISTRAR ETAPA ===');
-            
-            if (!currentDriver) {
-                currentDriver = driversData.find(d => d.ticket === ticket);
-            }
-            
-            if (!currentDriver) {
-                currentDriver = {
-                    ticket: ticket,
-                    driverName: 'Motorista Não Cadastrado',
-                    contatoFeito: '-',
-                    liberacaoEntregue: '-',
-                    encostouDoca: '-'
-                };
-            }
-            
-            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
-            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
-            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
-            
-            const now = new Date();
-            const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-            
-            currentDriver[stepField] = formattedDateTime;
-            
-            if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
-                driversData.push(currentDriver);
-            }
-            
-            saveProcessData();
-            await saveData();
-            
-            displayDriverInfo(currentDriver);
-            renderProcessTimeline();
-            
-            const stepName = getStepName(stepField);
-            alert(`✅ ${stepName} registrado com sucesso!\nData: ${formattedDateTime}\n\n📋 Registro preservado em nuvem.`);
-        }
-
-        // ========== FUNÇÃO undoProcessStep ========== //
-        async function undoProcessStep(ticket, stepField) {
-            console.log('=== DESFAZER ETAPA ===');
-            
-            if (!currentDriver) {
-                currentDriver = driversData.find(d => d.ticket === ticket);
-            }
-            
-            if (!currentDriver) {
-                alert('❌ Motorista não encontrado para desfazer etapa.');
-                return;
-            }
-            
-            const stepName = getStepName(stepField);
-            
-            if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?`)) {
-                currentDriver[stepField] = '-';
-                
-                if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
-                    driversData.push(currentDriver);
-                }
-                
-                saveProcessData();
-                await saveData();
-                
-                displayDriverInfo(currentDriver);
-                renderProcessTimeline();
-                
-                alert(`✅ ${stepName} desfeito com sucesso para a senha ${ticket}!`);
-            }
-        }
-
-        // ========== FUNÇÃO confirmUpload ========== //
-        async function confirmUpload() {
-            if (!window.uploadData) return;
-            
-            const { headers, rows } = window.uploadData;
-            const newDrivers = [];
-            const newSuppliers = new Set();
-            const newCDs = new Set();
-            
-            const processData = loadProcessData();
-            
-            rows.forEach((row) => {
-                const driver = {};
-                
-                headers.forEach((header, colIndex) => {
-                    if (header && columnMapping[header]) {
-                        driver[columnMapping[header]] = row[colIndex];
-                    }
-                });
-                
-                if (driver.ticket) {
-                    if (processData[driver.ticket]) {
-                        const savedProcess = processData[driver.ticket];
-                        driver.contatoFeito = savedProcess.contatoFeito;
-                        driver.liberacaoEntregue = savedProcess.liberacaoEntregue;
-                        driver.encostouDoca = savedProcess.encostouDoca;
-                    } else {
-                        if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-                        if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-                        if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-                    }
-                    
-                    newDrivers.push(driver);
-                    if (driver.supplier) newSuppliers.add(driver.supplier);
-                    if (driver.cd) newCDs.add(driver.cd);
-                }
-            });
-            
-            driversData = newDrivers;
-            suppliersList = Array.from(newSuppliers);
-            cdList = Array.from(newCDs);
-            
-            saveProcessData();
-            await saveData();
-            
-            updateDatabaseStats();
-            renderDriversTable();
-            cancelUpload();
-            
-            alert(`✅ Upload concluído! \n${newDrivers.length} registros carregados\n${Object.keys(processData).length} processos preservados`);
-        }
-
-        // ========== FUNÇÕES DE FORMATAÇÃO ========== //
-        function formatDateTime(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
-            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
-            
-            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                return convertExcelDate(dateTimeStr);
-            }
-            
-            return dateTimeStr.toString().trim() || '-';
-        }
-
-        function convertExcelDate(excelNumber) {
-            try {
-                const date = XLSX.SSF.parse_date_code(excelNumber);
-                const day = date.d.toString().padStart(2, '0');
-                const month = date.m.toString().padStart(2, '0');
-                const year = date.y;
-                const hours = date.H.toString().padStart(2, '0');
-                const minutes = date.M.toString().padStart(2, '0');
-                return `${day}/${month}/${year} ${hours}:${minutes}`;
-            } catch (e) {
-                return excelNumber.toString();
-            }
-        }
-
-        function formatDateTimeWithExtraMinute(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
-            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
-            
-            try {
-                let date;
-                
-                if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
-                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
-                } else {
-                    date = new Date(dateTimeStr);
-                }
-                
-                if (isNaN(date.getTime())) {
-                    return formatDateTime(dateTimeStr);
-                }
-                
-                date.setMinutes(date.getMinutes() + 1);
-                
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                const year = date.getFullYear();
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
-                
-                return `${day}/${month}/${year} ${hours}:${minutes}`;
-                
-            } catch (e) {
-                return formatDateTime(dateTimeStr);
-            }
-        }
-
-        function formatDateTimeWithExtraMinuteForCalled(dateTimeStr) {
-            return formatDateTimeWithExtraMinute(dateTimeStr);
         }
 
         // ========== FUNÇÕES DE NAVEGAÇÃO ========== //
@@ -2133,7 +1908,27 @@
             document.getElementById(tabId).classList.add('active');
         }
 
-        // ========== FUNÇÕES DE BUSCA E EXIBIÇÃO ========== //
+        function goToProcessFromEncosta(ticket) {
+            console.log('=== REDIRECIONANDO PARA PROCESSO DA ENCOSTA ===');
+            
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (driver) {
+                currentDriver = driver;
+                document.getElementById('ticket-input').value = ticket;
+                displayDriverInfo(driver);
+                document.getElementById('driver-result').style.display = 'block';
+                document.getElementById('driver-not-found').style.display = 'none';
+                showSection('process-section');
+                renderProcessTimeline();
+                console.log(`✅ Redirecionado para processo da senha: ${ticket}`);
+            } else {
+                console.log(`❌ Senha ${ticket} não encontrada`);
+                alert(`❌ Senha ${ticket} não encontrada na base de dados`);
+            }
+        }
+
+        // ========== FUNÇÕES DE BUSCA ========== //
         function searchDriver(ticket) {
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (driver) {
@@ -2192,7 +1987,7 @@
             return stepNames[stepField] || stepField;
         }
 
-        // ========== FUNÇÃO renderProcessTimeline ========== //
+        // ========== FUNÇÕES DO PROCESSO ========== //
         function renderProcessTimeline() {
             if (!currentDriver) return;
             
@@ -2268,7 +2063,6 @@
                     `;
                 }
                 
-                // BOTÃO DESFAZER PARA ETAPAS COMPLETADAS
                 if (step.completed) {
                     timelineHTML += `
                             <button class="btn btn-danger btn-small undo-step" 
@@ -2294,7 +2088,6 @@
             
             processContent.innerHTML = timelineHTML;
             
-            // Event listeners para registrar etapas
             document.querySelectorAll('.register-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
@@ -2307,7 +2100,6 @@
                 });
             });
             
-            // EVENT LISTENERS PARA DESFAZER ETAPAS
             document.querySelectorAll('.undo-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
@@ -2317,278 +2109,198 @@
             });
         }
 
-        // ========== FUNÇÕES DE FILTRO ========== //
-        function setupColumnFilters() {
-            let filterTimeout;
+        async function registerProcessStep(ticket, stepField) {
+            console.log('=== REGISTRAR ETAPA ===');
             
-            document.querySelectorAll('.column-filter').forEach(input => {
-                input.addEventListener('input', function() {
-                    clearTimeout(filterTimeout);
-                    filterTimeout = setTimeout(() => {
-                        filterTableByColumns();
-                    }, 300);
-                });
-            });
+            if (!currentDriver) {
+                currentDriver = driversData.find(d => d.ticket === ticket);
+            }
+            
+            if (!currentDriver) {
+                currentDriver = {
+                    ticket: ticket,
+                    driverName: 'Motorista Não Cadastrado',
+                    contatoFeito: '-',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-'
+                };
+            }
+            
+            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
+            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
+            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
+            
+            const now = new Date();
+            const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            currentDriver[stepField] = formattedDateTime;
+            
+            if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
+                driversData.push(currentDriver);
+            }
+            
+            await saveData();
+            
+            displayDriverInfo(currentDriver);
+            renderProcessTimeline();
+            
+            const stepName = getStepName(stepField);
+            alert(`✅ ${stepName} registrado com sucesso!\nData: ${formattedDateTime}\n\n📋 Registro sincronizado em tempo real.`);
         }
 
-        function filterTableByColumns() {
-            if (driversData.length === 0) {
-                renderDriversTable([]);
+        async function undoProcessStep(ticket, stepField) {
+            console.log('=== DESFAZER ETAPA ===');
+            
+            if (!currentDriver) {
+                currentDriver = driversData.find(d => d.ticket === ticket);
+            }
+            
+            if (!currentDriver) {
+                alert('❌ Motorista não encontrado para desfazer etapa.');
                 return;
             }
             
-            const filters = [];
-            let hasActiveFilter = false;
+            const stepName = getStepName(stepField);
             
-            document.querySelectorAll('.column-filter').forEach((input, index) => {
-                filters[index] = input.value.trim().toLowerCase();
-                if (filters[index]) hasActiveFilter = true;
-            });
-            
-            if (!hasActiveFilter) {
-                renderDriversTable();
-                return;
+            if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?`)) {
+                currentDriver[stepField] = '-';
+                
+                if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
+                    driversData.push(currentDriver);
+                }
+                
+                await saveData();
+                
+                displayDriverInfo(currentDriver);
+                renderProcessTimeline();
+                
+                alert(`✅ ${stepName} desfeito com sucesso para a senha ${ticket}!`);
             }
-            
-            const filteredData = driversData.filter(driver => {
-                if (filters[0] && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(filters[0]))) return false;
-                if (filters[1] && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(filters[1]))) return false;
-                if (filters[2] && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(filters[2]))) return false;
-                if (filters[3] && (!driver.cd || !driver.cd.toString().toLowerCase().includes(filters[3]))) return false;
-                if (filters[4] && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(filters[4]))) return false;
-                if (filters[5] && (!driver.status || !driver.status.toString().toLowerCase().includes(filters[5]))) return false;
-                if (filters[6]) {
-                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
-                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(filters[6])) return false;
-                }
-                
-                return true;
-            });
-            
-            renderDriversTable(filteredData);
         }
 
-        let activeFilters = {
-            ticket: '',
-            driver: '',
-            supplier: '',
-            status: '',
-            plate: '',
-            arrival: ''
-        };
+        // ========== FUNÇÕES DA ENCOSTA ========== //
+        function renderEncostaList() {
+            const encostaContent = document.getElementById('encosta-content');
+            
+            let filteredDrivers = driversData.filter(driver => 
+                driver.status && driver.status.toString().trim() === 'AGENDADO'
+            );
+            
+            filteredDrivers.sort((a, b) => {
+                const waitTimeA = calculateWaitTimeValue(a.arrivalDateTime);
+                const waitTimeB = calculateWaitTimeValue(b.arrivalDateTime);
+                return waitTimeB - waitTimeA;
+            });
 
-        function setupFilterListeners() {
-            document.getElementById('filter-ticket').addEventListener('input', function() {
-                activeFilters.ticket = this.value.trim().toLowerCase();
-                applyFilters();
-            });
+            const cargasGeradasCount = filteredDrivers.filter(driver => 
+                checkCargaStatus(driver.ticket)
+            ).length;
             
-            document.getElementById('filter-driver').addEventListener('input', function() {
-                activeFilters.driver = this.value.trim().toLowerCase();
-                applyFilters();
-            });
-            
-            document.getElementById('filter-supplier').addEventListener('input', function() {
-                activeFilters.supplier = this.value.trim().toLowerCase();
-                applyFilters();
-            });
-            
-            document.getElementById('filter-status').addEventListener('input', function() {
-                activeFilters.status = this.value.trim().toLowerCase();
-                applyFilters();
-            });
-            
-            document.getElementById('filter-plate').addEventListener('input', function() {
-                activeFilters.plate = this.value.trim().toLowerCase();
-                applyFilters();
-            });
-            
-            document.getElementById('filter-arrival').addEventListener('input', function() {
-                activeFilters.arrival = this.value.trim().toLowerCase();
-                applyFilters();
-            });
-        }
-
-        function applyFilters() {
-            let filteredData = driversData.filter(driver => {
-                if (activeFilters.ticket && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(activeFilters.ticket))) {
-                    return false;
-                }
-                
-                if (activeFilters.driver && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(activeFilters.driver))) {
-                    return false;
-                }
-                
-                if (activeFilters.supplier && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(activeFilters.supplier))) {
-                    return false;
-                }
-                
-                if (activeFilters.status && (!driver.status || !driver.status.toString().toLowerCase().includes(activeFilters.status))) {
-                    return false;
-                }
-                
-                if (activeFilters.plate && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(activeFilters.plate))) {
-                    return false;
-                }
-                
-                if (activeFilters.arrival) {
-                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
-                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(activeFilters.arrival)) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            });
-            
-            renderDriversTable(filteredData);
-        }
-
-        // ========== FUNÇÃO renderDriversTable ========== //
-        function renderDriversTable(filteredData = null) {
-            const dataToShow = filteredData || driversData;
-            const tableBody = document.getElementById('drivers-table-body');
-            
-            tableBody.innerHTML = '';
-            
-            if (dataToShow.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="8" style="text-align: center;">Nenhum motorista encontrado</td>`;
-                tableBody.appendChild(row);
-                return;
-            }
-            
-            const displayData = dataToShow.slice(0, 1000);
-            
-            displayData.forEach(driver => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${driver.ticket || '-'}</td>
-                    <td>${driver.driverName || '-'}</td>
-                    <td>${driver.supplier || '-'}</td>
-                    <td>${driver.cd || '-'}</td>
-                    <td>${driver.truckPlate || '-'}</td>
-                    <td>${driver.status || '-'}</td>
-                    <td>${formatDateTime(driver.arrivalDateTime) || '-'}</td>
-                    <td>
-                        <button class="btn btn-primary btn-small view-driver" data-ticket="${driver.ticket}">Ver</button>
-                        <button class="btn btn-danger btn-small delete-driver" data-ticket="${driver.ticket}">Excluir</button>
-                    </td>
+            if (filteredDrivers.length === 0) {
+                encostaContent.innerHTML = `
+                    <div class="empty-state">
+                        <div>📋</div>
+                        <p>Nenhum veículo encontrado para exibir na encosta.</p>
+                    </div>
                 `;
-                tableBody.appendChild(row);
+                return;
+            }
+            
+            let encostaHTML = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Chegada</h3>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Senha</th>
+                                <th>Motorista</th>
+                                <th>Fornecedor</th>
+                                <th>Placa Cavalo</th>
+                                <th>Carga</th>
+                                <th>Horário Chegada</th>
+                                <th>Status</th>
+                                <th>Tempo de Espera</th>
+                                <th>Status Carga</th>
+                                <th>Status Processo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                const cargaStatus = getCargaStatus(driver.ticket);
+                const processoStatus = getProcessStatus(driver);
+                
+                let statusClass = 'status-processo ';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass += 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass += 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass += 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass += 'status-doca';
+                        break;
+                    default:
+                        statusClass += 'status-aguardando';
+                }
+                
+                encostaHTML += `
+                    <tr>
+                        <td><strong>${index + 1}º</strong></td>
+                        <td>${driver.ticket || '-'}</td>
+                        <td>${driver.driverName || '-'}</td>
+                        <td>${driver.supplier || '-'}</td>
+                        <td>${driver.truckPlate || '-'}</td>
+                        <td>${driver.load || '-'}</td>
+                        <td>${formatDateTime(driver.arrivalDateTime)}</td>
+                        <td>${driver.status || '-'}</td>	
+                        <td>${waitTime}</td>
+                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
+                        <td><span class="${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                        </td>
+                    </tr>
+                `;
             });
             
-            document.querySelectorAll('.view-driver').forEach(btn => {
+            encostaHTML += `</tbody></table></div>`;
+            encostaContent.innerHTML = encostaHTML;
+            
+            document.querySelectorAll('.processo-encosta').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const ticket = this.getAttribute('data-ticket');
-                    searchDriver(ticket);
-                    showSection('search-section');
+                    goToProcessFromEncosta(ticket);
                 });
             });
-            
-            document.querySelectorAll('.delete-driver').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const ticket = this.getAttribute('data-ticket');
-                    deleteDriver(ticket);
-                });
-            });
-            
-            setupColumnFilters();
         }
 
-        function deleteDriver(ticket) {
-            if (confirm(`Tem certeza que deseja excluir a senha ${ticket}?`)) {
-                driversData = driversData.filter(d => d.ticket !== ticket);
-                saveData();
-                renderDriversTable();
-                updateDatabaseStats();
-                
-                if (currentDriver && currentDriver.ticket === ticket) {
-                    currentDriver = null;
-                    document.getElementById('driver-result').style.display = 'none';
-                }
-            }
-        }
-
-        function clearDatabase() {
-            if (confirm('Tem certeza que deseja limpar toda a base de dados? Esta ação não pode ser desfeita.')) {
-                driversData = [];
-                suppliersList = [];
-                cdList = [];
-                saveData();
-                renderDriversTable();
-                updateDatabaseStats();
-                
-                if (currentDriver) {
-                    currentDriver = null;
-                    document.getElementById('driver-result').style.display = 'none';
-                }
-            }
-        }
-
-        // ========== FUNÇÕES DE UPLOAD ========== //
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (file) handleFile(file);
-        }
-
-        function handleFile(file) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                
-                if (jsonData.length > 0) previewData(jsonData);
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-
-        function previewData(data) {
-            const headers = data[0];
-            const previewRows = data.slice(1, 11);
-            
-            document.getElementById('upload-success').textContent = 
-                `Arquivo carregado com sucesso! ${data.length - 1} registros encontrados.`;
-            
-            const tableBody = document.getElementById('preview-table-body');
-            tableBody.innerHTML = '';
-            
-            previewRows.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${row[0] !== undefined ? row[0] : '-'}</td>
-                    <td>${row[7] !== undefined ? row[7] : '-'}</td>
-                    <td>${row[3] !== undefined ? row[3] : '-'}</td>
-                    <td>${row[2] !== undefined ? row[2] : '-'}</td>
-                    <td>${row[13] !== undefined ? row[13] : '-'}</td>
-                    <td>${row[5] !== undefined ? row[5] : '-'}</td>
-                    <td>${row[6] !== undefined ? row[6] : '-'}</td>
-                    <td>
-                        <button class="btn btn-primary btn-small">Ver</button>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
-            
-            document.getElementById('file-preview').style.display = 'block';
-            
-            window.uploadData = {
-                headers: headers,
-                rows: data.slice(1)
-            };
-        }
-
-        function cancelUpload() {
-            document.getElementById('file-preview').style.display = 'none';
-            document.getElementById('file-input').value = '';
-            window.uploadData = null;
-        }
-
-        // ========== FUNÇÕES DE RELATÓRIO ========== //
+        // ========== FUNÇÕES DO RELATÓRIO ========== //
         function generateReport() {
             console.log('📋 Gerando relatório de processos...');
             
@@ -2750,105 +2462,378 @@
             generateReport();
         }
 
-        // ========== FUNÇÕES DA ENCOSTA ATUALIZADAS ========== //
-        function renderEncostaList() {
-            const encostaContent = document.getElementById('encosta-content');
+        // ========== FUNÇÕES DA BASE DE DADOS ========== //
+        function renderDriversTable(filteredData = null) {
+            const dataToShow = filteredData || driversData;
+            const tableBody = document.getElementById('drivers-table-body');
             
-            let filteredDrivers = driversData.filter(driver => 
-                driver.status && driver.status.toString().trim() === 'AGENDADO'
-            );
+            tableBody.innerHTML = '';
             
-            filteredDrivers.sort((a, b) => {
-                const waitTimeA = calculateWaitTimeValue(a.arrivalDateTime);
-                const waitTimeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return waitTimeB - waitTimeA;
-            });
-
-            // CALCULAR APENAS AS CARGAS COM STATUS "GERADO"
-            const cargasGeradasCount = filteredDrivers.filter(driver => 
-                checkCargaStatus(driver.ticket)
-            ).length;
-            
-            if (filteredDrivers.length === 0) {
-                encostaContent.innerHTML = `
-                    <div class="empty-state">
-                        <div>📋</div>
-                        <p>Nenhum veículo encontrado para exibir na encosta.</p>
-                    </div>
-                `;
+            if (dataToShow.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="8" style="text-align: center;">Nenhum motorista encontrado</td>`;
+                tableBody.appendChild(row);
                 return;
             }
             
-            let encostaHTML = `
-                <div class="database-stats">
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length}</div>
-                        <div class="stat-label">Veículos na Fila</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Geradas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Pendentes</div>
-                    </div>
-                </div>
-                
-                <h3>Ranking de Chamada - Ordem de Chegada</h3>
-                <div style="overflow-x: auto;">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Posição</th>
-                                <th>Senha</th>
-                                <th>Motorista</th>
-                                <th>Fornecedor</th>
-                                <th>Placa Cavalo</th>
-                                <th>Carga</th>
-                                <th>Horário Chegada</th>
-                                <th>Status</th>
-                                <th>Tempo de Espera</th>
-                                <th>Status Carga</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            const displayData = dataToShow.slice(0, 1000);
             
-            filteredDrivers.forEach((driver, index) => {
-                const waitTime = calculateWaitTime(driver.arrivalDateTime);
-                const cargaStatus = getCargaStatus(driver.ticket);
-                
-                encostaHTML += `
-                    <tr>
-                        <td><strong>${index + 1}º</strong></td>
-                        <td>${driver.ticket || '-'}</td>
-                        <td>${driver.driverName || '-'}</td>
-                        <td>${driver.supplier || '-'}</td>
-                        <td>${driver.truckPlate || '-'}</td>
-                        <td>${driver.load || '-'}</td>
-                        <td>${formatDateTime(driver.arrivalDateTime)}</td>
-                        <td>${driver.status || '-'}</td>	
-                        <td>${waitTime}</td>
-                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
-                        </td>
-                    </tr>
+            displayData.forEach(driver => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${driver.ticket || '-'}</td>
+                    <td>${driver.driverName || '-'}</td>
+                    <td>${driver.supplier || '-'}</td>
+                    <td>${driver.cd || '-'}</td>
+                    <td>${driver.truckPlate || '-'}</td>
+                    <td>${driver.status || '-'}</td>
+                    <td>${formatDateTime(driver.arrivalDateTime) || '-'}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small view-driver" data-ticket="${driver.ticket}">Ver</button>
+                        <button class="btn btn-danger btn-small delete-driver" data-ticket="${driver.ticket}">Excluir</button>
+                    </td>
                 `;
+                tableBody.appendChild(row);
             });
             
-            encostaHTML += `</tbody></table></div>`;
-            encostaContent.innerHTML = encostaHTML;
-            
-            // Adicionar event listeners para os botões de processo
-            document.querySelectorAll('.processo-encosta').forEach(btn => {
+            document.querySelectorAll('.view-driver').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const ticket = this.getAttribute('data-ticket');
-                    goToProcessFromEncosta(ticket);
+                    searchDriver(ticket);
+                    showSection('search-section');
                 });
             });
+            
+            document.querySelectorAll('.delete-driver').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const ticket = this.getAttribute('data-ticket');
+                    deleteDriver(ticket);
+                });
+            });
+            
+            setupColumnFilters();
+        }
+
+        function setupColumnFilters() {
+            let filterTimeout;
+            
+            document.querySelectorAll('.column-filter').forEach(input => {
+                input.addEventListener('input', function() {
+                    clearTimeout(filterTimeout);
+                    filterTimeout = setTimeout(() => {
+                        filterTableByColumns();
+                    }, 300);
+                });
+            });
+        }
+
+        function filterTableByColumns() {
+            if (driversData.length === 0) {
+                renderDriversTable([]);
+                return;
+            }
+            
+            const filters = [];
+            let hasActiveFilter = false;
+            
+            document.querySelectorAll('.column-filter').forEach((input, index) => {
+                filters[index] = input.value.trim().toLowerCase();
+                if (filters[index]) hasActiveFilter = true;
+            });
+            
+            if (!hasActiveFilter) {
+                renderDriversTable();
+                return;
+            }
+            
+            const filteredData = driversData.filter(driver => {
+                if (filters[0] && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(filters[0]))) return false;
+                if (filters[1] && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(filters[1]))) return false;
+                if (filters[2] && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(filters[2]))) return false;
+                if (filters[3] && (!driver.cd || !driver.cd.toString().toLowerCase().includes(filters[3]))) return false;
+                if (filters[4] && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(filters[4]))) return false;
+                if (filters[5] && (!driver.status || !driver.status.toString().toLowerCase().includes(filters[5]))) return false;
+                if (filters[6]) {
+                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
+                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(filters[6])) return false;
+                }
+                
+                return true;
+            });
+            
+            renderDriversTable(filteredData);
+        }
+
+        let activeFilters = {
+            ticket: '',
+            driver: '',
+            supplier: '',
+            status: '',
+            plate: '',
+            arrival: ''
+        };
+
+        function setupFilterListeners() {
+            document.getElementById('filter-ticket').addEventListener('input', function() {
+                activeFilters.ticket = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-driver').addEventListener('input', function() {
+                activeFilters.driver = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-supplier').addEventListener('input', function() {
+                activeFilters.supplier = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-status').addEventListener('input', function() {
+                activeFilters.status = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-plate').addEventListener('input', function() {
+                activeFilters.plate = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            document.getElementById('filter-arrival').addEventListener('input', function() {
+                activeFilters.arrival = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            let filteredData = driversData.filter(driver => {
+                if (activeFilters.ticket && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(activeFilters.ticket))) {
+                    return false;
+                }
+                
+                if (activeFilters.driver && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(activeFilters.driver))) {
+                    return false;
+                }
+                
+                if (activeFilters.supplier && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(activeFilters.supplier))) {
+                    return false;
+                }
+                
+                if (activeFilters.status && (!driver.status || !driver.status.toString().toLowerCase().includes(activeFilters.status))) {
+                    return false;
+                }
+                
+                if (activeFilters.plate && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(activeFilters.plate))) {
+                    return false;
+                }
+                
+                if (activeFilters.arrival) {
+                    const arrivalFormatted = formatDateTime(driver.arrivalDateTime);
+                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(activeFilters.arrival)) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            renderDriversTable(filteredData);
+        }
+
+        function deleteDriver(ticket) {
+            if (confirm(`Tem certeza que deseja excluir a senha ${ticket}?`)) {
+                driversData = driversData.filter(d => d.ticket !== ticket);
+                saveData();
+                renderDriversTable();
+                updateDatabaseStats();
+                
+                if (currentDriver && currentDriver.ticket === ticket) {
+                    currentDriver = null;
+                    document.getElementById('driver-result').style.display = 'none';
+                }
+            }
+        }
+
+        function clearDatabase() {
+            if (confirm('Tem certeza que deseja limpar toda a base de dados? Esta ação não pode ser desfeita.')) {
+                driversData = [];
+                suppliersList = [];
+                cdList = [];
+                saveData();
+                renderDriversTable();
+                updateDatabaseStats();
+                
+                if (currentDriver) {
+                    currentDriver = null;
+                    document.getElementById('driver-result').style.display = 'none';
+                }
+            }
+        }
+
+        // ========== FUNÇÕES DE UPLOAD ========== //
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                
+                if (jsonData.length > 0) previewData(jsonData);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function previewData(data) {
+            const headers = data[0];
+            const previewRows = data.slice(1, 11);
+            
+            document.getElementById('upload-success').textContent = 
+                `Arquivo carregado com sucesso! ${data.length - 1} registros encontrados.`;
+            
+            const tableBody = document.getElementById('preview-table-body');
+            tableBody.innerHTML = '';
+            
+            previewRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row[0] !== undefined ? row[0] : '-'}</td>
+                    <td>${row[7] !== undefined ? row[7] : '-'}</td>
+                    <td>${row[3] !== undefined ? row[3] : '-'}</td>
+                    <td>${row[2] !== undefined ? row[2] : '-'}</td>
+                    <td>${row[13] !== undefined ? row[13] : '-'}</td>
+                    <td>${row[5] !== undefined ? row[5] : '-'}</td>
+                    <td>${row[6] !== undefined ? row[6] : '-'}</td>
+                    <td>
+                        <button class="btn btn-primary btn-small">Ver</button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            
+            document.getElementById('file-preview').style.display = 'block';
+            
+            window.uploadData = {
+                headers: headers,
+                rows: data.slice(1)
+            };
+        }
+
+        function cancelUpload() {
+            document.getElementById('file-preview').style.display = 'none';
+            document.getElementById('file-input').value = '';
+            window.uploadData = null;
+        }
+
+        async function confirmUpload() {
+            if (!window.uploadData) return;
+            
+            const { headers, rows } = window.uploadData;
+            const newDrivers = [];
+            const newSuppliers = new Set();
+            const newCDs = new Set();
+            
+            rows.forEach((row) => {
+                const driver = {};
+                
+                headers.forEach((header, colIndex) => {
+                    if (header && columnMapping[header]) {
+                        driver[columnMapping[header]] = row[colIndex];
+                    }
+                });
+                
+                if (driver.ticket) {
+                    if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
+                    if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
+                    if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+                    
+                    newDrivers.push(driver);
+                    if (driver.supplier) newSuppliers.add(driver.supplier);
+                    if (driver.cd) newCDs.add(driver.cd);
+                }
+            });
+            
+            driversData = newDrivers;
+            suppliersList = Array.from(newSuppliers);
+            cdList = Array.from(newCDs);
+            
+            await saveData();
+            
+            updateDatabaseStats();
+            renderDriversTable();
+            cancelUpload();
+            
+            alert(`✅ Upload concluído! \n${newDrivers.length} registros carregados e sincronizados`);
+        }
+
+        // ========== FUNÇÕES DE FORMATAÇÃO ========== //
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                return convertExcelDate(dateTimeStr);
+            }
+            
+            return dateTimeStr.toString().trim() || '-';
+        }
+
+        function convertExcelDate(excelNumber) {
+            try {
+                const date = XLSX.SSF.parse_date_code(excelNumber);
+                const day = date.d.toString().padStart(2, '0');
+                const month = date.m.toString().padStart(2, '0');
+                const year = date.y;
+                const hours = date.H.toString().padStart(2, '0');
+                const minutes = date.M.toString().padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            } catch (e) {
+                return excelNumber.toString();
+            }
+        }
+
+        function formatDateTimeWithExtraMinute(dateTimeStr) {
+            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
+            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+            
+            try {
+                let date;
+                
+                if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
+                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
+                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                } else {
+                    date = new Date(dateTimeStr);
+                }
+                
+                if (isNaN(date.getTime())) {
+                    return formatDateTime(dateTimeStr);
+                }
+                
+                date.setMinutes(date.getMinutes() + 1);
+                
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+                
+            } catch (e) {
+                return formatDateTime(dateTimeStr);
+            }
+        }
+
+        function formatDateTimeWithExtraMinuteForCalled(dateTimeStr) {
+            return formatDateTimeWithExtraMinute(dateTimeStr);
         }
 
         function calculateWaitTime(arrivalDateTime) {
@@ -2903,18 +2888,110 @@
             }
         }
 
-        // ========== FUNÇÃO backupProcessData ========== //
-        function backupProcessData() {
-            const processData = loadProcessData();
-            const dataStr = JSON.stringify(processData, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `backup_processos_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-            alert(`📦 Backup exportado!\n${Object.keys(processData).length} registros.`);
+        // ========== CONFIGURAÇÃO DE EVENT LISTENERS ========== //
+        function setupEventListeners() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const target = this.getAttribute('data-target');
+                    showSection(target);
+                });
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    showTab(tabId);
+                });
+            });
+            
+            document.getElementById('search-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const ticket = document.getElementById('ticket-input').value.trim();
+                if (ticket) searchDriver(ticket);
+            });
+            
+            document.getElementById('go-to-process').addEventListener('click', function() {
+                showSection('process-section');
+                renderProcessTimeline();
+            });
+            
+            document.getElementById('report-generate').addEventListener('click', generateReport);
+            document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
+            document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
+            
+            document.getElementById('upload-btn').addEventListener('click', function() {
+                document.getElementById('file-input').click();
+            });
+            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            
+            document.getElementById('upload-carga-btn').addEventListener('click', function() {
+                document.getElementById('carga-file-input').click();
+            });
+            
+            document.getElementById('carga-file-input').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    currentCargaFile = file;
+                    handleCargaFileUpload(file);
+                }
+            });
+            
+            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
+                if (currentCargaFile) {
+                    handleCargaFileUpload(currentCargaFile);
+                } else {
+                    alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
+                }
+            });
+            
+            document.getElementById('debug-carga-btn').addEventListener('click', function() {
+                const ticket = prompt("Digite a senha para verificar o status da carga:");
+                if (ticket) {
+                    debugCargaStatus(ticket);
+                }
+            });
+            
+            document.getElementById('sync-supabase-btn').addEventListener('click', async function() {
+                this.disabled = true;
+                this.innerHTML = '⏳ Sincronizando...';
+                try {
+                    await saveData();
+                    alert('✅ Sincronização concluída!');
+                } catch (error) {
+                    alert('❌ Erro na sincronização: ' + error.message);
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = '🔄 Sincronizar Supabase';
+                }
+            });
+            
+            const uploadArea = document.getElementById('upload-area');
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', function() {
+                this.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) handleFile(files[0]);
+            });
+            
+            document.getElementById('confirm-upload').addEventListener('click', confirmUpload);
+            document.getElementById('cancel-upload').addEventListener('click', cancelUpload);
+            
+            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
+                document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
+                renderDriversTable();
+            });
+            
+            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
+            setupColumnFilters();
+            setupFilterListeners();
         }
 
         // ========== INICIALIZAÇÃO ========== //
