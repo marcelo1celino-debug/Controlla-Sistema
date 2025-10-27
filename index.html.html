@@ -814,6 +814,25 @@
             margin-bottom: 15px;
             font-size: 0.9rem;
         }
+
+        /* ========== ESTILOS PARA BOTÕES DA ENCOSTA ========== */
+        .processo-encosta {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .processo-encosta:hover {
+            background-color: #012a4a;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -1469,6 +1488,35 @@
             console.log(`📊 Cargas no sistema: ${Array.from(cargaData).slice(0, 5).join(', ')}${cargaData.size > 5 ? '...' : ''}`);
             
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
+        }
+
+        // ========== FUNÇÃO PARA IR AO PROCESSO DA ENCOSTA ========== //
+        function goToProcessFromEncosta(ticket) {
+            console.log('=== REDIRECIONANDO PARA PROCESSO DA ENCOSTA ===');
+            
+            // Busca o motorista pela senha
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (driver) {
+                currentDriver = driver;
+                
+                // Atualiza o campo de busca
+                document.getElementById('ticket-input').value = ticket;
+                
+                // Mostra as informações do motorista
+                displayDriverInfo(driver);
+                document.getElementById('driver-result').style.display = 'block';
+                document.getElementById('driver-not-found').style.display = 'none';
+                
+                // Redireciona para a seção de processo
+                showSection('process-section');
+                renderProcessTimeline();
+                
+                console.log(`✅ Redirecionado para processo da senha: ${ticket}`);
+            } else {
+                console.log(`❌ Senha ${ticket} não encontrada`);
+                alert(`❌ Senha ${ticket} não encontrada na base de dados`);
+            }
         }
 
         // ========== SISTEMA SUPABASE (COM FALLBACK) ========== //
@@ -2762,6 +2810,7 @@
                                 <th>Status</th>
                                 <th>Tempo de Espera</th>
                                 <th>Status Carga</th>
+                                <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2783,12 +2832,23 @@
                         <td>${driver.status || '-'}</td>	
                         <td>${waitTime}</td>
                         <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                        </td>
                     </tr>
                 `;
             });
             
             encostaHTML += `</tbody></table></div>`;
             encostaContent.innerHTML = encostaHTML;
+            
+            // Adicionar event listeners para os botões de processo
+            document.querySelectorAll('.processo-encosta').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const ticket = this.getAttribute('data-ticket');
+                    goToProcessFromEncosta(ticket);
+                });
+            });
         }
 
         function calculateWaitTime(arrivalDateTime) {
