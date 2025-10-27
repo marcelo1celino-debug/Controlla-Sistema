@@ -6,7 +6,7 @@
     <title>Controlla - Sistema de Controle de Comparecimento</title>
     
     <!-- FAVICON TEMPORÁRIO - Substituirei pelo seu quando enviar -->
-     <link rel="icon" type="image/x-icon" href="favicon.ico">
+   <link rel="icon" type="image/x-icon" href="favicon.ico">
     
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#013A63">
@@ -1476,7 +1476,7 @@
                     supplier: 'Logística XYZ',
                     cd: 'CD002',
                     truckPlate: 'XYZ5678',
-                    status: 'AGENDADO',
+                    status: 'CONFERENCIA',
                     scheduleDateTime: '15/10/2023 09:00',
                     arrivalDateTime: '15/10/2023 09:05',
                     contatoFeito: '15/10/2023 09:10',
@@ -1489,12 +1489,38 @@
                     supplier: 'Transportes ABC', 
                     cd: 'CD001',
                     truckPlate: 'DEF9012',
-                    status: 'AGENDADO',
+                    status: 'PARA AGENDAR',
                     scheduleDateTime: '16/10/2023 07:30',
                     arrivalDateTime: '16/10/2023 07:35',
                     contatoFeito: '16/10/2023 07:40',
                     liberacaoEntregue: '16/10/2023 08:20',
                     encostouDoca: '-'
+                },
+                {
+                    ticket: '1004',
+                    driverName: 'Carlos Souza',
+                    supplier: 'Logística XYZ',
+                    cd: 'CD002',
+                    truckPlate: 'GHI3456',
+                    status: 'FINALIZADO',
+                    scheduleDateTime: '16/10/2023 10:00',
+                    arrivalDateTime: '16/10/2023 10:05',
+                    contatoFeito: '16/10/2023 10:15',
+                    liberacaoEntregue: '16/10/2023 11:30',
+                    encostouDoca: '16/10/2023 12:00'
+                },
+                {
+                    ticket: '1005',
+                    driverName: 'Ana Costa',
+                    supplier: 'Transportes ABC',
+                    cd: 'CD001',
+                    truckPlate: 'JKL7890',
+                    status: 'LIBERADO P/ PGTO',
+                    scheduleDateTime: '16/10/2023 11:00',
+                    arrivalDateTime: '16/10/2023 11:05',
+                    contatoFeito: '16/10/2023 11:20',
+                    liberacaoEntregue: '16/10/2023 12:45',
+                    encostouDoca: '16/10/2023 13:15'
                 }
             ];
             
@@ -1505,7 +1531,7 @@
             console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
         }
 
-        // ========== FUNÇÃO updateDatabaseStats CORRIGIDA ========== //
+        // ========== FUNÇÃO updateDatabaseStats ATUALIZADA ========== //
         function updateDatabaseStats() {
             try {
                 const totalDrivers = driversData.length;
@@ -1515,30 +1541,43 @@
                     .filter(supplier => supplier && supplier !== '-' && supplier !== '');
                 const totalSuppliers = [...new Set(suppliers)].length;
                 
-                const activeProcesses = driversData.filter(d => 
-                    d.arrivalDateTime && d.arrivalDateTime !== '-' && 
-                    (!d.releaseTime || d.releaseTime === '-' || d.releaseTime === '')
-                ).length;
+                // ========== NOVA LÓGICA PARA PROCESSOS ATIVOS ========== //
+                // Considera apenas os status: AGENDADO, CONFERENCIA, PARA AGENDAR
+                // Exclui: LIBERADO P/ PGTO e outros status
+                const activeProcesses = driversData.filter(d => {
+                    const status = d.status ? d.status.toString().trim().toUpperCase() : '';
+                    const statusAtivos = ['AGENDADO', 'CONFERENCIA', 'PARA AGENDAR'];
+                    return statusAtivos.includes(status);
+                }).length;
                 
                 // ========== NOVA LÓGICA PARA FINALIZADOS HOJE ========== //
+                // Considera apenas registros com status "FINALIZADO" na coluna F
                 const completedToday = driversData.filter(d => {
                     try {
-                        // Considera finalizado se tem "Encostou em Doca" preenchido
-                        if (!d.encostouDoca || d.encostouDoca === '-' || d.encostouDoca === '' || d.encostouDoca === null || d.encostouDoca === undefined) {
+                        const status = d.status ? d.status.toString().trim().toUpperCase() : '';
+                        
+                        // Verifica se o status é "FINALIZADO"
+                        if (status !== 'FINALIZADO') {
                             return false;
                         }
                         
-                        const encostouStr = String(d.encostouDoca);
+                        // Verifica se tem data de chegada (para garantir que é um processo válido)
+                        if (!d.arrivalDateTime || d.arrivalDateTime === '-' || d.arrivalDateTime === '') {
+                            return false;
+                        }
+                        
+                        // Tenta extrair a data da chegada para verificar se é hoje
+                        const arrivalStr = String(d.arrivalDateTime);
                         const today = new Date();
                         const todayDay = today.getDate().toString().padStart(2, '0');
                         const todayMonth = (today.getMonth() + 1).toString().padStart(2, '0');
                         const todayYear = today.getFullYear();
                         const todayFormatted = `${todayDay}/${todayMonth}/${todayYear}`;
                         
-                        return encostouStr.includes(todayFormatted);
+                        return arrivalStr.includes(todayFormatted);
                         
                     } catch (error) {
-                        console.log('Erro ao verificar data de encostou em doca:', d.encostouDoca, error);
+                        console.log('Erro ao verificar finalizado hoje:', d.status, error);
                         return false;
                     }
                 }).length;
@@ -1679,7 +1718,7 @@
             alert(`✅ ${stepName} registrado com sucesso!\nData: ${formattedDateTime}\n\n📋 Registro preservado em nuvem.`);
         }
 
-        // ========== NOVA FUNÇÃO: undoProcessStep ========== //
+        // ========== FUNÇÃO undoProcessStep ========== //
         async function undoProcessStep(ticket, stepField) {
             console.log('=== DESFAZER ETAPA ===');
             
@@ -1903,7 +1942,7 @@
             return stepNames[stepField] || stepField;
         }
 
-        // ========== FUNÇÃO renderProcessTimeline ATUALIZADA ========== //
+        // ========== FUNÇÃO renderProcessTimeline ========== //
         function renderProcessTimeline() {
             if (!currentDriver) return;
             
@@ -1979,7 +2018,7 @@
                     `;
                 }
                 
-                // ========== BOTÃO DESFAZER PARA ETAPAS COMPLETADAS ========== //
+                // BOTÃO DESFAZER PARA ETAPAS COMPLETADAS
                 if (step.completed) {
                     timelineHTML += `
                             <button class="btn btn-danger btn-small undo-step" 
@@ -2018,7 +2057,7 @@
                 });
             });
             
-            // ========== NOVOS EVENT LISTENERS PARA DESFAZER ETAPAS ========== //
+            // EVENT LISTENERS PARA DESFAZER ETAPAS
             document.querySelectorAll('.undo-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
