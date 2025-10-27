@@ -4,13 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlla - Sistema de Controle de Comparecimento</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚛</text></svg>">
+    
+    <!-- FAVICON TEMPORÁRIO - Substituirei pelo seu quando enviar -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23013A63'/><path d='M30 30 L70 30 L70 50 L50 50 L50 70 L30 70 Z' fill='white'/><circle cx='65' cy='65' r='15' fill='%232ECC71'/></svg>">
+    
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#013A63">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
         :root {
             --primary-color: #013A63;
@@ -301,6 +305,10 @@
         
         .step-actions {
             margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
         }
         
         .dashboard-controls {
@@ -1512,23 +1520,25 @@
                     (!d.releaseTime || d.releaseTime === '-' || d.releaseTime === '')
                 ).length;
                 
+                // ========== NOVA LÓGICA PARA FINALIZADOS HOJE ========== //
                 const completedToday = driversData.filter(d => {
                     try {
-                        if (!d.releaseTime || d.releaseTime === '-' || d.releaseTime === '' || d.releaseTime === null || d.releaseTime === undefined) {
+                        // Considera finalizado se tem "Encostou em Doca" preenchido
+                        if (!d.encostouDoca || d.encostouDoca === '-' || d.encostouDoca === '' || d.encostouDoca === null || d.encostouDoca === undefined) {
                             return false;
                         }
                         
-                        const releaseStr = String(d.releaseTime);
+                        const encostouStr = String(d.encostouDoca);
                         const today = new Date();
                         const todayDay = today.getDate().toString().padStart(2, '0');
                         const todayMonth = (today.getMonth() + 1).toString().padStart(2, '0');
                         const todayYear = today.getFullYear();
                         const todayFormatted = `${todayDay}/${todayMonth}/${todayYear}`;
                         
-                        return releaseStr.includes(todayFormatted);
+                        return encostouStr.includes(todayFormatted);
                         
                     } catch (error) {
-                        console.log('Erro ao verificar data de liberação:', d.releaseTime, error);
+                        console.log('Erro ao verificar data de encostou em doca:', d.encostouDoca, error);
                         return false;
                     }
                 }).length;
@@ -1667,6 +1677,38 @@
             
             const stepName = getStepName(stepField);
             alert(`✅ ${stepName} registrado com sucesso!\nData: ${formattedDateTime}\n\n📋 Registro preservado em nuvem.`);
+        }
+
+        // ========== NOVA FUNÇÃO: undoProcessStep ========== //
+        async function undoProcessStep(ticket, stepField) {
+            console.log('=== DESFAZER ETAPA ===');
+            
+            if (!currentDriver) {
+                currentDriver = driversData.find(d => d.ticket === ticket);
+            }
+            
+            if (!currentDriver) {
+                alert('❌ Motorista não encontrado para desfazer etapa.');
+                return;
+            }
+            
+            const stepName = getStepName(stepField);
+            
+            if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?`)) {
+                currentDriver[stepField] = '-';
+                
+                if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
+                    driversData.push(currentDriver);
+                }
+                
+                saveProcessData();
+                await saveData();
+                
+                displayDriverInfo(currentDriver);
+                renderProcessTimeline();
+                
+                alert(`✅ ${stepName} desfeito com sucesso para a senha ${ticket}!`);
+            }
         }
 
         // ========== FUNÇÃO confirmUpload ========== //
@@ -1861,7 +1903,7 @@
             return stepNames[stepField] || stepField;
         }
 
-        // ========== FUNÇÃO renderProcessTimeline ========== //
+        // ========== FUNÇÃO renderProcessTimeline ATUALIZADA ========== //
         function renderProcessTimeline() {
             if (!currentDriver) return;
             
@@ -1937,6 +1979,17 @@
                     `;
                 }
                 
+                // ========== BOTÃO DESFAZER PARA ETAPAS COMPLETADAS ========== //
+                if (step.completed) {
+                    timelineHTML += `
+                            <button class="btn btn-danger btn-small undo-step" 
+                                    data-step="${step.field}" 
+                                    data-ticket="${currentDriver.ticket}">
+                                ↩️ Desfazer
+                            </button>
+                    `;
+                }
+                
                 timelineHTML += `</div></div>`;
             });
             
@@ -1952,6 +2005,7 @@
             
             processContent.innerHTML = timelineHTML;
             
+            // Event listeners para registrar etapas
             document.querySelectorAll('.register-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
@@ -1961,6 +2015,15 @@
                         const ticket = this.getAttribute('data-ticket');
                         registerProcessStep(ticket, stepField);
                     }
+                });
+            });
+            
+            // ========== NOVOS EVENT LISTENERS PARA DESFAZER ETAPAS ========== //
+            document.querySelectorAll('.undo-step').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const stepField = this.getAttribute('data-step');
+                    const ticket = this.getAttribute('data-ticket');
+                    undoProcessStep(ticket, stepField);
                 });
             });
         }
