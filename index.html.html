@@ -1241,6 +1241,8 @@
                     <div class="dashboard-controls">
                         <button class="btn btn-warning" id="reset-drivers-btn">Limpar Todos os Filtros</button>
                         <button class="btn btn-danger" id="clear-database-btn">Limpar Base de Dados</button>
+                        <button class="btn btn-primary" id="backup-processos-btn">💾 Backup Processos</button>
+                        <button class="btn btn-success" id="restore-processos-btn">🔄 Restaurar Processos</button>
                         <button class="btn btn-success hidden-controls" id="sync-supabase-btn">🔄 Sincronizar Supabase</button>
                         <button class="btn btn-primary hidden-controls" id="force-refresh-btn">🔄 Atualizar Interface</button>
                     </div>
@@ -1338,6 +1340,9 @@
         let supabaseSubscription = null;
         let lastUpdateTime = null;
         
+        // ========== SISTEMA DE BACKUP DE PROCESSOS ========== //
+        let processBackupData = {}; // { ticket: { contatoFeito, liberacaoEntregue, encostouDoca } }
+        
         // ========== SISTEMA DE CARGA ========== //
         let cargaData = new Set();
         let currentCargaFile = null;
@@ -1383,6 +1388,141 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
+        // ========== SISTEMA DE BACKUP DE PROCESSOS ========== //
+
+        // 1. CARREGAR BACKUP DE PROCESSOS
+        function loadProcessBackup() {
+            try {
+                const savedBackup = localStorage.getItem('processBackupData');
+                if (savedBackup) {
+                    processBackupData = JSON.parse(savedBackup);
+                    console.log('✅ Backup de processos carregado:', Object.keys(processBackupData).length, 'processos');
+                    return true;
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar backup de processos:', error);
+            }
+            return false;
+        }
+
+        // 2. SALVAR BACKUP DE PROCESSOS
+        function saveProcessBackup() {
+            try {
+                // Atualizar backup com dados atuais dos processos
+                driversData.forEach(driver => {
+                    if (driver.ticket && (driver.contatoFeito !== '-' || driver.liberacaoEntregue !== '-' || driver.encostouDoca !== '-')) {
+                        processBackupData[driver.ticket] = {
+                            contatoFeito: driver.contatoFeito || '-',
+                            liberacaoEntregue: driver.liberacaoEntregue || '-',
+                            encostouDoca: driver.encostouDoca || '-',
+                            driverName: driver.driverName || 'N/A',
+                            supplier: driver.supplier || 'N/A'
+                        };
+                    }
+                });
+                
+                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
+                console.log('✅ Backup de processos salvo:', Object.keys(processBackupData).length, 'processos');
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao salvar backup de processos:', error);
+                return false;
+            }
+        }
+
+        // 3. RESTAURAR PROCESSOS DO BACKUP
+        function restoreProcessBackup() {
+            try {
+                let restoredCount = 0;
+                
+                driversData.forEach(driver => {
+                    if (driver.ticket && processBackupData[driver.ticket]) {
+                        const backup = processBackupData[driver.ticket];
+                        
+                        // Restaurar apenas se os campos estiverem vazios no driver atual
+                        if ((!driver.contatoFeito || driver.contatoFeito === '-') && backup.contatoFeito !== '-') {
+                            driver.contatoFeito = backup.contatoFeito;
+                            restoredCount++;
+                        }
+                        
+                        if ((!driver.liberacaoEntregue || driver.liberacaoEntregue === '-') && backup.liberacaoEntregue !== '-') {
+                            driver.liberacaoEntregue = backup.liberacaoEntregue;
+                            restoredCount++;
+                        }
+                        
+                        if ((!driver.encostouDoca || driver.encostouDoca === '-') && backup.encostouDoca !== '-') {
+                            driver.encostouDoca = backup.encostouDoca;
+                            restoredCount++;
+                        }
+                    }
+                });
+                
+                if (restoredCount > 0) {
+                    saveData();
+                    updateInterface();
+                    showNotification(`✅ ${restoredCount} processos restaurados do backup!`, 'success');
+                } else {
+                    showNotification('ℹ️ Nenhum processo para restaurar do backup.', 'info');
+                }
+                
+                return restoredCount;
+            } catch (error) {
+                console.error('❌ Erro ao restaurar backup de processos:', error);
+                showNotification('❌ Erro ao restaurar processos do backup.', 'error');
+                return 0;
+            }
+        }
+
+        // 4. EXPORTAR BACKUP DE PROCESSOS
+        function exportProcessBackup() {
+            try {
+                const backupData = {
+                    timestamp: new Date().toISOString(),
+                    totalProcesses: Object.keys(processBackupData).length,
+                    processes: processBackupData
+                };
+                
+                const dataStr = JSON.stringify(backupData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `backup_processos_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                showNotification(`✅ Backup exportado com ${Object.keys(processBackupData).length} processos!`, 'success');
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao exportar backup:', error);
+                showNotification('❌ Erro ao exportar backup.', 'error');
+                return false;
+            }
+        }
+
+        // 5. IMPORTAR BACKUP DE PROCESSOS
+        function importProcessBackup(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.processes) {
+                        processBackupData = importedData.processes;
+                        saveProcessBackup();
+                        showNotification(`✅ Backup importado com ${Object.keys(processBackupData).length} processos!`, 'success');
+                    } else {
+                        throw new Error('Formato de backup inválido');
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao importar backup:', error);
+                    showNotification('❌ Erro ao importar backup. Verifique o formato do arquivo.', 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
 
         // 1. CONFIGURAR ATUALIZAÇÃO AUTOMÁTICA DA INTERFACE
@@ -1398,6 +1538,11 @@
             setInterval(() => {
                 checkForDataChanges();
             }, 2000);
+            
+            // Fazer backup automático a cada 30 segundos
+            setInterval(() => {
+                saveProcessBackup();
+            }, 30000);
         }
 
         // 2. VERIFICAR MUDANÇAS NOS DADOS
@@ -1418,7 +1563,8 @@
             return JSON.stringify({
                 driversCount: driversData.length,
                 lastUpdate: lastUpdateTime,
-                cargaCount: cargaData.size
+                cargaCount: cargaData.size,
+                processBackupCount: Object.keys(processBackupData).length
             });
         }
 
@@ -1651,6 +1797,9 @@
         // 8. MELHORAR O SISTEMA DE SALVAMENTO
         async function saveData() {
             try {
+                // Fazer backup dos processos antes de salvar
+                saveProcessBackup();
+                
                 const success = await saveToSupabase();
                 if (success) {
                     updateSyncStatus(true);
@@ -1709,6 +1858,9 @@
 
         // 9. SINCRONIZAÇÃO INICIAL MELHORADA
         async function initializeData() {
+            // Carregar backup de processos primeiro
+            loadProcessBackup();
+            
             // Carregar dados
             const hasData = await loadData();
             
@@ -3254,6 +3406,19 @@
                 const ticket = prompt("Digite a senha para verificar o status da carga:");
                 if (ticket) {
                     debugCargaStatus(ticket);
+                }
+            });
+            
+            // Novos botões de backup
+            document.getElementById('backup-processos-btn').addEventListener('click', function() {
+                saveProcessBackup();
+                showNotification(`✅ Backup criado com ${Object.keys(processBackupData).length} processos!`, 'success');
+            });
+            
+            document.getElementById('restore-processos-btn').addEventListener('click', function() {
+                const restored = restoreProcessBackup();
+                if (restored > 0) {
+                    showNotification(`✅ ${restored} processos restaurados do backup!`, 'success');
                 }
             });
             
