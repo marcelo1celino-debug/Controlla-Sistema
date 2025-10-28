@@ -1936,6 +1936,97 @@
             }, 5000);
         }
 
+        // ========== SISTEMA DE PRESERVAÇÃO DE DADOS DO PROCESSO ========== //
+        
+        // Função para fazer merge inteligente preservando dados do processo
+        function mergeDriverData(existingDriver, newDriver) {
+            // Preservar dados do processo se existirem
+            const preservedData = {
+                contatoFeito: existingDriver.contatoFeito || '-',
+                liberacaoEntregue: existingDriver.liberacaoEntregue || '-',
+                encostouDoca: existingDriver.encostouDoca || '-'
+            };
+            
+            // Combinar dados existentes com novos, preservando o processo
+            return {
+                ...newDriver,
+                ...preservedData,
+                // Garantir que campos essenciais do processo existam
+                contatoFeito: preservedData.contatoFeito,
+                liberacaoEntregue: preservedData.liberacaoEntregue,
+                encostouDoca: preservedData.encostouDoca
+            };
+        }
+
+        // Função para fazer upload preservando dados do processo
+        async function confirmUploadWithProcessPreservation() {
+            if (!window.uploadData) return;
+            
+            const { headers, rows } = window.uploadData;
+            const newDrivers = [];
+            const newSuppliers = new Set();
+            const newCDs = new Set();
+            
+            // Carregar dados existentes para preservar o processo
+            const existingDriversMap = new Map();
+            driversData.forEach(driver => {
+                if (driver.ticket) {
+                    existingDriversMap.set(driver.ticket.toString().trim(), driver);
+                }
+            });
+            
+            let preservedCount = 0;
+            let newCount = 0;
+            
+            rows.forEach((row) => {
+                const driver = {};
+                
+                headers.forEach((header, colIndex) => {
+                    if (header && columnMapping[header]) {
+                        driver[columnMapping[header]] = row[colIndex];
+                    }
+                });
+                
+                if (driver.ticket) {
+                    const ticketKey = driver.ticket.toString().trim();
+                    
+                    // Verificar se já existe um motorista com esta senha
+                    if (existingDriversMap.has(ticketKey)) {
+                        const existingDriver = existingDriversMap.get(ticketKey);
+                        
+                        // Fazer merge preservando dados do processo
+                        const mergedDriver = mergeDriverData(existingDriver, driver);
+                        newDrivers.push(mergedDriver);
+                        preservedCount++;
+                    } else {
+                        // Novo motorista - inicializar campos do processo
+                        if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
+                        if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
+                        if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+                        
+                        newDrivers.push(driver);
+                        newCount++;
+                    }
+                    
+                    if (driver.supplier) newSuppliers.add(driver.supplier);
+                    if (driver.cd) newCDs.add(driver.cd);
+                }
+            });
+            
+            driversData = newDrivers;
+            suppliersList = Array.from(newSuppliers);
+            cdList = Array.from(newCDs);
+            
+            await saveData();
+            
+            updateDatabaseStats();
+            renderDriversTable();
+            cancelUpload();
+            
+            // Mostrar relatório do merge
+            showNotification(`✅ Base atualizada com sucesso! ${preservedCount} processos preservados, ${newCount} novos registros.`, 'success');
+        }
+
         // ========== FUNÇÕES PRINCIPAIS ========== //
         function createSampleData() {
             const sampleDrivers = [
@@ -2097,24 +2188,49 @@
         }
 
         function getProcessStatus(driver) {
-            if (driver.encostouDoca && driver.encostouDoca !== '-') return 'Encostou em Doca';
-            if (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') return 'Liberação Entregue';
-            if (driver.contatoFeito && driver.contatoFeito !== '-') return 'Contato Feito';
+            if (!driver) return 'Não definido';
+            
+            // Garantir que os campos existam
+            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
+            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
+            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+            
+            if (driver.encostouDoca && driver.encostouDoca !== '-') {
+                return 'Encostou em Doca';
+            }
+            if (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') {
+                return 'Liberação Entregue';
+            }
+            if (driver.contatoFeito && driver.contatoFeito !== '-') {
+                return 'Contato Feito';
+            }
             return 'Aguardando Contato';
         }
 
         function getStepName(stepField) {
             const stepNames = {
                 'contatoFeito': 'Contato Feito',
-                'liberacaoEntregue': 'Liberação Entregue',
+                'liberacaoEntregue': 'Liberação Entregue', 
                 'encostouDoca': 'Encostou em Doca'
             };
             return stepNames[stepField] || stepField;
         }
 
-        // ========== FUNÇÕES DO PROCESSO ========== //
+        // ========== FUNÇÕES DO PROCESSO - CORRIGIDAS ========== //
         function renderProcessTimeline() {
-            if (!currentDriver) return;
+            if (!currentDriver) {
+                const processContent = document.getElementById('process-content');
+                processContent.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Nenhum motorista selecionado</strong><br>
+                        Volte à seção de busca e selecione uma senha para visualizar as etapas do processo.
+                    </div>
+                    <button class="btn btn-primary" onclick="showSection('search-section')">
+                        🔍 Voltar para Busca
+                    </button>
+                `;
+                return;
+            }
             
             const processContent = document.getElementById('process-content');
             const steps = [
@@ -2124,7 +2240,7 @@
                     time: currentDriver.contatoFeito || '-', 
                     completed: !!currentDriver.contatoFeito && currentDriver.contatoFeito !== '-',
                     field: 'contatoFeito',
-                    buttonText: 'Registrar Contato Feito'
+                    buttonText: '✅ Registrar Contato Feito'
                 },
                 { 
                     id: 'liberacao', 
@@ -2132,7 +2248,7 @@
                     time: currentDriver.liberacaoEntregue || '-', 
                     completed: !!currentDriver.liberacaoEntregue && currentDriver.liberacaoEntregue !== '-',
                     field: 'liberacaoEntregue',
-                    buttonText: 'Registrar Liberação Entregue'
+                    buttonText: '📄 Registrar Liberação Entregue'
                 },
                 { 
                     id: 'doca', 
@@ -2140,7 +2256,7 @@
                     time: currentDriver.encostouDoca || '-', 
                     completed: !!currentDriver.encostouDoca && currentDriver.encostouDoca !== '-',
                     field: 'encostouDoca',
-                    buttonText: 'Registrar Encostou em Doca'
+                    buttonText: '🚛 Registrar Encostou em Doca'
                 }
             ];
             
@@ -2152,11 +2268,15 @@
                     <div class="info-grid">
                         <div class="info-item">
                             <span class="info-label">Senha</span>
-                            <span class="info-value">${currentDriver.ticket}</span>
+                            <span class="info-value">${currentDriver.ticket || '-'}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Motorista</span>
-                            <span class="info-value">${currentDriver.driverName}</span>
+                            <span class="info-value">${currentDriver.driverName || '-'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Fornecedor</span>
+                            <span class="info-value">${currentDriver.supplier || '-'}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Status Atual</span>
@@ -2164,17 +2284,20 @@
                         </div>
                     </div>
                 </div>
+                
+                <h3>📋 Etapas do Processo</h3>
                 <div class="timeline">
             `;
             
             steps.forEach((step, index) => {
                 let stepClass = step.completed ? 'completed' : (index === nextStepIndex ? 'current' : '');
+                let stepIcon = step.completed ? '✅' : (index === nextStepIndex ? '🟡' : '⚪');
                 
                 timelineHTML += `
                     <div class="timeline-step">
-                        <div class="step-icon ${stepClass}">${index + 1}</div>
-                        <div class="step-label">${step.label}</div>
-                        <div class="step-time">${step.time}</div>
+                        <div class="step-icon ${stepClass}">${stepIcon}</div>
+                        <div class="step-label"><strong>${step.label}</strong></div>
+                        <div class="step-time">${step.time !== '-' ? step.time : 'Não registrado'}</div>
                         <div class="step-actions">
                 `;
                 
@@ -2190,7 +2313,7 @@
                 
                 if (step.completed) {
                     timelineHTML += `
-                            <button class="btn btn-danger btn-small undo-step" 
+                            <button class="btn btn-outline btn-small undo-step" 
                                     data-step="${step.field}" 
                                     data-ticket="${currentDriver.ticket}">
                                 ↩️ Desfazer
@@ -2203,25 +2326,40 @@
             
             timelineHTML += `</div>`;
             
+            // Adicionar estatísticas do processo
+            const completedSteps = steps.filter(step => step.completed).length;
+            const totalSteps = steps.length;
+            
+            timelineHTML += `
+                <div class="database-stats" style="margin-top: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value">${completedSteps}/${totalSteps}</div>
+                        <div class="stat-label">Etapas Concluídas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${getProcessStatus(currentDriver)}</div>
+                        <div class="stat-label">Status do Processo</div>
+                    </div>
+                </div>
+            `;
+            
             if (nextStepIndex === steps.length) {
                 timelineHTML += `
                     <div class="alert alert-success" style="margin-top: 20px;">
-                        <strong>✅ Processo Concluído!</strong> Todas as etapas foram registradas.
+                        <strong>🎉 Processo Concluído!</strong> Todas as etapas foram registradas com sucesso.
                     </div>
                 `;
             }
             
             processContent.innerHTML = timelineHTML;
             
+            // Adicionar event listeners aos botões
             document.querySelectorAll('.register-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
-                    if (currentDriver && currentDriver.ticket) {
-                        registerProcessStep(currentDriver.ticket, stepField);
-                    } else {
-                        const ticket = this.getAttribute('data-ticket');
-                        registerProcessStep(ticket, stepField);
-                    }
+                    const ticket = this.getAttribute('data-ticket');
+                    console.log('Clicou em registrar:', stepField, ticket);
+                    registerProcessStep(ticket, stepField);
                 });
             });
             
@@ -2229,66 +2367,100 @@
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
                     const ticket = this.getAttribute('data-ticket');
+                    console.log('Clicou em desfazer:', stepField, ticket);
                     undoProcessStep(ticket, stepField);
                 });
             });
         }
 
         async function registerProcessStep(ticket, stepField) {
-            if (!currentDriver) {
-                currentDriver = driversData.find(d => d.ticket === ticket);
-            }
+            console.log(`Registrando etapa ${stepField} para senha ${ticket}`);
             
-            if (!currentDriver) {
-                currentDriver = {
+            // Buscar o motorista na base de dados
+            let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (!driver) {
+                // Se não encontrou, criar um registro básico
+                driver = {
                     ticket: ticket,
                     driverName: 'Motorista Não Cadastrado',
+                    supplier: '-',
+                    cd: '-',
+                    status: 'AGENDADO',
                     contatoFeito: '-',
-                    liberacaoEntregue: '-',
+                    liberacaoEntregue: '-', 
                     encostouDoca: '-'
                 };
+                driversData.push(driver);
             }
             
-            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
-            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
-            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
+            // Garantir que os campos de processo existam
+            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
+            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
+            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
             
+            // Registrar o horário atual
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             
-            currentDriver[stepField] = formattedDateTime;
+            // Atualizar a etapa específica
+            driver[stepField] = formattedDateTime;
             
-            if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
-                driversData.push(currentDriver);
+            // Atualizar currentDriver se for o mesmo ticket
+            if (currentDriver && currentDriver.ticket === ticket) {
+                currentDriver = driver;
             }
             
+            // Salvar no banco de dados
             await saveData();
             
+            // Atualizar a interface
             updateInterface();
+            
+            // Mostrar confirmação
+            const stepName = getStepName(stepField);
+            showNotification(`✅ ${stepName} registrado para senha ${ticket}`, 'success');
+            
+            console.log('Etapa registrada com sucesso:', driver);
         }
 
         async function undoProcessStep(ticket, stepField) {
-            if (!currentDriver) {
-                currentDriver = driversData.find(d => d.ticket === ticket);
-            }
+            console.log(`Desfazendo etapa ${stepField} para senha ${ticket}`);
             
-            if (!currentDriver) {
-                alert('❌ Motorista não encontrado para desfazer etapa.');
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (!driver) {
+                showNotification('❌ Motorista não encontrado', 'error');
                 return;
             }
             
             const stepName = getStepName(stepField);
+            const currentValue = driver[stepField];
             
-            if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?`)) {
-                currentDriver[stepField] = '-';
+            if (!currentValue || currentValue === '-') {
+                showNotification(`ℹ️ A etapa "${stepName}" já está vazia`, 'info');
+                return;
+            }
+            
+            if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
+                // Limpar o campo da etapa
+                driver[stepField] = '-';
                 
-                if (!driversData.find(d => d.ticket === currentDriver.ticket)) {
-                    driversData.push(currentDriver);
+                // Atualizar currentDriver se for o mesmo ticket
+                if (currentDriver && currentDriver.ticket === ticket) {
+                    currentDriver = driver;
                 }
                 
+                // Salvar no banco de dados
                 await saveData();
                 
+                // Atualizar a interface
                 updateInterface();
+                
+                // Mostrar confirmação
+                showNotification(`↩️ ${stepName} desfeito para senha ${ticket}`, 'warning');
+                
+                console.log('Etapa desfeita com sucesso:', driver);
             }
         }
 
@@ -2420,20 +2592,23 @@
             const endDate = document.getElementById('report-end-date').value;
             
             let filteredData = driversData.filter(driver => {
-                const hasProcessData = driver.contatoFeito !== '-' || 
-                                     driver.liberacaoEntregue !== '-' || 
-                                     driver.encostouDoca !== '-';
+                // Só incluir no relatório se tiver pelo menos UM campo de processo preenchido
+                const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                                     (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                                     (driver.encostouDoca && driver.encostouDoca !== '-');
                 
                 if (!hasProcessData) return false;
                 if (!startDate && !endDate) return true;
                 
                 let driverDate = null;
-                if (driver.contatoFeito !== '-') {
-                    driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+                
+                // Tentar encontrar a data mais recente do processo
+                if (driver.encostouDoca !== '-') {
+                    driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
                 } else if (driver.liberacaoEntregue !== '-') {
                     driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
-                } else if (driver.encostouDoca !== '-') {
-                    driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
+                } else if (driver.contatoFeito !== '-') {
+                    driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
                 }
                 
                 if (!driverDate) return false;
@@ -2767,7 +2942,7 @@
         }
 
         function clearDatabase() {
-            if (confirm('Tem certeza que deseja limpar toda a base de dados? Esta ação não pode ser desfeita.')) {
+            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar toda a base de dados?\n\n📋 Isso irá remover TODOS os dados, incluindo:\n• Todos os motoristas cadastrados\n• Todos os registros de processo (contato, liberação, doca)\n• Histórico completo\n\nEsta ação não pode ser desfeita.')) {
                 driversData = [];
                 suppliersList = [];
                 cdList = [];
@@ -2779,6 +2954,8 @@
                     currentDriver = null;
                     document.getElementById('driver-result').style.display = 'none';
                 }
+                
+                showNotification('🗑️ Base de dados limpa com sucesso!', 'warning');
             }
         }
 
@@ -2842,45 +3019,6 @@
             document.getElementById('file-preview').style.display = 'none';
             document.getElementById('file-input').value = '';
             window.uploadData = null;
-        }
-
-        async function confirmUpload() {
-            if (!window.uploadData) return;
-            
-            const { headers, rows } = window.uploadData;
-            const newDrivers = [];
-            const newSuppliers = new Set();
-            const newCDs = new Set();
-            
-            rows.forEach((row) => {
-                const driver = {};
-                
-                headers.forEach((header, colIndex) => {
-                    if (header && columnMapping[header]) {
-                        driver[columnMapping[header]] = row[colIndex];
-                    }
-                });
-                
-                if (driver.ticket) {
-                    if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-                    if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-                    if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-                    
-                    newDrivers.push(driver);
-                    if (driver.supplier) newSuppliers.add(driver.supplier);
-                    if (driver.cd) newCDs.add(driver.cd);
-                }
-            });
-            
-            driversData = newDrivers;
-            suppliersList = Array.from(newSuppliers);
-            cdList = Array.from(newCDs);
-            
-            await saveData();
-            
-            updateDatabaseStats();
-            renderDriversTable();
-            cancelUpload();
         }
 
         // ========== FUNÇÕES DE FORMATAÇÃO ATUALIZADAS ========== //
@@ -3134,7 +3272,8 @@
                 if (files.length > 0) handleFile(files[0]);
             });
             
-            document.getElementById('confirm-upload').addEventListener('click', confirmUpload);
+            // ATUALIZADO: Usar a nova função que preserva dados do processo
+            document.getElementById('confirm-upload').addEventListener('click', confirmUploadWithProcessPreservation);
             document.getElementById('cancel-upload').addEventListener('click', cancelUpload);
             
             document.getElementById('reset-drivers-btn').addEventListener('click', function() {
