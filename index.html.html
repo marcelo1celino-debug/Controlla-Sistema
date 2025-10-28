@@ -866,73 +866,19 @@
             border: 1px solid #c3e6cb;
         }
 
-        /* ========== NOVOS ESTILOS PARA SINCRONIZAÇÃO ========== */
-        .sync-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: var(--border-radius);
-            font-size: 0.8rem;
-            margin-left: 15px;
-        }
-
-        .sync-online {
-            background-color: rgba(46, 204, 113, 0.2);
-            color: var(--secondary-color);
-            border: 1px solid var(--secondary-color);
-        }
-
-        .sync-offline {
-            background-color: rgba(241, 196, 15, 0.2);
-            color: var(--warning-color);
-            border: 1px solid var(--warning-color);
-        }
-
-        .sync-error {
-            background-color: rgba(231, 76, 60, 0.2);
-            color: var(--danger-color);
-            border: 1px solid var(--danger-color);
-        }
-
-        /* ========== ANIMAÇÕES PARA NOTIFICAÇÕES ========== */
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .sync-pulse {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-
-        /* Estilo para notificações de sincronização */
-        .sync-notification {
-            font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
-        }
-
-        /* ========== ANIMAÇÃO PARA ATUALIZAÇÃO AUTOMÁTICA ========== */
+        /* ========== ANIMAÇÕES PARA ATUALIZAÇÃO AUTOMÁTICA ========== */
         @keyframes highlightUpdate {
-            0% { background-color: rgba(46, 204, 113, 0.3); }
+            0% { background-color: rgba(46, 204, 113, 0.1); }
             100% { background-color: transparent; }
         }
 
         .updated-row {
-            animation: highlightUpdate 2s ease-in-out;
+            animation: highlightUpdate 1.5s ease-in-out;
         }
 
-        .auto-refresh-indicator {
-            display: inline-block;
-            margin-left: 10px;
-            font-size: 0.7rem;
-            color: var(--secondary-color);
-            animation: pulse 1.5s infinite;
+        /* ========== ESTILOS OCULTOS ========== */
+        .hidden-controls {
+            display: none !important;
         }
     </style>
 </head>
@@ -955,9 +901,8 @@
                         <li><a href="#" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
                     </ul>
                 </nav>
-                <div id="sync-status" class="sync-status sync-online sync-pulse">
+                <div id="sync-status" class="hidden-controls">
                     <span>🟢 Online</span>
-                    <span class="auto-refresh-indicator" id="auto-refresh-indicator">⟳ Auto</span>
                 </div>
             </div>
         </div>
@@ -1296,8 +1241,8 @@
                     <div class="dashboard-controls">
                         <button class="btn btn-warning" id="reset-drivers-btn">Limpar Todos os Filtros</button>
                         <button class="btn btn-danger" id="clear-database-btn">Limpar Base de Dados</button>
-                        <button class="btn btn-success" id="sync-supabase-btn">🔄 Sincronizar Supabase</button>
-                        <button class="btn btn-primary" id="force-refresh-btn">🔄 Atualizar Interface</button>
+                        <button class="btn btn-success hidden-controls" id="sync-supabase-btn">🔄 Sincronizar Supabase</button>
+                        <button class="btn btn-primary hidden-controls" id="force-refresh-btn">🔄 Atualizar Interface</button>
                     </div>
                     
                     <!-- Container de Filtros Modernos -->
@@ -1438,23 +1383,21 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
-        // ========== SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA ========== //
+        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
 
         // 1. CONFIGURAR ATUALIZAÇÃO AUTOMÁTICA DA INTERFACE
         function setupAutoRefresh() {
-            console.log('🔄 Configurando atualização automática da interface...');
-            
-            // Atualizar a interface a cada 2 segundos
+            // Atualizar a interface a cada 1 segundo
             setInterval(() => {
                 if (isOnline) {
                     updateInterface();
                 }
-            }, 2000);
+            }, 1000);
             
-            // Verificar mudanças nos dados a cada 5 segundos
+            // Verificar mudanças nos dados a cada 2 segundos
             setInterval(() => {
                 checkForDataChanges();
-            }, 5000);
+            }, 2000);
         }
 
         // 2. VERIFICAR MUDANÇAS NOS DADOS
@@ -1466,27 +1409,22 @@
             const currentHash = generateDataHash();
             
             if (currentHash !== lastDataHash) {
-                console.log('🔄 Dados alterados detectados, atualizando interface...');
                 lastDataHash = currentHash;
                 updateInterface();
-                showSyncNotification('🔄 Dados atualizados automaticamente', 'info');
             }
         }
 
         function generateDataHash() {
-            // Criar um hash simples baseado nos dados atuais
             return JSON.stringify({
                 driversCount: driversData.length,
                 lastUpdate: lastUpdateTime,
-                currentSection: document.querySelector('.section.active')?.id
+                cargaCount: cargaData.size
             });
         }
 
         // 3. MELHORAR A SINCRONIZAÇÃO EM TEMPO REAL
         function setupRealtimeSubscription() {
             try {
-                console.log('🔄 Iniciando sincronização em tempo real...');
-                
                 // Cancelar subscription existente se houver
                 if (supabaseSubscription) {
                     supabaseSubscription.unsubscribe();
@@ -1497,32 +1435,25 @@
                     .on(
                         'postgres_changes',
                         {
-                            event: '*', // INSERT, UPDATE, DELETE
+                            event: '*',
                             schema: 'public',
                             table: 'drivers'
                         },
                         (payload) => {
-                            console.log('🔄 Evento em tempo real recebido:', payload);
                             handleRealtimeUpdate(payload);
                         }
                     )
                     .on('system', { event: 'disconnect' }, () => {
-                        console.log('🔌 Conexão perdida, tentando reconectar...');
                         updateSyncStatus(false);
                     })
                     .on('system', { event: 'reconnect' }, () => {
-                        console.log('✅ Reconectado ao Supabase');
                         updateSyncStatus(true);
                     })
                     .subscribe((status) => {
-                        console.log('📡 Status da subscription:', status);
                         if (status === 'SUBSCRIBED') {
                             updateSyncStatus(true);
-                            showSyncNotification('✅ Conectado em tempo real');
                         } else if (status === 'CHANNEL_ERROR') {
                             updateSyncStatus(false);
-                            console.error('❌ Erro na conexão em tempo real');
-                            // Tentar reconectar após 3 segundos
                             setTimeout(setupRealtimeSubscription, 3000);
                         }
                     });
@@ -1530,9 +1461,7 @@
                 return supabaseSubscription;
                 
             } catch (error) {
-                console.error('❌ Erro na sincronização em tempo real:', error);
                 updateSyncStatus(false);
-                // Tentar reconectar após 3 segundos
                 setTimeout(setupRealtimeSubscription, 3000);
                 return null;
             }
@@ -1541,8 +1470,6 @@
         // 4. MELHORAR O TRATAMENTO DE ATUALIZAÇÕES
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
-            
-            console.log(`🔄 Processando evento: ${eventType}`, newRecord || oldRecord);
             
             // Atualizar timestamp da última mudança
             lastUpdateTime = new Date().toISOString();
@@ -1557,8 +1484,6 @@
                 case 'DELETE':
                     handleDeleteEvent(oldRecord);
                     break;
-                default:
-                    console.log('⚠️ Evento desconhecido:', eventType);
             }
             
             // Forçar atualização imediata da interface
@@ -1572,7 +1497,6 @@
             const existingIndex = driversData.findIndex(d => d.ticket === newRecord.ticket);
             if (existingIndex === -1) {
                 driversData.push(convertSupabaseToLocal(newRecord));
-                console.log('✅ Novo registro adicionado:', newRecord.ticket);
             }
         }
 
@@ -1580,7 +1504,6 @@
             const index = driversData.findIndex(d => d.ticket === newRecord.ticket);
             if (index !== -1) {
                 driversData[index] = convertSupabaseToLocal(newRecord);
-                console.log('✅ Registro atualizado:', newRecord.ticket);
                 
                 // Se é o motorista atual, atualizar também
                 if (currentDriver && currentDriver.ticket === newRecord.ticket) {
@@ -1589,13 +1512,11 @@
             } else {
                 // Se não encontrou, adiciona como novo
                 driversData.push(convertSupabaseToLocal(newRecord));
-                console.log('✅ Registro adicionado (atualização):', newRecord.ticket);
             }
         }
 
         function handleDeleteEvent(oldRecord) {
             driversData = driversData.filter(d => d.ticket !== oldRecord.ticket);
-            console.log('🗑️ Registro removido:', oldRecord.ticket);
             
             // Se era o motorista atual, limpar
             if (currentDriver && currentDriver.ticket === oldRecord.ticket) {
@@ -1605,15 +1526,13 @@
 
         // 5. DESTACAR LINHAS ATUALIZADAS
         function highlightUpdatedRows() {
-            // Adicionar classe de destaque às linhas atualizadas
             const rows = document.querySelectorAll('#drivers-table-body tr, #encosta-content tr, #report-table-body tr');
             rows.forEach(row => {
                 row.classList.add('updated-row');
                 
-                // Remover a classe após a animação
                 setTimeout(() => {
                     row.classList.remove('updated-row');
-                }, 2000);
+                }, 1500);
             });
         }
 
@@ -1683,8 +1602,6 @@
 
         // 7. ATUALIZAÇÃO COMPLETA DA INTERFACE
         function updateInterface() {
-            console.log('🎨 Atualizando interface completa...');
-            
             updateDatabaseStats();
             renderDriversTable();
             
@@ -1712,8 +1629,6 @@
 
         // 8. MELHORAR O SISTEMA DE SALVAMENTO
         async function saveData() {
-            console.log('💾 Salvando dados...');
-            
             try {
                 const success = await saveToSupabase();
                 if (success) {
@@ -1724,25 +1639,20 @@
                     throw new Error('Falha ao salvar no Supabase');
                 }
             } catch (error) {
-                console.error('❌ Erro ao salvar no Supabase:', error);
                 updateSyncStatus(false);
                 
                 // Fallback para localStorage
                 saveToLocalStorage();
-                showSyncNotification('⚠️ Modo offline - Dados salvos localmente', 'warning');
                 return false;
             }
         }
 
         async function saveToSupabase() {
             if (driversData.length === 0) {
-                console.log('ℹ️ Nenhum dado para salvar');
                 return true;
             }
 
             const driversToSave = driversData.map(driver => convertLocalToSupabase(driver));
-            
-            console.log('💾 Enviando para Supabase:', driversToSave.length, 'registros');
             
             const { data, error } = await supabase
                 .from('drivers')
@@ -1752,11 +1662,9 @@
                 });
 
             if (error) {
-                console.error('❌ Erro no Supabase:', error);
                 throw error;
             }
             
-            console.log('✅ Dados salvos no Supabase:', driversToSave.length, 'registros');
             return true;
         }
 
@@ -1767,13 +1675,11 @@
                 .order('updated_at', { ascending: false });
 
             if (error) {
-                console.error('❌ Erro ao carregar do Supabase:', error);
                 throw error;
             }
 
             if (data && data.length > 0) {
                 driversData = data.map(item => convertSupabaseToLocal(item));
-                console.log('📂 Dados carregados do Supabase:', driversData.length, 'registros');
                 lastUpdateTime = new Date().toISOString();
                 return true;
             }
@@ -1782,16 +1688,10 @@
 
         // 9. SINCRONIZAÇÃO INICIAL MELHORADA
         async function initializeData() {
-            console.log('=== INICIANDO SISTEMA CONTROLLA ===');
-            
-            // Configurar políticas (apenas informação)
-            await setupDatabasePolicies();
-            
             // Carregar dados
             const hasData = await loadData();
             
             if (!hasData || driversData.length === 0) {
-                console.log('📝 Criando dados de exemplo...');
                 createSampleData();
                 await saveData();
             }
@@ -1808,122 +1708,23 @@
             // Atualizar interface
             updateInterface();
             setupEventListeners();
-            
-            console.log('✅ Sistema inicializado com sucesso!');
-        }
-
-        // 10. MELHORAR NOTIFICAÇÕES DE SINCRONIZAÇÃO
-        function showSyncNotification(message, type = 'success') {
-            // Remover notificações anteriores
-            document.querySelectorAll('.sync-notification').forEach(el => el.remove());
-            
-            const notification = document.createElement('div');
-            notification.className = `sync-notification alert alert-${type}`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                max-width: 300px;
-                animation: slideIn 0.3s ease;
-            `;
-            
-            notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            style="background: none; border: none; font-size: 16px; cursor: pointer;">
-                        ✕
-                    </button>
-                </div>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Auto-remover após 5 segundos
-            setTimeout(() => {
-                if (notification.parentElement) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-
-        // 11. VERIFICAÇÃO DE CONEXÃO PERIÓDICA
-        function startConnectionMonitor() {
-            setInterval(async () => {
-                try {
-                    const { data, error } = await supabase
-                        .from('drivers')
-                        .select('ticket')
-                        .limit(1);
-                        
-                    if (error) throw error;
-                    
-                    if (!isOnline) {
-                        updateSyncStatus(true);
-                        showSyncNotification('✅ Conexão restaurada');
-                    }
-                } catch (error) {
-                    if (isOnline) {
-                        updateSyncStatus(false);
-                        showSyncNotification('🔌 Conexão perdida', 'warning');
-                    }
-                }
-            }, 30000); // Verificar a cada 30 segundos
         }
 
         function updateSyncStatus(online) {
             isOnline = online;
-            const syncElement = document.getElementById('sync-status');
-            const autoRefreshIndicator = document.getElementById('auto-refresh-indicator');
-            
-            if (online) {
-                syncElement.className = 'sync-status sync-online sync-pulse';
-                syncElement.innerHTML = '<span>🟢 Online</span>';
-                if (autoRefreshIndicator) {
-                    autoRefreshIndicator.style.display = 'inline-block';
-                }
-            } else {
-                syncElement.className = 'sync-status sync-offline sync-pulse';
-                syncElement.innerHTML = '<span>🟡 Offline</span>';
-                if (autoRefreshIndicator) {
-                    autoRefreshIndicator.style.display = 'none';
-                }
-            }
-        }
-
-        // ========== CONFIGURAR POLÍTICAS RLS ========== //
-        async function setupDatabasePolicies() {
-            console.log('🔧 Configurando políticas do banco de dados...');
-            
-            const policies = `
-            -- Habilitar RLS na tabela drivers
-            ALTER TABLE drivers ENABLE ROW LEVEL SECURITY;
-
-            -- Política para permitir todas as operações (para demonstração)
-            CREATE POLICY "Allow all operations" ON drivers
-            FOR ALL USING (true);
-            `;
-            
-            console.log('📋 Execute estas políticas no SQL Editor do Supabase:');
-            console.log(policies);
         }
 
         // ========== FUNÇÕES SUPABASE ORIGINAIS ========== //
         async function loadData() {
-            console.log('📂 Carregando dados do Supabase...');
-            
             try {
                 const success = await loadFromSupabase();
                 if (success) {
                     updateSyncStatus(true);
                     return true;
                 } else {
-                    console.log('📂 Nenhum dado no Supabase, tentando localStorage...');
                     return loadFromLocalStorage();
                 }
             } catch (error) {
-                console.log('❌ Erro ao carregar do Supabase, usando localStorage:', error);
                 updateSyncStatus(false);
                 return loadFromLocalStorage();
             }
@@ -1933,14 +1734,12 @@
             localStorage.setItem('driversData', JSON.stringify(driversData));
             localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
             localStorage.setItem('cdList', JSON.stringify(cdList));
-            console.log('💾 Dados salvos no localStorage (fallback)');
         }
 
         function loadFromLocalStorage() {
             const savedData = localStorage.getItem('driversData');
             if (savedData) {
                 driversData = JSON.parse(savedData);
-                console.log('📂 Dados carregados do localStorage:', driversData.length, 'registros');
                 return true;
             }
             return false;
@@ -1950,7 +1749,6 @@
         function saveCargaData() {
             const cargaArray = Array.from(cargaData);
             localStorage.setItem('cargaData', JSON.stringify(cargaArray));
-            console.log('💾 Dados de carga salvos:', cargaArray.length, 'cargas geradas');
         }
 
         function loadCargaData() {
@@ -1959,10 +1757,8 @@
                 try {
                     const cargaArray = JSON.parse(savedCargaData);
                     cargaData = new Set(cargaArray);
-                    console.log('📂 Dados de carga carregados:', cargaArray.length, 'cargas geradas');
                     return true;
                 } catch (e) {
-                    console.error('Erro ao carregar dados de carga:', e);
                     cargaData = new Set();
                     return false;
                 }
@@ -1999,7 +1795,6 @@
             try {
                 cargaData = new Set();
                 const lines = content.split('\n');
-                let processedCount = 0;
                 
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
@@ -2010,7 +1805,6 @@
                         const carga = parts[3].trim();
                         if (carga && carga !== '') {
                             cargaData.add(carga);
-                            processedCount++;
                         }
                     }
                 }
@@ -2022,32 +1816,25 @@
                 
                 renderEncostaList();
                 
-                showSyncNotification(`✅ Arquivo de carga processado! ${cargaData.size} cargas identificadas.`);
-                
             } catch (error) {
                 console.error('Erro ao processar arquivo de carga:', error);
-                showSyncNotification('❌ Erro ao processar arquivo de carga', 'danger');
+                alert('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.');
             }
         }
 
         function debugCargaStatus(ticket) {
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (!driver) {
-                console.log(`❌ Senha ${ticket} não encontrada`);
                 alert(`❌ Senha ${ticket} não encontrada na base de dados`);
                 return;
             }
             
             const hasCarga = checkCargaStatus(ticket);
-            console.log(`🔍 Debug Carga - Senha: ${ticket}, Carga: ${driver.load || 'N/A'}, Status: ${hasCarga ? 'Gerado' : 'Pendente'}`);
-            
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
         }
 
         // ========== FUNÇÕES PRINCIPAIS ========== //
         function createSampleData() {
-            console.log('=== CRIANDO DADOS DE EXEMPLO ===');
-            
             const sampleDrivers = [
                 {
                     ticket: '1001',
@@ -2082,8 +1869,6 @@
             driversData = sampleDrivers;
             suppliersList = ['Transportes ABC', 'Logística XYZ'];
             cdList = ['CD001', 'CD002'];
-            
-            console.log('✅ Dados de exemplo criados:', driversData.length, 'motoristas');
         }
 
         function updateDatabaseStats() {
@@ -2124,7 +1909,6 @@
                 document.getElementById('completed-today').textContent = completedToday;
                 
             } catch (error) {
-                console.error('❌ Erro em updateDatabaseStats:', error);
                 document.getElementById('total-drivers').textContent = driversData.length || '0';
                 document.getElementById('total-suppliers').textContent = '0';
                 document.getElementById('active-processes').textContent = '0';
@@ -2151,8 +1935,6 @@
         }
 
         function goToProcessFromEncosta(ticket) {
-            console.log('=== REDIRECIONANDO PARA PROCESSO DA ENCOSTA ===');
-            
             const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (driver) {
@@ -2163,9 +1945,7 @@
                 document.getElementById('driver-not-found').style.display = 'none';
                 showSection('process-section');
                 renderProcessTimeline();
-                console.log(`✅ Redirecionado para processo da senha: ${ticket}`);
             } else {
-                console.log(`❌ Senha ${ticket} não encontrada`);
                 alert(`❌ Senha ${ticket} não encontrada na base de dados`);
             }
         }
@@ -2352,8 +2132,6 @@
         }
 
         async function registerProcessStep(ticket, stepField) {
-            console.log('=== REGISTRAR ETAPA ===');
-            
             if (!currentDriver) {
                 currentDriver = driversData.find(d => d.ticket === ticket);
             }
@@ -2383,16 +2161,10 @@
             
             await saveData();
             
-            // Usar updateInterface em vez de atualizações individuais
             updateInterface();
-            
-            const stepName = getStepName(stepField);
-            showSyncNotification(`✅ ${stepName} registrado com sucesso!`);
         }
 
         async function undoProcessStep(ticket, stepField) {
-            console.log('=== DESFAZER ETAPA ===');
-            
             if (!currentDriver) {
                 currentDriver = driversData.find(d => d.ticket === ticket);
             }
@@ -2413,10 +2185,7 @@
                 
                 await saveData();
                 
-                // Usar updateInterface em vez de atualizações individuais
                 updateInterface();
-                
-                showSyncNotification(`✅ ${stepName} desfeito com sucesso!`);
             }
         }
 
@@ -2544,8 +2313,6 @@
 
         // ========== FUNÇÕES DO RELATÓRIO ========== //
         function generateReport() {
-            console.log('📋 Gerando relatório de processos...');
-            
             const startDate = document.getElementById('report-start-date').value;
             const endDate = document.getElementById('report-end-date').value;
             
@@ -3011,8 +2778,6 @@
             updateDatabaseStats();
             renderDriversTable();
             cancelUpload();
-            
-            showSyncNotification(`✅ Upload concluído! ${newDrivers.length} registros carregados e sincronizados`);
         }
 
         // ========== FUNÇÕES DE FORMATAÇÃO ========== //
@@ -3194,25 +2959,6 @@
                 }
             });
             
-            document.getElementById('sync-supabase-btn').addEventListener('click', async function() {
-                this.disabled = true;
-                this.innerHTML = '⏳ Sincronizando...';
-                try {
-                    await saveData();
-                    showSyncNotification('✅ Sincronização concluída!');
-                } catch (error) {
-                    showSyncNotification('❌ Erro na sincronização: ' + error.message, 'danger');
-                } finally {
-                    this.disabled = false;
-                    this.innerHTML = '🔄 Sincronizar Supabase';
-                }
-            });
-            
-            document.getElementById('force-refresh-btn').addEventListener('click', function() {
-                updateInterface();
-                showSyncNotification('🔄 Interface atualizada manualmente', 'info');
-            });
-            
             const uploadArea = document.getElementById('upload-area');
             uploadArea.addEventListener('dragover', function(e) {
                 e.preventDefault();
@@ -3244,7 +2990,6 @@
         // ========== INICIALIZAÇÃO ========== //
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
-            startConnectionMonitor();
         });
 
         // Limpar subscription ao sair da página
