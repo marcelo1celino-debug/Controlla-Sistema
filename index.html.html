@@ -916,6 +916,24 @@
             font-family: 'Inter', sans-serif;
             font-size: 0.9rem;
         }
+
+        /* ========== ANIMAÇÃO PARA ATUALIZAÇÃO AUTOMÁTICA ========== */
+        @keyframes highlightUpdate {
+            0% { background-color: rgba(46, 204, 113, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        .updated-row {
+            animation: highlightUpdate 2s ease-in-out;
+        }
+
+        .auto-refresh-indicator {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 0.7rem;
+            color: var(--secondary-color);
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
 <body>
@@ -939,6 +957,7 @@
                 </nav>
                 <div id="sync-status" class="sync-status sync-online sync-pulse">
                     <span>🟢 Online</span>
+                    <span class="auto-refresh-indicator" id="auto-refresh-indicator">⟳ Auto</span>
                 </div>
             </div>
         </div>
@@ -1278,6 +1297,7 @@
                         <button class="btn btn-warning" id="reset-drivers-btn">Limpar Todos os Filtros</button>
                         <button class="btn btn-danger" id="clear-database-btn">Limpar Base de Dados</button>
                         <button class="btn btn-success" id="sync-supabase-btn">🔄 Sincronizar Supabase</button>
+                        <button class="btn btn-primary" id="force-refresh-btn">🔄 Atualizar Interface</button>
                     </div>
                     
                     <!-- Container de Filtros Modernos -->
@@ -1371,6 +1391,7 @@
         let cdList = [];
         let isOnline = true;
         let supabaseSubscription = null;
+        let lastUpdateTime = null;
         
         // ========== SISTEMA DE CARGA ========== //
         let cargaData = new Set();
@@ -1417,26 +1438,51 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
-        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
+        // ========== SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA ========== //
 
-        // 1. CONFIGURAR POLÍTICAS RLS NO SUPABASE (instruções)
-        async function setupDatabasePolicies() {
-            console.log('🔧 Configurando políticas do banco de dados...');
+        // 1. CONFIGURAR ATUALIZAÇÃO AUTOMÁTICA DA INTERFACE
+        function setupAutoRefresh() {
+            console.log('🔄 Configurando atualização automática da interface...');
             
-            const policies = `
-            -- Habilitar RLS na tabela drivers
-            ALTER TABLE drivers ENABLE ROW LEVEL SECURITY;
-
-            -- Política para permitir todas as operações (para demonstração)
-            CREATE POLICY "Allow all operations" ON drivers
-            FOR ALL USING (true);
-            `;
+            // Atualizar a interface a cada 2 segundos
+            setInterval(() => {
+                if (isOnline) {
+                    updateInterface();
+                }
+            }, 2000);
             
-            console.log('📋 Execute estas políticas no SQL Editor do Supabase:');
-            console.log(policies);
+            // Verificar mudanças nos dados a cada 5 segundos
+            setInterval(() => {
+                checkForDataChanges();
+            }, 5000);
         }
 
-        // 2. MELHORAR A SINCRONIZAÇÃO EM TEMPO REAL
+        // 2. VERIFICAR MUDANÇAS NOS DADOS
+        let lastDataHash = '';
+
+        function checkForDataChanges() {
+            if (!isOnline) return;
+            
+            const currentHash = generateDataHash();
+            
+            if (currentHash !== lastDataHash) {
+                console.log('🔄 Dados alterados detectados, atualizando interface...');
+                lastDataHash = currentHash;
+                updateInterface();
+                showSyncNotification('🔄 Dados atualizados automaticamente', 'info');
+            }
+        }
+
+        function generateDataHash() {
+            // Criar um hash simples baseado nos dados atuais
+            return JSON.stringify({
+                driversCount: driversData.length,
+                lastUpdate: lastUpdateTime,
+                currentSection: document.querySelector('.section.active')?.id
+            });
+        }
+
+        // 3. MELHORAR A SINCRONIZAÇÃO EM TEMPO REAL
         function setupRealtimeSubscription() {
             try {
                 console.log('🔄 Iniciando sincronização em tempo real...');
@@ -1476,6 +1522,8 @@
                         } else if (status === 'CHANNEL_ERROR') {
                             updateSyncStatus(false);
                             console.error('❌ Erro na conexão em tempo real');
+                            // Tentar reconectar após 3 segundos
+                            setTimeout(setupRealtimeSubscription, 3000);
                         }
                     });
 
@@ -1484,15 +1532,20 @@
             } catch (error) {
                 console.error('❌ Erro na sincronização em tempo real:', error);
                 updateSyncStatus(false);
+                // Tentar reconectar após 3 segundos
+                setTimeout(setupRealtimeSubscription, 3000);
                 return null;
             }
         }
 
-        // 3. MELHORAR O TRATAMENTO DE ATUALIZAÇÕES
+        // 4. MELHORAR O TRATAMENTO DE ATUALIZAÇÕES
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
             
             console.log(`🔄 Processando evento: ${eventType}`, newRecord || oldRecord);
+            
+            // Atualizar timestamp da última mudança
+            lastUpdateTime = new Date().toISOString();
             
             switch (eventType) {
                 case 'INSERT':
@@ -1508,8 +1561,11 @@
                     console.log('⚠️ Evento desconhecido:', eventType);
             }
             
-            // Forçar atualização da interface
-            updateInterface();
+            // Forçar atualização imediata da interface
+            setTimeout(() => {
+                updateInterface();
+                highlightUpdatedRows();
+            }, 100);
         }
 
         function handleInsertEvent(newRecord) {
@@ -1547,7 +1603,21 @@
             }
         }
 
-        // 4. CONVERSÃO ENTRE FORMATOS SUPABASE E LOCAL
+        // 5. DESTACAR LINHAS ATUALIZADAS
+        function highlightUpdatedRows() {
+            // Adicionar classe de destaque às linhas atualizadas
+            const rows = document.querySelectorAll('#drivers-table-body tr, #encosta-content tr, #report-table-body tr');
+            rows.forEach(row => {
+                row.classList.add('updated-row');
+                
+                // Remover a classe após a animação
+                setTimeout(() => {
+                    row.classList.remove('updated-row');
+                }, 2000);
+            });
+        }
+
+        // 6. CONVERSÃO ENTRE FORMATOS SUPABASE E LOCAL
         function convertSupabaseToLocal(supabaseRecord) {
             return {
                 ticket: supabaseRecord.ticket,
@@ -1611,7 +1681,7 @@
             };
         }
 
-        // 5. ATUALIZAÇÃO COMPLETA DA INTERFACE
+        // 7. ATUALIZAÇÃO COMPLETA DA INTERFACE
         function updateInterface() {
             console.log('🎨 Atualizando interface completa...');
             
@@ -1619,24 +1689,28 @@
             renderDriversTable();
             
             // Atualizar seções específicas se estiverem ativas
-            if (document.getElementById('encosta-section').classList.contains('active')) {
-                renderEncostaList();
-            }
-            
-            if (document.getElementById('report-section').classList.contains('active')) {
-                generateReport();
-            }
-            
-            if (document.getElementById('process-section').classList.contains('active') && currentDriver) {
-                renderProcessTimeline();
-            }
-            
-            if (document.getElementById('search-section').classList.contains('active') && currentDriver) {
-                displayDriverInfo(currentDriver);
+            const activeSection = document.querySelector('.section.active');
+            if (activeSection) {
+                const sectionId = activeSection.id;
+                
+                switch(sectionId) {
+                    case 'encosta-section':
+                        renderEncostaList();
+                        break;
+                    case 'report-section':
+                        generateReport();
+                        break;
+                    case 'process-section':
+                        if (currentDriver) renderProcessTimeline();
+                        break;
+                    case 'search-section':
+                        if (currentDriver) displayDriverInfo(currentDriver);
+                        break;
+                }
             }
         }
 
-        // 6. MELHORAR O SISTEMA DE SALVAMENTO
+        // 8. MELHORAR O SISTEMA DE SALVAMENTO
         async function saveData() {
             console.log('💾 Salvando dados...');
             
@@ -1644,6 +1718,7 @@
                 const success = await saveToSupabase();
                 if (success) {
                     updateSyncStatus(true);
+                    lastUpdateTime = new Date().toISOString();
                     return true;
                 } else {
                     throw new Error('Falha ao salvar no Supabase');
@@ -1699,12 +1774,13 @@
             if (data && data.length > 0) {
                 driversData = data.map(item => convertSupabaseToLocal(item));
                 console.log('📂 Dados carregados do Supabase:', driversData.length, 'registros');
+                lastUpdateTime = new Date().toISOString();
                 return true;
             }
             return false;
         }
 
-        // 7. SINCRONIZAÇÃO INICIAL MELHORADA
+        // 9. SINCRONIZAÇÃO INICIAL MELHORADA
         async function initializeData() {
             console.log('=== INICIANDO SISTEMA CONTROLLA ===');
             
@@ -1723,6 +1799,9 @@
             // Iniciar sincronização em tempo real
             setupRealtimeSubscription();
             
+            // Configurar atualização automática
+            setupAutoRefresh();
+            
             // Carregar dados auxiliares
             loadCargaData();
             
@@ -1730,13 +1809,10 @@
             updateInterface();
             setupEventListeners();
             
-            // Iniciar monitor de conexão
-            startConnectionMonitor();
-            
             console.log('✅ Sistema inicializado com sucesso!');
         }
 
-        // 8. MELHORAR NOTIFICAÇÕES DE SINCRONIZAÇÃO
+        // 10. MELHORAR NOTIFICAÇÕES DE SINCRONIZAÇÃO
         function showSyncNotification(message, type = 'success') {
             // Remover notificações anteriores
             document.querySelectorAll('.sync-notification').forEach(el => el.remove());
@@ -1772,7 +1848,7 @@
             }, 5000);
         }
 
-        // 9. VERIFICAÇÃO DE CONEXÃO PERIÓDICA
+        // 11. VERIFICAÇÃO DE CONEXÃO PERIÓDICA
         function startConnectionMonitor() {
             setInterval(async () => {
                 try {
@@ -1799,17 +1875,41 @@
         function updateSyncStatus(online) {
             isOnline = online;
             const syncElement = document.getElementById('sync-status');
+            const autoRefreshIndicator = document.getElementById('auto-refresh-indicator');
             
             if (online) {
                 syncElement.className = 'sync-status sync-online sync-pulse';
                 syncElement.innerHTML = '<span>🟢 Online</span>';
+                if (autoRefreshIndicator) {
+                    autoRefreshIndicator.style.display = 'inline-block';
+                }
             } else {
                 syncElement.className = 'sync-status sync-offline sync-pulse';
                 syncElement.innerHTML = '<span>🟡 Offline</span>';
+                if (autoRefreshIndicator) {
+                    autoRefreshIndicator.style.display = 'none';
+                }
             }
         }
 
-        // ========== FUNÇÕES SUPABASE ORIGINAIS (com melhorias) ========== //
+        // ========== CONFIGURAR POLÍTICAS RLS ========== //
+        async function setupDatabasePolicies() {
+            console.log('🔧 Configurando políticas do banco de dados...');
+            
+            const policies = `
+            -- Habilitar RLS na tabela drivers
+            ALTER TABLE drivers ENABLE ROW LEVEL SECURITY;
+
+            -- Política para permitir todas as operações (para demonstração)
+            CREATE POLICY "Allow all operations" ON drivers
+            FOR ALL USING (true);
+            `;
+            
+            console.log('📋 Execute estas políticas no SQL Editor do Supabase:');
+            console.log(policies);
+        }
+
+        // ========== FUNÇÕES SUPABASE ORIGINAIS ========== //
         async function loadData() {
             console.log('📂 Carregando dados do Supabase...');
             
@@ -1922,11 +2022,11 @@
                 
                 renderEncostaList();
                 
-                alert(`✅ Arquivo de carga processado com sucesso!\n${cargaData.size} cargas geradas identificadas.`);
+                showSyncNotification(`✅ Arquivo de carga processado! ${cargaData.size} cargas identificadas.`);
                 
             } catch (error) {
                 console.error('Erro ao processar arquivo de carga:', error);
-                alert('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.');
+                showSyncNotification('❌ Erro ao processar arquivo de carga', 'danger');
             }
         }
 
@@ -3108,6 +3208,11 @@
                 }
             });
             
+            document.getElementById('force-refresh-btn').addEventListener('click', function() {
+                updateInterface();
+                showSyncNotification('🔄 Interface atualizada manualmente', 'info');
+            });
+            
             const uploadArea = document.getElementById('upload-area');
             uploadArea.addEventListener('dragover', function(e) {
                 e.preventDefault();
@@ -3139,6 +3244,7 @@
         // ========== INICIALIZAÇÃO ========== //
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
+            startConnectionMonitor();
         });
 
         // Limpar subscription ao sair da página
