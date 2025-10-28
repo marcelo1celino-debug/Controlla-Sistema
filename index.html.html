@@ -1430,6 +1430,7 @@
                     supabaseSubscription.unsubscribe();
                 }
 
+                // Subscription para drivers
                 supabaseSubscription = supabase
                     .channel('drivers-realtime')
                     .on(
@@ -1441,6 +1442,17 @@
                         },
                         (payload) => {
                             handleRealtimeUpdate(payload);
+                        }
+                    )
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'carga_data'
+                        },
+                        (payload) => {
+                            handleCargaRealtimeUpdate(payload);
                         }
                     )
                     .on('system', { event: 'disconnect' }, () => {
@@ -1491,6 +1503,15 @@
                 updateInterface();
                 highlightUpdatedRows();
             }, 100);
+        }
+
+        function handleCargaRealtimeUpdate(payload) {
+            const { eventType, new: newRecord } = payload;
+            
+            if (eventType === 'INSERT' || eventType === 'UPDATE') {
+                // Atualizar dados de carga em tempo real
+                loadCargaFromSupabase();
+            }
         }
 
         function handleInsertEvent(newRecord) {
@@ -1544,7 +1565,7 @@
                 supplier: supabaseRecord.supplier,
                 cd: supabaseRecord.cd,
                 status: supabaseRecord.status,
-                arrivalDateTime: supabaseRecord.arrival_date_time,
+                arrivalDateTime: formatDateTimeFromDatabase(supabaseRecord.arrival_date_time),
                 scheduleDateTime: supabaseRecord.schedule_date_time,
                 truckPlate: supabaseRecord.truck_plate,
                 trailerPlate: supabaseRecord.trailer_plate,
@@ -1696,14 +1717,14 @@
                 await saveData();
             }
 
+            // Carregar dados de carga do Supabase
+            await loadCargaFromSupabase();
+
             // Iniciar sincronização em tempo real
             setupRealtimeSubscription();
             
             // Configurar atualização automática
             setupAutoRefresh();
-            
-            // Carregar dados auxiliares
-            loadCargaData();
             
             // Atualizar interface
             updateInterface();
@@ -1745,10 +1766,56 @@
             return false;
         }
 
-        // ========== SISTEMA DE CARGA ========== //
-        function saveCargaData() {
-            const cargaArray = Array.from(cargaData);
-            localStorage.setItem('cargaData', JSON.stringify(cargaArray));
+        // ========== SISTEMA DE CARGA ATUALIZADO ========== //
+        async function saveCargaData() {
+            try {
+                // Salvar no Supabase para sincronização em tempo real
+                const cargaArray = Array.from(cargaData);
+                
+                const { data, error } = await supabase
+                    .from('carga_data')
+                    .upsert({
+                        id: 1,
+                        carga_list: cargaArray,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'id'
+                    });
+
+                if (error) throw error;
+
+                // Também salvar localmente como fallback
+                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
+                return true;
+            } catch (error) {
+                console.error('Erro ao salvar carga no Supabase:', error);
+                // Fallback para localStorage
+                const cargaArray = Array.from(cargaData);
+                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
+                return false;
+            }
+        }
+
+        async function loadCargaFromSupabase() {
+            try {
+                const { data, error } = await supabase
+                    .from('carga_data')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+
+                if (error) throw error;
+
+                if (data && data.carga_list) {
+                    cargaData = new Set(data.carga_list);
+                    return true;
+                }
+            } catch (error) {
+                console.log('Carregando carga do localStorage...');
+            }
+            
+            // Fallback para localStorage
+            return loadCargaData();
         }
 
         function loadCargaData() {
@@ -1783,15 +1850,15 @@
         async function handleCargaFileUpload(file) {
             const reader = new FileReader();
             
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const content = e.target.result;
-                processCargaFile(content, file.name);
+                await processCargaFile(content, file.name);
             };
             
             reader.readAsText(file);
         }
 
-        function processCargaFile(content, fileName) {
+        async function processCargaFile(content, fileName) {
             try {
                 cargaData = new Set();
                 const lines = content.split('\n');
@@ -1809,16 +1876,19 @@
                     }
                 }
                 
-                saveCargaData();
+                await saveCargaData();
                 
                 document.getElementById('carga-file-info').textContent = 
                     `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
                 
                 renderEncostaList();
                 
+                // Mostrar mensagem de sucesso
+                showNotification(`✅ Arquivo de carga processado com sucesso! ${cargaData.size} cargas identificadas.`, 'success');
+                
             } catch (error) {
                 console.error('Erro ao processar arquivo de carga:', error);
-                alert('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.');
+                showNotification('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.', 'error');
             }
         }
 
@@ -1831,6 +1901,39 @@
             
             const hasCarga = checkCargaStatus(ticket);
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
+        }
+
+        // ========== FUNÇÃO DE NOTIFICAÇÃO ========== //
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                max-width: 400px;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            if (type === 'success') {
+                notification.style.backgroundColor = '#2ECC71';
+            } else if (type === 'error') {
+                notification.style.backgroundColor = '#E74C3C';
+            } else {
+                notification.style.backgroundColor = '#3498DB';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
         }
 
         // ========== FUNÇÕES PRINCIPAIS ========== //
@@ -2719,7 +2822,7 @@
                     <td>${row[2] !== undefined ? row[2] : '-'}</td>
                     <td>${row[13] !== undefined ? row[13] : '-'}</td>
                     <td>${row[5] !== undefined ? row[5] : '-'}</td>
-                    <td>${row[6] !== undefined ? row[6] : '-'}</td>
+                    <td>${formatDateTimeFromDatabase(row[6]) || '-'}</td>
                     <td>
                         <button class="btn btn-primary btn-small">Ver</button>
                     </td>
@@ -2780,28 +2883,45 @@
             cancelUpload();
         }
 
-        // ========== FUNÇÕES DE FORMATAÇÃO ========== //
-        function formatDateTime(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '' || dateTimeStr === '-') return '-';
-            if (dateTimeStr === ' ' || dateTimeStr === '  ') return '-';
+        // ========== FUNÇÕES DE FORMATAÇÃO ATUALIZADAS ========== //
+        function formatDateTimeFromDatabase(dateTimeValue) {
+            if (!dateTimeValue || dateTimeValue === '' || dateTimeValue === '-') return '-';
+            if (dateTimeValue === ' ' || dateTimeValue === '  ') return '-';
             
-            if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                return convertExcelDate(dateTimeStr);
+            // Se for número do Excel (formato serial)
+            if (typeof dateTimeValue === 'number' && dateTimeValue > 1000) {
+                return convertExcelDate(dateTimeValue);
             }
             
-            return dateTimeStr.toString().trim() || '-';
+            // Se já estiver no formato correto, retorna como está
+            if (typeof dateTimeValue === 'string' && dateTimeValue.includes('/')) {
+                return dateTimeValue;
+            }
+            
+            return dateTimeValue.toString().trim() || '-';
+        }
+
+        function formatDateTime(dateTimeStr) {
+            return formatDateTimeFromDatabase(dateTimeStr);
         }
 
         function convertExcelDate(excelNumber) {
             try {
-                const date = XLSX.SSF.parse_date_code(excelNumber);
-                const day = date.d.toString().padStart(2, '0');
-                const month = date.m.toString().padStart(2, '0');
-                const year = date.y;
-                const hours = date.H.toString().padStart(2, '0');
-                const minutes = date.M.toString().padStart(2, '0');
+                // Converter número do Excel para data
+                const date = new Date((excelNumber - 25569) * 86400 * 1000);
+                
+                // Ajustar fuso horário para UTC-3 (Brasília)
+                date.setHours(date.getHours() + 3);
+                
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                
                 return `${day}/${month}/${year} ${hours}:${minutes}`;
             } catch (e) {
+                // Fallback: retornar o número como string
                 return excelNumber.toString();
             }
         }
@@ -2814,13 +2934,27 @@
                 let date;
                 
                 if (typeof dateTimeStr === 'number' && dateTimeStr > 1000) {
-                    const dateObj = XLSX.SSF.parse_date_code(dateTimeStr);
-                    date = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                    date = new Date((dateTimeStr - 25569) * 86400 * 1000);
+                    date.setHours(date.getHours() + 3); // Ajuste UTC-3
                 } else {
-                    date = new Date(dateTimeStr);
+                    // Tentar parse de string no formato DD/MM/YYYY HH:MM
+                    const parts = dateTimeStr.split(' ');
+                    if (parts.length === 2) {
+                        const datePart = parts[0].split('/');
+                        const timePart = parts[1].split(':');
+                        if (datePart.length === 3 && timePart.length === 2) {
+                            date = new Date(
+                                parseInt(datePart[2]),
+                                parseInt(datePart[1]) - 1,
+                                parseInt(datePart[0]),
+                                parseInt(timePart[0]),
+                                parseInt(timePart[1])
+                            );
+                        }
+                    }
                 }
                 
-                if (isNaN(date.getTime())) {
+                if (!date || isNaN(date.getTime())) {
                     return formatDateTime(dateTimeStr);
                 }
                 
@@ -2850,14 +2984,27 @@
                 let arrival;
                 
                 if (typeof arrivalDateTime === 'number') {
-                    const dateObj = XLSX.SSF.parse_date_code(arrivalDateTime);
-                    arrival = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                    arrival = new Date((arrivalDateTime - 25569) * 86400 * 1000);
+                    arrival.setHours(arrival.getHours() + 3);
                 } else {
-                    arrival = new Date(arrivalDateTime);
+                    const parts = arrivalDateTime.split(' ');
+                    if (parts.length === 2) {
+                        const datePart = parts[0].split('/');
+                        const timePart = parts[1].split(':');
+                        if (datePart.length === 3 && timePart.length === 2) {
+                            arrival = new Date(
+                                parseInt(datePart[2]),
+                                parseInt(datePart[1]) - 1,
+                                parseInt(datePart[0]),
+                                parseInt(timePart[0]),
+                                parseInt(timePart[1])
+                            );
+                        }
+                    }
                 }
                 
                 const now = new Date();
-                if (isNaN(arrival.getTime())) return '00:00';
+                if (!arrival || isNaN(arrival.getTime())) return '00:00';
                 
                 const diffMs = now - arrival;
                 if (diffMs < 0) return '00:00';
@@ -2879,14 +3026,27 @@
                 let arrival;
                 
                 if (typeof arrivalDateTime === 'number') {
-                    const dateObj = XLSX.SSF.parse_date_code(arrivalDateTime);
-                    arrival = new Date(dateObj.y, dateObj.m - 1, dateObj.d, dateObj.H, dateObj.M, dateObj.S);
+                    arrival = new Date((arrivalDateTime - 25569) * 86400 * 1000);
+                    arrival.setHours(arrival.getHours() + 3);
                 } else {
-                    arrival = new Date(arrivalDateTime);
+                    const parts = arrivalDateTime.split(' ');
+                    if (parts.length === 2) {
+                        const datePart = parts[0].split('/');
+                        const timePart = parts[1].split(':');
+                        if (datePart.length === 3 && timePart.length === 2) {
+                            arrival = new Date(
+                                parseInt(datePart[2]),
+                                parseInt(datePart[1]) - 1,
+                                parseInt(datePart[0]),
+                                parseInt(timePart[0]),
+                                parseInt(timePart[1])
+                            );
+                        }
+                    }
                 }
                 
                 const now = new Date();
-                if (isNaN(arrival.getTime())) return 0;
+                if (!arrival || isNaN(arrival.getTime())) return 0;
                 
                 return now - arrival;
                 
