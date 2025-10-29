@@ -2593,11 +2593,56 @@
             }
         }
 
+        // ========== FUNÇÃO LIMPAR BASE DE DADOS - MODIFICADA ========== //
         function clearDatabase() {
-            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar toda a base de dados?\n\n📋 Isso irá remover TODOS os dados, incluindo:\n• Todos os motoristas cadastrados\n• Todos os registros de processo (contato, liberação, doca)\n• Histórico completo\n\nEsta ação não pode ser desfeita.')) {
+            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
+                
+                // SALVAR TODOS OS REGISTROS DE PROCESSO ANTES DE LIMPAR
+                const processosPreservados = [];
+                
+                driversData.forEach(driver => {
+                    if (driver.ticket && (
+                        (driver.contatoFeito && driver.contatoFeito !== '-') ||
+                        (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                        (driver.encostouDoca && driver.encostouDoca !== '-')
+                    )) {
+                        processosPreservados.push({
+                            ticket: driver.ticket,
+                            contatoFeito: driver.contatoFeito || '-',
+                            liberacaoEntregue: driver.liberacaoEntregue || '-',
+                            encostouDoca: driver.encostouDoca || '-',
+                            driverName: driver.driverName || 'Motorista Não Cadastrado',
+                            supplier: driver.supplier || '-'
+                        });
+                    }
+                });
+                
+                // LIMPAR BASE COMPLETA
                 driversData = [];
-                suppliersList = []
+                suppliersList = [];
                 cdList = [];
+                
+                // RESTAURAR OS PROCESSOS PRESERVADOS
+                processosPreservados.forEach(processo => {
+                    const driverExistente = driversData.find(d => d.ticket === processo.ticket);
+                    if (!driverExistente) {
+                        driversData.push({
+                            ticket: processo.ticket,
+                            driverName: processo.driverName,
+                            supplier: processo.supplier,
+                            cd: '-',
+                            status: 'AGENDADO',
+                            arrivalDateTime: '-',
+                            scheduleDateTime: '-',
+                            contatoFeito: processo.contatoFeito,
+                            liberacaoEntregue: processo.liberacaoEntregue,
+                            encostouDoca: processo.encostouDoca,
+                            load: '-',
+                            truckPlate: '-'
+                        });
+                    }
+                });
+                
                 saveData();
                 renderDriversTable();
                 updateDatabaseStats();
@@ -2607,7 +2652,7 @@
                     document.getElementById('driver-result').style.display = 'none';
                 }
                 
-                showNotification('🗑️ Base de dados limpa com sucesso!', 'warning', 800);
+                showNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados no relatório.`, 'warning', 100);
             }
         }
 
