@@ -909,6 +909,54 @@
             background-color: var(--danger-color);
             color: white;
         }
+
+        /* ========== NOVOS ESTILOS PARA NOTIFICAÇÃO MINIMALISTA ========== */
+        .notification-minimal {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            animation: slideInRight 0.3s ease-out;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            border-left: 4px solid;
+            background: white;
+        }
+
+        .notification-minimal.success {
+            border-left-color: var(--secondary-color);
+            color: #155724;
+            background: #f8fff9;
+        }
+
+        .notification-minimal.error {
+            border-left-color: var(--danger-color);
+            color: #721c24;
+            background: #fdf3f4;
+        }
+
+        .notification-minimal.info {
+            border-left-color: var(--primary-color);
+            color: #004085;
+            background: #f0f8ff;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -3032,37 +3080,18 @@
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
         }
 
-        // ========== FUNÇÃO DE NOTIFICAÇÃO ========== //
-        function showNotification(message, type = 'info') {
+        // ========== FUNÇÃO DE NOTIFICAÇÃO MINIMALISTA ========== //
+        function showNotification(message, type = 'info', duration = 800) {
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                border-radius: 8px;
-                color: white;
-                font-weight: 500;
-                z-index: 10000;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                max-width: 400px;
-                animation: slideIn 0.3s ease-out;
-            `;
-            
-            if (type === 'success') {
-                notification.style.backgroundColor = '#2ECC71';
-            } else if (type === 'error') {
-                notification.style.backgroundColor = '#E74C3C';
-            } else {
-                notification.style.backgroundColor = '#3498DB';
-            }
-            
+            notification.className = `notification-minimal ${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
             
             setTimeout(() => {
-                notification.remove();
-            }, 5000);
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, duration);
         }
 
         // ========== FUNÇÕES PRINCIPAIS DE DADOS ========== //
@@ -3327,8 +3356,8 @@
                 renderDriversTable();
                 cancelUpload();
                 
-                // Mostrar relatório do merge
-                showNotification(`✅ Base atualizada com sucesso! ${preservedCount} processos preservados, ${newCount} novos registros, ${restoredCount} processos restaurados do backup.`, 'success');
+                // Mostrar relatório do merge com notificação minimalista
+                showNotification(`Base atualizada: ${preservedCount} processos preservados, ${newCount} novos registros, ${restoredCount} processos restaurados`, 'success');
             });
             
             document.getElementById('cancel-upload').addEventListener('click', cancelUpload);
