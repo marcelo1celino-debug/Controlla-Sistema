@@ -2548,7 +2548,7 @@
         function clearDatabase() {
             if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar toda a base de dados?\n\n📋 Isso irá remover TODOS os dados, incluindo:\n• Todos os motoristas cadastrados\n• Todos os registros de processo (contato, liberação, doca)\n• Histórico completo\n\nEsta ação não pode ser desfeita.')) {
                 driversData = [];
-                suppliersList = [];
+                suppliersList = []
                 cdList = [];
                 saveData();
                 renderDriversTable();
@@ -2559,7 +2559,7 @@
                     document.getElementById('driver-result').style.display = 'none';
                 }
                 
-                showNotification('🗑️ Base de dados limpa com sucesso!', 'warning');
+                showNotification('🗑️ Base de dados limpa com sucesso!', 'warning', 1000);
             }
         }
 
