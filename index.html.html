@@ -2208,12 +2208,12 @@
                 return status === 'AGENDADO';
             });
             
-            // Ordenar por horário de chegada (mais antigo primeiro)
-            filteredDrivers.sort((a, b) => {
-                const timeA = calculateWaitTimeValue(a.arrivalDateTime);
-                const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeA - timeB; // Ordem crescente (mais antigo primeiro)
-            });
+            // Ordenar por horário de chegada (mais tempo esperando primeiro)
+filteredDrivers.sort((a, b) => {
+    const timeA = calculateWaitTimeValue(a.arrivalDateTime);
+    const timeB = calculateWaitTimeValue(b.arrivalDateTime);
+    return timeB - timeA; // Ordem decrescente (mais tempo esperando primeiro)
+});
 
             const cargasGeradasCount = filteredDrivers.filter(driver => 
                 checkCargaStatus(driver.ticket)
@@ -2250,7 +2250,7 @@
                     </div>
                 </div>
                 
-                <h3>Ranking de Chamada - Ordem de Chegada (Mais Antigo Primeiro)</h3>
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
                 <div style="overflow-x: auto;">
                     <table class="data-table">
                         <thead>
