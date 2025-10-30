@@ -3236,7 +3236,7 @@ filteredDrivers.sort((a, b) => {
         }
 
         // ========== FUNÇÃO DE NOTIFICAÇÃO MINIMALISTA ========== //
-        function showNotification(message, type = 'info', duration = 8000) {
+        function showNotification(message, type = 'info', duration = 800) {
             const notification = document.createElement('div');
             notification.className = `notification-minimal ${type}`;
             notification.textContent = message;
