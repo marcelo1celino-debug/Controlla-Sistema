@@ -2782,7 +2782,7 @@
                 if (typeof dateTimeValue === 'number') {
                     // CORREÇÃO SIMPLIFICADA: Converter número serial do Excel
                     const excelEpoch = new Date(1899, 11, 30);
-                    date = new Date(excelEpoch.getTime() - (dateTimeValue * 86400 * 1000);
+                    date = new Date(excelEpoch.getTime() - dateTimeValue * 86400 * 1000);
                 } else if (dateTimeValue instanceof Date) {
                     date = dateTimeValue;
                 } else {
