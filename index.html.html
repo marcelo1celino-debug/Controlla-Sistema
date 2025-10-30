@@ -1501,8 +1501,6 @@
                                 contatoFeito: driver.contatoFeito || '-',
                                 liberacaoEntregue: driver.liberacaoEntregue || '-',
                                 encostouDoca: driver.encostouDoca || '-',
-                                driverName: driver.driverName || 'N/A',
-                                supplier: driver.supplier || 'N/A',
                                 lastUpdated: new Date().toISOString()
                             };
                         }
@@ -1675,18 +1673,8 @@
             let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (!driver) {
-                // Se não encontrou, criar um registro básico
-                driver = {
-                    ticket: ticket,
-                    driverName: 'Motorista Não Cadastrado',
-                    supplier: '-',
-                    cd: '-',
-                    status: 'AGENDADO',
-                    contatoFeito: '-',
-                    liberacaoEntregue: '-', 
-                    encostouDoca: '-'
-                };
-                driversData.push(driver);
+                showNotification(`❌ Senha ${ticket} não encontrada na base de dados`, 'error');
+                return;
             }
             
             // Garantir que os campos de processo existam
@@ -1709,9 +1697,8 @@
                 currentDriver = driver;
             }
             
-            // Salvar localmente
-            saveToLocalStorage();
-            saveProcessBackup();
+            // Marcar mudança nos dados para salvamento automático
+            dataChangeDetected = true;
             
             // Atualizar a interface
             updateInterface();
@@ -1764,9 +1751,8 @@
                     currentDriver = driver;
                 }
                 
-                // Salvar localmente
-                saveToLocalStorage();
-                saveProcessBackup();
+                // Marcar mudança nos dados
+                dataChangeDetected = true;
                 
                 // Atualizar a interface
                 updateInterface();
@@ -2213,14 +2199,20 @@
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             
-            let filteredDrivers = driversData.filter(driver => 
-                driver.status && driver.status.toString().trim() === 'AGENDADO'
-            );
+            // ✅ CORREÇÃO: Filtrar apenas veículos com status AGENDADO
+            let filteredDrivers = driversData.filter(driver => {
+                if (!driver.status) return false;
+                
+                const status = driver.status.toString().trim().toUpperCase();
+                // Manter apenas veículos com status AGENDADO na encosta
+                return status === 'AGENDADO';
+            });
             
+            // Ordenar por horário de chegada (mais antigo primeiro)
             filteredDrivers.sort((a, b) => {
-                const waitTimeA = calculateWaitTimeValue(a.arrivalDateTime);
-                const waitTimeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return waitTimeB - waitTimeA;
+                const timeA = calculateWaitTimeValue(a.arrivalDateTime);
+                const timeB = calculateWaitTimeValue(b.arrivalDateTime);
+                return timeA - timeB; // Ordem crescente (mais antigo primeiro)
             });
 
             const cargasGeradasCount = filteredDrivers.filter(driver => 
@@ -2231,7 +2223,8 @@
                 encostaContent.innerHTML = `
                     <div class="empty-state">
                         <div>📋</div>
-                        <p>Nenhum veículo encontrado para exibir na encosta.</p>
+                        <p>Nenhum veículo com status AGENDADO encontrado para exibir na encosta.</p>
+                        <small>Total de veículos na base: ${driversData.length}</small>
                     </div>
                 `;
                 return;
@@ -2251,9 +2244,13 @@
                         <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
                         <div class="stat-label">Cargas Pendentes</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${driversData.length}</div>
+                        <div class="stat-label">Total na Base</div>
+                    </div>
                 </div>
                 
-                <h3>Ranking de Chamada - Ordem de Chegada</h3>
+                <h3>Ranking de Chamada - Ordem de Chegada (Mais Antigo Primeiro)</h3>
                 <div style="overflow-x: auto;">
                     <table class="data-table">
                         <thead>
@@ -2772,18 +2769,18 @@
 
         // ========== FUNÇÃO PARA CONVERTER DATAS - CORRIGIDA ========== //
         function convertToDisplayFormat(dateTimeValue, columnHeader = '') {
-    if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
-    
-    try {
-        // Se já está no formato dd/mm/aaaa, retorna como está
-        if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
-            return dateTimeValue;
-        }
-        
-        let date;
-        
-        if (typeof dateTimeValue === 'number') {
-            // CORREÇÃO: Converter número serial do Excel para data SEM subtrair 1 dia
+            if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
+            
+            try {
+                // Se já está no formato dd/mm/aaaa, retorna como está
+                if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
+                    return dateTimeValue;
+                }
+                
+                let date;
+                
+                if (typeof dateTimeValue === 'number') {
+                    // CORREÇÃO: Converter número serial do Excel para data SEM subtrair 1 dia
             // e ADICIONAR 6 minutos
             const excelEpoch = new Date(1899, 11, 30);
             date = new Date(excelEpoch.getTime() + dateTimeValue * 86400 * 1000);
@@ -2803,55 +2800,45 @@
                 date = new Date(date.getTime() + 50);
             }
         } else {
-            // Tentar parse como string - primeiro tentar formato brasileiro
-            const parts = dateTimeValue.toString().split(' ');
-            const datePart = parts[0];
-            const timePart = parts[1] || '00:00';
-            
-            // Verificar se está no formato brasileiro dd/mm/aaaa
-            if (datePart && datePart.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-                const [day, month, year] = datePart.split('/');
-                const [hours, minutes] = timePart.split(':');
-                
-                date = new Date(
-                    parseInt(year),
-                    parseInt(month) - 1,
-                    parseInt(day),
-                    parseInt(hours) || 0,
-                    parseInt(minutes) || 0
-                );
-                
-                // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
-                if (columnHeader === 'DATA/HORA AGENDA') {
-                    date = new Date(date.getTime() + 50);
+                    // Tentar parse como string
+                    const parts = dateTimeValue.toString().split(' ');
+                    const datePart = parts[0];
+                    const timePart = parts[1] || '00:00';
+                    
+                    // Verificar se está no formato brasileiro dd/mm/aaaa
+                    if (datePart && datePart.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                        const [day, month, year] = datePart.split('/');
+                        const [hours, minutes] = timePart.split(':');
+                        
+                        date = new Date(
+                            parseInt(year),
+                            parseInt(month) - 1,
+                            parseInt(day),
+                            parseInt(hours) || 0,
+                            parseInt(minutes) || 0
+                        );
+                    } else {
+                        // Tentar parse padrão
+                        date = new Date(dateTimeValue);
+                    }
                 }
-            } else {
-                // Tentar parse padrão
-                date = new Date(dateTimeValue);
                 
-                // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
-                if (columnHeader === 'DATA/HORA AGENDA') {
-                    date = new Date(date.getTime() + 50);
+                if (date && !isNaN(date.getTime())) {
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const year = date.getFullYear();
+                    const hours = date.getHours().toString().padStart(2, '0');
+                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                    
+                    return `${day}/${month}/${year} ${hours}:${minutes}`;
                 }
+            } catch (error) {
+                console.log('Erro na conversão de data:', error, dateTimeValue);
             }
-        }
-        
-        if (date && !isNaN(date.getTime())) {
-            const day = date.getDate().toString().padStart(2, '0');
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = date.getHours().toString().padStart(2, '0');
-            const minutes = date.getMinutes().toString().padStart(2, '0');
             
-            return `${day}/${month}/${year} ${hours}:${minutes}`;
+            // Se não conseguiu converter, retorna o valor original
+            return dateTimeValue;
         }
-    } catch (error) {
-        console.log('Erro na conversão de data:', error, dateTimeValue);
-    }
-    
-    // Se não conseguiu converter, retorna o valor original
-    return dateTimeValue;
-}
 
         function processAndSaveData(data) {
             const headers = data[0];
@@ -2875,32 +2862,31 @@
                 const driver = {};
                 
                 headers.forEach((header, colIndex) => {
-    if (header && columnMapping[header]) {
-        let value = row[colIndex];
-        
-        // Converter valores undefined/null para string vazia
-        if (value === null || value === undefined) {
-            value = '';
-        }
-        
-        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS ESPECÍFICAS SOLICITADAS
-        const colunasParaConverter = [
-            'DATA/HORA AGENDA',    // Coluna B
-            'DATA/HORA CHEG',      // Coluna G  
-            'ACIONADO',            // Coluna I
-            'FIM CONF',            // Coluna P
-            'INICIO CRIT',         // Coluna Q
-            'FIM CRIT'             // Coluna R
-        ];
-        
-        if (colunasParaConverter.includes(header) && value !== '') {
-            // Passar o header como parâmetro para identificar DATA/HORA AGENDA
-            value = convertToDisplayFormat(value, header);
-        }
-        
-        driver[columnMapping[header]] = value;
-    }
-});
+                    if (header && columnMapping[header]) {
+                        let value = row[colIndex];
+                        
+                        // Converter valores undefined/null para string vazia
+                        if (value === null || value === undefined) {
+                            value = '';
+                        }
+                        
+                        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS DE DATA/HORA
+                        const colunasParaConverter = [
+                            'DATA/HORA AGENDA',    // Coluna B
+                            'DATA/HORA CHEG',      // Coluna G  
+                            'ACIONADO',            // Coluna I
+                            'FIM CONF',            // Coluna P
+                            'INICIO CRIT',         // Coluna Q
+                            'FIM CRIT'             // Coluna R
+                        ];
+                        
+                        if (colunasParaConverter.includes(header) && value !== '') {
+                            value = convertToDisplayFormat(value);
+                        }
+                        
+                        driver[columnMapping[header]] = value;
+                    }
+                });
                 
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
@@ -2954,22 +2940,25 @@
                 if (typeof arrivalDateTime === 'number') {
                     // Converter serial date do Excel
                     const excelEpoch = new Date(1899, 11, 30);
-                    arrival = new Date(excelEpoch.getTime() + (arrivalDateTime - 1) * 86400 * 1000);
-                    arrival = new Date(arrival.getTime() + (3 * 60 * 60 * 1000));
+                    arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
                 } else {
-                    const parts = arrivalDateTime.split(' ');
-                    if (parts.length === 2) {
-                        const datePart = parts[0].split('/');
-                        const timePart = parts[1].split(':');
-                        if (datePart.length === 3 && timePart.length >= 2) {
-                            arrival = new Date(
-                                parseInt(datePart[2]),
-                                parseInt(datePart[1]) - 1,
-                                parseInt(datePart[0]),
-                                parseInt(timePart[0]),
-                                parseInt(timePart[1]),
-                                timePart[2] ? parseInt(timePart[2]) : 0
-                            );
+                    // Usar a função de conversão existente
+                    const converted = convertToDisplayFormat(arrivalDateTime);
+                    if (converted && converted !== '-') {
+                        const parts = converted.split(' ');
+                        if (parts.length === 2) {
+                            const datePart = parts[0].split('/');
+                            const timePart = parts[1].split(':');
+                            if (datePart.length === 3 && timePart.length >= 2) {
+                                arrival = new Date(
+                                    parseInt(datePart[2]),
+                                    parseInt(datePart[1]) - 1,
+                                    parseInt(datePart[0]),
+                                    parseInt(timePart[0]),
+                                    parseInt(timePart[1]),
+                                    timePart[2] ? parseInt(timePart[2]) : 0
+                                );
+                            }
                         }
                     }
                 }
@@ -2999,22 +2988,24 @@
                 
                 if (typeof arrivalDateTime === 'number') {
                     const excelEpoch = new Date(1899, 11, 30);
-                    arrival = new Date(excelEpoch.getTime() + (arrivalDateTime - 1) * 86400 * 1000);
-                    arrival = new Date(arrival.getTime() + (3 * 60 * 60 * 1000));
+                    arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
                 } else {
-                    const parts = arrivalDateTime.split(' ');
-                    if (parts.length === 2) {
-                        const datePart = parts[0].split('/');
-                        const timePart = parts[1].split(':');
-                        if (datePart.length === 3 && timePart.length >= 2) {
-                            arrival = new Date(
-                                parseInt(datePart[2]),
-                                parseInt(datePart[1]) - 1,
-                                parseInt(datePart[0]),
-                                parseInt(timePart[0]),
-                                parseInt(timePart[1]),
-                                timePart[2] ? parseInt(timePart[2]) : 0
-                            );
+                    const converted = convertToDisplayFormat(arrivalDateTime);
+                    if (converted && converted !== '-') {
+                        const parts = converted.split(' ');
+                        if (parts.length === 2) {
+                            const datePart = parts[0].split('/');
+                            const timePart = parts[1].split(':');
+                            if (datePart.length === 3 && timePart.length >= 2) {
+                                arrival = new Date(
+                                    parseInt(datePart[2]),
+                                    parseInt(datePart[1]) - 1,
+                                    parseInt(datePart[0]),
+                                    parseInt(timePart[0]),
+                                    parseInt(timePart[1]),
+                                    timePart[2] ? parseInt(timePart[2]) : 0
+                                );
+                            }
                         }
                     }
                 }
@@ -3044,37 +3035,54 @@
                 }
 
                 if (data && data.length > 0) {
-                    driversData = data.map(item => ({
-                        ticket: item.ticket,
-                        driverName: item.driver_name,
-                        supplier: item.supplier,
-                        cd: item.cd,
-                        status: item.status,
-                        // ✅ MANTER DADOS ORIGINAIS DO SUPABASE
-                        arrivalDateTime: item.arrival_date_time || '-',
-                        scheduleDateTime: item.schedule_date_time || '-',
-                        truckPlate: item.truck_plate,
-                        trailerPlate: item.trailer_plate,
-                        contatoFeito: item.contato_feito || '-',
-                        liberacaoEntregue: item.liberacao_entregue || '-',
-                        encostouDoca: item.encostou_doca || '-',
-                        load: item.load,
-                        nfNumber: item.nf_number,
-                        nfEmission: item.nf_emission || '-',
-                        nfValue: item.nf_value,
-                        equipmentType: item.equipment_type,
-                        equipmentQty: item.equipment_qty,
-                        confStart: item.conf_start || '-',
-                        confEnd: item.conf_end || '-',
-                        critStart: item.crit_start || '-',
-                        critEnd: item.crit_end || '-',
-                        critTime: item.crit_time,
-                        releaseTime: item.release_time || '-',
-                        warehouse: item.warehouse,
-                        called: item.called || '-'
-                    }));
+                    // ✅ CORREÇÃO: Preservar dados existentes e apenas atualizar processos
+                    const existingTickets = new Set(driversData.map(d => d.ticket?.toString().trim()));
+                    
+                    data.forEach(item => {
+                        const existingIndex = driversData.findIndex(d => 
+                            d.ticket && d.ticket.toString().trim() === item.ticket?.toString().trim()
+                        );
+                        
+                        if (existingIndex !== -1) {
+                            // Atualizar apenas os campos de processo do registro existente
+                            driversData[existingIndex].contatoFeito = item.contato_feito || '-';
+                            driversData[existingIndex].liberacaoEntregue = item.liberacao_entregue || '-';
+                            driversData[existingIndex].encostouDoca = item.encostou_doca || '-';
+                        } else {
+                            // Adicionar novo registro apenas se não existir
+                            driversData.push({
+                                ticket: item.ticket,
+                                driverName: item.driver_name,
+                                supplier: item.supplier,
+                                cd: item.cd,
+                                status: item.status,
+                                arrivalDateTime: item.arrival_date_time || '-',
+                                scheduleDateTime: item.schedule_date_time || '-',
+                                truckPlate: item.truck_plate,
+                                trailerPlate: item.trailer_plate,
+                                contatoFeito: item.contato_feito || '-',
+                                liberacaoEntregue: item.liberacao_entregue || '-',
+                                encostouDoca: item.encostou_doca || '-',
+                                load: item.load,
+                                nfNumber: item.nf_number,
+                                nfEmission: item.nf_emission || '-',
+                                nfValue: item.nf_value,
+                                equipmentType: item.equipment_type,
+                                equipmentQty: item.equipment_qty,
+                                confStart: item.conf_start || '-',
+                                confEnd: item.conf_end || '-',
+                                critStart: item.crit_start || '-',
+                                critEnd: item.crit_end || '-',
+                                critTime: item.crit_time,
+                                releaseTime: item.release_time || '-',
+                                warehouse: item.warehouse,
+                                called: item.called || '-'
+                            });
+                        }
+                    });
+                    
                     lastUpdateTime = new Date().toISOString();
-                    console.log(`✅ ${driversData.length} registros carregados do Supabase`);
+                    console.log(`✅ ${data.length} registros carregados do Supabase. Total na base: ${driversData.length}`);
                     return true;
                 }
                 console.log('ℹ️ Nenhum dado encontrado no Supabase');
@@ -3308,24 +3316,31 @@
 
         // ========== INICIALIZAÇÃO ========== //
         async function initializeData() {
+            // ✅ CORREÇÃO: Primeiro carregar dados base do localStorage
+            console.log('📁 Carregando dados base do localStorage...');
+            const hasLocalData = loadFromLocalStorage();
+            
+            if (hasLocalData && driversData.length > 0) {
+                console.log(`✅ ${driversData.length} registros carregados do localStorage`);
+            } else {
+                console.log('📋 Nenhum dado no localStorage, criando dados de exemplo...');
+                createSampleData();
+            }
+
             // Testar conexão Supabase
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
-                console.log('🔄 Carregando dados do Supabase...');
+                console.log('🔄 Sincronizando processos do Supabase...');
                 // Carregar backup de processos primeiro
                 loadProcessBackup();
                 
-                // Tentar carregar do Supabase
-                const hasData = await loadFromSupabase();
-                
-                if (!hasData || driversData.length === 0) {
-                    console.log('📁 Nenhum dado no Supabase, carregando do localStorage...');
-                    loadFromLocalStorage();
-                }
+                // Sincronizar apenas processos do Supabase (sem substituir dados base)
+                await loadFromSupabase();
             } else {
-                console.log('📁 Supabase offline, carregando do localStorage...');
-                loadFromLocalStorage();
+                console.log('📁 Supabase offline, usando dados locais...');
+                // Apenas carregar backup local
+                loadProcessBackup();
             }
 
             // Restaurar processos do backup automaticamente
@@ -3344,15 +3359,15 @@
             updateInterface();
             setupEventListeners();
             
-            console.log('✅ Sistema inicializado com backup inteligente');
+            console.log('✅ Sistema inicializado com dados preservados');
 
             // Debug temporário para verificar conexão
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
-                    showNotification('✅ Conectado ao Supabase!', 'success', 3000);
+                    showNotification('✅ Conectado ao Supabase! Dados base preservados.', 'success', 3000);
                 } else {
-                    showNotification('❌ Erro na conexão Supabase', 'error', 5000);
+                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 5000);
                 }
             }, 2000);
         }
