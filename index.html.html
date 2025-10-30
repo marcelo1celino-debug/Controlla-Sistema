@@ -2771,68 +2771,87 @@
         }
 
         // ========== FUNÇÃO PARA CONVERTER DATAS - CORRIGIDA ========== //
-        function convertToDisplayFormat(dateTimeValue) {
-            if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
-            
-            try {
-                // Se já está no formato dd/mm/aaaa, retorna como está
-                if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
-                    return dateTimeValue;
-                }
-                
-                let date;
-                
-                if (typeof dateTimeValue === 'number') {
-                    // CORREÇÃO: Ajuste para datas do Excel - sem adicionar horas extras
-                    const excelEpoch = new Date(1899, 11, 30);
-                    date = new Date(excelEpoch.getTime() + (dateTimeValue - 1) * 86400 * 1000);
-                    
-                    // CORREÇÃO: Não adicionar 3 horas, manter exatamente como está no Excel
-                    // date = new Date(date.getTime() + (3 * 60 * 60 * 1000)); // REMOVIDO
-                } else if (dateTimeValue instanceof Date) {
-                    date = dateTimeValue;
-                } else {
-                    // Tentar parse como string
-                    date = new Date(dateTimeValue);
-                    
-                    // Se falhar, tentar formato brasileiro
-                    if (isNaN(date.getTime())) {
-                        const parts = dateTimeValue.toString().split(' ');
-                        const datePart = parts[0];
-                        const timePart = parts[1] || '00:00';
-                        
-                        const [day, month, year] = datePart.split('/');
-                        const [hours, minutes] = timePart.split(':');
-                        
-                        if (day && month && year) {
-                            date = new Date(
-                                parseInt(year),
-                                parseInt(month) - 1,
-                                parseInt(day),
-                                parseInt(hours) || 0,
-                                parseInt(minutes) || 0
-                            );
-                        }
-                    }
-                }
-                
-                if (date && !isNaN(date.getTime())) {
-                    // CORREÇÃO: Usar métodos locais para evitar problemas de fuso horário
-                    const day = date.getDate().toString().padStart(2, '0');
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    const year = date.getFullYear();
-                    const hours = date.getHours().toString().padStart(2, '0');
-                    const minutes = date.getMinutes().toString().padStart(2, '0');
-                    
-                    return `${day}/${month}/${year} ${hours}:${minutes}`;
-                }
-            } catch (error) {
-                console.log('Erro na conversão de data:', error, dateTimeValue);
-            }
-            
-            // Se não conseguiu converter, retorna o valor original
+        function convertToDisplayFormat(dateTimeValue, columnHeader = '') {
+    if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
+    
+    try {
+        // Se já está no formato dd/mm/aaaa, retorna como está
+        if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
             return dateTimeValue;
         }
+        
+        let date;
+        
+        if (typeof dateTimeValue === 'number') {
+            // CORREÇÃO: Converter número serial do Excel para data SEM subtrair 1 dia
+            // e ADICIONAR 6 minutos
+            const excelEpoch = new Date(1899, 11, 30);
+            date = new Date(excelEpoch.getTime() + dateTimeValue * 86400 * 1000);
+            
+            // ADICIONAR 6 minutos (6 * 60 * 1000 milissegundos)
+            date = new Date(date.getTime() - (6 * 60 * 1000));
+            
+            // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
+            if (columnHeader === 'DATA/HORA AGENDA') {
+                date = new Date(date.getTime() + 50);
+            }
+        } else if (dateTimeValue instanceof Date) {
+            date = dateTimeValue;
+            
+            // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
+            if (columnHeader === 'DATA/HORA AGENDA') {
+                date = new Date(date.getTime() + 50);
+            }
+        } else {
+            // Tentar parse como string - primeiro tentar formato brasileiro
+            const parts = dateTimeValue.toString().split(' ');
+            const datePart = parts[0];
+            const timePart = parts[1] || '00:00';
+            
+            // Verificar se está no formato brasileiro dd/mm/aaaa
+            if (datePart && datePart.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                const [day, month, year] = datePart.split('/');
+                const [hours, minutes] = timePart.split(':');
+                
+                date = new Date(
+                    parseInt(year),
+                    parseInt(month) - 1,
+                    parseInt(day),
+                    parseInt(hours) || 0,
+                    parseInt(minutes) || 0
+                );
+                
+                // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
+                if (columnHeader === 'DATA/HORA AGENDA') {
+                    date = new Date(date.getTime() + 50);
+                }
+            } else {
+                // Tentar parse padrão
+                date = new Date(dateTimeValue);
+                
+                // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
+                if (columnHeader === 'DATA/HORA AGENDA') {
+                    date = new Date(date.getTime() + 50);
+                }
+            }
+        }
+        
+        if (date && !isNaN(date.getTime())) {
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            
+            return `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+    } catch (error) {
+        console.log('Erro na conversão de data:', error, dateTimeValue);
+    }
+    
+    // Se não conseguiu converter, retorna o valor original
+    return dateTimeValue;
+}
 
         function processAndSaveData(data) {
             const headers = data[0];
@@ -2856,26 +2875,32 @@
                 const driver = {};
                 
                 headers.forEach((header, colIndex) => {
-                    if (header && columnMapping[header]) {
-                        let value = row[colIndex];
-                        
-                        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS ESPECÍFICAS SOLICITADAS
-                        const colunasParaConverter = [
-                            'DATA/HORA AGENDA',    // Coluna B
-                            'DATA/HORA CHEG',      // Coluna G  
-                            'ACIONADO',            // Coluna I
-                            'FIM CONF',            // Coluna P
-                            'INICIO CRIT',         // Coluna Q
-                            'FIM CRIT'             // Coluna R
-                        ];
-                        
-                        if (colunasParaConverter.includes(header)) {
-                            value = convertToDisplayFormat(value);
-                        }
-                        
-                        driver[columnMapping[header]] = value;
-                    }
-                });
+    if (header && columnMapping[header]) {
+        let value = row[colIndex];
+        
+        // Converter valores undefined/null para string vazia
+        if (value === null || value === undefined) {
+            value = '';
+        }
+        
+        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS ESPECÍFICAS SOLICITADAS
+        const colunasParaConverter = [
+            'DATA/HORA AGENDA',    // Coluna B
+            'DATA/HORA CHEG',      // Coluna G  
+            'ACIONADO',            // Coluna I
+            'FIM CONF',            // Coluna P
+            'INICIO CRIT',         // Coluna Q
+            'FIM CRIT'             // Coluna R
+        ];
+        
+        if (colunasParaConverter.includes(header) && value !== '') {
+            // Passar o header como parâmetro para identificar DATA/HORA AGENDA
+            value = convertToDisplayFormat(value, header);
+        }
+        
+        driver[columnMapping[header]] = value;
+    }
+});
                 
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
