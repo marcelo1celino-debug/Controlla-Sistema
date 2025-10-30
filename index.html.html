@@ -3365,9 +3365,9 @@ filteredDrivers.sort((a, b) => {
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
-                    showNotification('✅ Conectado ao Supabase! Dados base preservados.', 'success', 3000);
+                    showNotification('✅ Conectado ao Supabase! Dados base preservados.', 'success', 800);
                 } else {
-                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 5000);
+                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 800);
                 }
             }, 2000);
         }
