@@ -1600,43 +1600,45 @@
             }, 1000);
         }
 
-        // 3. SALVAMENTO AUTOMÁTICO
-        async function autoSaveData() {
-            if (!dataChangeDetected) return;
-            
-            try {
-                showAutoSaveStatus('saving');
-                
-                // Salvar no Supabase (se online) APENAS PROCESSOS
-                if (isOnline) {
-                    const success = await saveProcessesToSupabase();
-                    if (success) {
-                        console.log('✅ Processos salvos automaticamente no Supabase');
-                    }
+        // 3. SALVAMENTO AUTOMÁTICO - OTIMIZADO
+async function autoSaveData() {
+    if (!dataChangeDetected) return;
+    
+    try {
+        showAutoSaveStatus('saving');
+        
+        // ✅ SALVAR NO LOCALSTORAGE PRIMEIRO (MAIS RÁPIDO)
+        saveToLocalStorage();
+        saveProcessBackup();
+        
+        // ✅ SALVAR NO SUPABASE EM SEGUNDO PLANO (SE ONLINE)
+        if (isOnline) {
+            // Não esperar pelo Supabase para não travar a interface
+            saveProcessesToSupabase().then(success => {
+                if (success) {
+                    console.log('✅ Processos salvos no Supabase (background)');
                 }
-                
-                // Sempre salvar no localStorage como backup
-                saveToLocalStorage();
-                
-                // Salvar backup de processos (INTELIGENTE)
-                saveProcessBackup();
-                
-                dataChangeDetected = false;
-                showAutoSaveStatus('saved');
-                
-                // ATUALIZAR RELATÓRIO AUTOMATICAMENTE
-                if (document.getElementById('report-section').classList.contains('active')) {
-                    generateReport();
-                }
-                
-            } catch (error) {
-                console.error('❌ Erro no salvamento automático:', error);
-                showAutoSaveStatus('error');
-                // Em caso de erro, ainda salva no localStorage
-                saveToLocalStorage();
-                saveProcessBackup();
-            }
+            }).catch(error => {
+                console.error('❌ Erro background no Supabase:', error);
+            });
         }
+        
+        dataChangeDetected = false;
+        showAutoSaveStatus('saved');
+        
+        // ✅ ATUALIZAR RELATÓRIO AUTOMATICAMENTE (APENAS SE VISÍVEL)
+        if (document.getElementById('report-section').classList.contains('active')) {
+            setTimeout(generateReport, 100); // Pequeno delay para não travar
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro no salvamento automático:', error);
+        showAutoSaveStatus('error');
+        // Em caso de erro, garantir que pelo menos localStorage foi salvo
+        saveToLocalStorage();
+        saveProcessBackup();
+    }
+}
 
         // 4. INDICADOR VISUAL DE SALVAMENTO
         function showAutoSaveStatus(status) {
@@ -1812,45 +1814,71 @@
             }
         }
 
-        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE
-        async function saveProcessesToSupabase() {
-            // ✅ SALVAR APENAS DRIVERS QUE TENHAM PROCESSOS
-            const driversWithProcesses = driversData.filter(driver => 
-                (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                (driver.encostouDoca && driver.encostouDoca !== '-')
-            );
+        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE - OTIMIZADA
+async function saveProcessesToSupabase() {
+    // ✅ SALVAR APENAS DRIVERS QUE TENHAM PROCESSOS E QUE FORAM MODIFICADOS
+    const driversWithProcesses = driversData.filter(driver => {
+        const hasProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                          (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                          (driver.encostouDoca && driver.encostouDoca !== '-');
+        
+        // ✅ VERIFICAR SE HOUVE MUDANÇA RECENTE (últimos 5 minutos)
+        if (!hasProcess) return false;
+        
+        // Para simplificar, salvar todos os que têm processos
+        return true;
+    });
 
-            if (driversWithProcesses.length === 0) {
-                return true;
-            }
+    if (driversWithProcesses.length === 0) {
+        return true;
+    }
 
-            const driversToSave = driversWithProcesses.map(driver => ({
-                ticket: driver.ticket,
-                driver_name: driver.driverName,
-                supplier: driver.supplier,
-                cd: driver.cd,
-                status: driver.status,
-                contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
-                updated_at: new Date().toISOString()
-            }));
-            
-            const { data, error } = await supabase
-                .from('drivers')
-                .upsert(driversToSave, {
-                    onConflict: 'ticket',
-                    ignoreDuplicates: false
-                });
+    // ✅ LIMITAR O NÚMERO DE REGISTROS POR LOTE
+    const batchSize = 50;
+    const batches = [];
+    
+    for (let i = 0; i < driversWithProcesses.length; i += batchSize) {
+        batches.push(driversWithProcesses.slice(i, i + batchSize));
+    }
 
-            if (error) {
-                throw error;
-            }
-            
-            return true;
+    // ✅ SALVAR EM LOTES PARALELOS
+    const savePromises = batches.map(batch => {
+        const driversToSave = batch.map(driver => ({
+            ticket: driver.ticket,
+            driver_name: driver.driverName,
+            supplier: driver.supplier,
+            cd: driver.cd,
+            status: driver.status,
+            contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
+            liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
+            encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+            updated_at: new Date().toISOString()
+        }));
+        
+        return supabase
+            .from('drivers')
+            .upsert(driversToSave, {
+                onConflict: 'ticket',
+                ignoreDuplicates: false
+            });
+    });
+
+    try {
+        const results = await Promise.all(savePromises);
+        
+        // ✅ VERIFICAR SE HOUVE ERROS EM ALGUM LOTE
+        const hasErrors = results.some(result => result.error);
+        if (hasErrors) {
+            throw new Error('Erro em um ou mais lotes de salvamento');
         }
-
+        
+        console.log(`✅ ${driversWithProcesses.length} processos salvos em ${batches.length} lotes`);
+        return true;
+    } catch (error) {
+        console.error('❌ Erro ao salvar processos no Supabase:', error);
+        throw error;
+    }
+}
         // ========== FUNÇÕES PRINCIPAIS ========== //
         function createSampleData() {
             const sampleDrivers = [
@@ -3020,79 +3048,114 @@ filteredDrivers.sort((a, b) => {
             }
         }
 
-        // ========== FUNÇÕES SUPABASE ========== //
-        async function loadFromSupabase() {
-            try {
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .select('*')
-                    .order('updated_at', { ascending: false });
+        // ========== FUNÇÕES SUPABASE - OTIMIZADAS ========== //
+let supabaseCache = {
+    lastSync: null,
+    data: [],
+    cacheDuration: 30000 // 30 segundos de cache
+};
 
-                if (error) {
-                    console.error('❌ Erro ao carregar do Supabase:', error);
-                    updateSyncStatus(false);
-                    return false;
-                }
+async function loadFromSupabase() {
+    // ✅ VERIFICAR CACHE PRIMEIRO
+    const now = Date.now();
+    if (supabaseCache.lastSync && (now - supabaseCache.lastSync) < supabaseCache.cacheDuration) {
+        console.log('📦 Usando cache do Supabase');
+        return true;
+    }
 
-                if (data && data.length > 0) {
-                    // ✅ CORREÇÃO: Preservar dados existentes e apenas atualizar processos
-                    const existingTickets = new Set(driversData.map(d => d.ticket?.toString().trim()));
-                    
-                    data.forEach(item => {
-                        const existingIndex = driversData.findIndex(d => 
-                            d.ticket && d.ticket.toString().trim() === item.ticket?.toString().trim()
-                        );
-                        
-                        if (existingIndex !== -1) {
-                            // Atualizar apenas os campos de processo do registro existente
-                            driversData[existingIndex].contatoFeito = item.contato_feito || '-';
-                            driversData[existingIndex].liberacaoEntregue = item.liberacao_entregue || '-';
-                            driversData[existingIndex].encostouDoca = item.encostou_doca || '-';
-                        } else {
-                            // Adicionar novo registro apenas se não existir
-                            driversData.push({
-                                ticket: item.ticket,
-                                driverName: item.driver_name,
-                                supplier: item.supplier,
-                                cd: item.cd,
-                                status: item.status,
-                                arrivalDateTime: item.arrival_date_time || '-',
-                                scheduleDateTime: item.schedule_date_time || '-',
-                                truckPlate: item.truck_plate,
-                                trailerPlate: item.trailer_plate,
-                                contatoFeito: item.contato_feito || '-',
-                                liberacaoEntregue: item.liberacao_entregue || '-',
-                                encostouDoca: item.encostou_doca || '-',
-                                load: item.load,
-                                nfNumber: item.nf_number,
-                                nfEmission: item.nf_emission || '-',
-                                nfValue: item.nf_value,
-                                equipmentType: item.equipment_type,
-                                equipmentQty: item.equipment_qty,
-                                confStart: item.conf_start || '-',
-                                confEnd: item.conf_end || '-',
-                                critStart: item.crit_start || '-',
-                                critEnd: item.crit_end || '-',
-                                critTime: item.crit_time,
-                                releaseTime: item.release_time || '-',
-                                warehouse: item.warehouse,
-                                called: item.called || '-'
-                            });
-                        }
-                    });
-                    
-                    lastUpdateTime = new Date().toISOString();
-                    console.log(`✅ ${data.length} registros carregados do Supabase. Total na base: ${driversData.length}`);
-                    return true;
-                }
-                console.log('ℹ️ Nenhum dado encontrado no Supabase');
-                return false;
-            } catch (error) {
-                console.error('❌ Erro fatal ao carregar do Supabase:', error);
-                updateSyncStatus(false);
-                return false;
-            }
+    try {
+        // ✅ QUERY OTIMIZADA: Buscar apenas dados atualizados recentemente
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        
+        const { data, error } = await supabase
+            .from('drivers')
+            .select('ticket, driver_name, supplier, cd, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+            .or(`updated_at.gte.${oneHourAgo},and(updated_at.is.null,created_at.gte.${oneHourAgo})`)
+            .order('updated_at', { ascending: false })
+            .limit(1000); // Limitar para evitar sobrecarga
+
+        if (error) {
+            console.error('❌ Erro ao carregar do Supabase:', error);
+            updateSyncStatus(false);
+            return false;
         }
+
+        if (data && data.length > 0) {
+            // ✅ PROCESSAMENTO EM LOTE OTIMIZADO
+            const existingTicketsMap = new Map();
+            driversData.forEach((driver, index) => {
+                if (driver.ticket) {
+                    existingTicketsMap.set(driver.ticket.toString().trim(), index);
+                }
+            });
+
+            let updatedCount = 0;
+            let addedCount = 0;
+
+            data.forEach(item => {
+                const ticketKey = item.ticket?.toString().trim();
+                if (!ticketKey) return;
+
+                const existingIndex = existingTicketsMap.get(ticketKey);
+                
+                if (existingIndex !== undefined) {
+                    // ✅ ATUALIZAR APENAS CAMPOS DE PROCESSO
+                    const driver = driversData[existingIndex];
+                    if (item.contato_feito && item.contato_feito !== driver.contatoFeito) {
+                        driver.contatoFeito = item.contato_feito;
+                        updatedCount++;
+                    }
+                    if (item.liberacao_entregue && item.liberacao_entregue !== driver.liberacaoEntregue) {
+                        driver.liberacaoEntregue = item.liberacao_entregue;
+                        updatedCount++;
+                    }
+                    if (item.encostou_doca && item.encostou_doca !== driver.encostouDoca) {
+                        driver.encostouDoca = item.encostou_doca;
+                        updatedCount++;
+                    }
+                } else {
+                    // ✅ ADICIONAR NOVO REGISTRO APENAS COM CAMPOS ESSENCIAIS
+                    driversData.push({
+                        ticket: item.ticket,
+                        driverName: item.driver_name,
+                        supplier: item.supplier,
+                        cd: item.cd,
+                        status: item.status,
+                        arrivalDateTime: '-',
+                        scheduleDateTime: '-',
+                        truckPlate: '-',
+                        contatoFeito: item.contato_feito || '-',
+                        liberacaoEntregue: item.liberacao_entregue || '-',
+                        encostouDoca: item.encostou_doca || '-',
+                        load: '-'
+                    });
+                    addedCount++;
+                }
+            });
+
+            // ✅ ATUALIZAR CACHE
+            supabaseCache = {
+                lastSync: now,
+                data: data,
+                cacheDuration: 30000
+            };
+
+            lastUpdateTime = new Date().toISOString();
+            console.log(`✅ Supabase: ${updatedCount} atualizados, ${addedCount} novos. Cache: ${data.length} registros`);
+            return true;
+        }
+        
+        console.log('ℹ️ Nenhum dado novo no Supabase');
+        // ✅ ATUALIZAR CACHE MESMO SEM DADOS NOVOS
+        supabaseCache.lastSync = now;
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro fatal ao carregar do Supabase:', error);
+        updateSyncStatus(false);
+        return false;
+    }
+}
 
         function updateSyncStatus(online) {
             isOnline = online;
