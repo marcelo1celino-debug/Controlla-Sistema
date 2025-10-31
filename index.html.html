@@ -1879,7 +1879,43 @@ async function saveProcessesToSupabase() {
         throw error;
     }
 }
-        
+     // ========== FUNÇÕES PRINCIPAIS ========== //
+        function createSampleData() {
+            const sampleDrivers = [
+                {
+                    ticket: '1001',
+                    driverName: 'João Silva',
+                    supplier: 'Transportes ABC',
+                    cd: 'CD001',
+                    truckPlate: 'ABC1234',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 08:30:00',
+                    arrivalDateTime: '15/10/2023 08:35:00',
+                    load: '26568216',
+                    contatoFeito: '-',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-'
+                },
+                {
+                    ticket: '1002', 
+                    driverName: 'Maria Santos',
+                    supplier: 'Logística XYZ',
+                    cd: 'CD002',
+                    truckPlate: 'XYZ5678',
+                    status: 'AGENDADO',
+                    scheduleDateTime: '15/10/2023 09:00:00',
+                    arrivalDateTime: '15/10/2023 09:05:00',
+                    load: '26555322',
+                    contatoFeito: '-',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-'
+                }
+            ];
+            
+            driversData = sampleDrivers;
+            suppliersList = ['Transportes ABC', 'Logística XYZ'];
+            cdList = ['CD001', 'CD002'];
+        }   
 
         function updateDatabaseStats() {
             try {
