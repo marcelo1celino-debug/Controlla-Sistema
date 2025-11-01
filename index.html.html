@@ -1506,22 +1506,32 @@
             if (savedFilters) {
                 const filterValues = JSON.parse(savedFilters);
                 
-                // Restaurar valores nos inputs
-                document.getElementById('filter-ticket').value = filterValues.ticket || '';
-                document.getElementById('filter-driver').value = filterValues.driver || '';
-                document.getElementById('filter-supplier').value = filterValues.supplier || '';
-                document.getElementById('filter-status').value = filterValues.status || '';
-                document.getElementById('filter-plate').value = filterValues.plate || '';
-                document.getElementById('filter-arrival').value = filterValues.arrival || '';
+                // ✅ CORREÇÃO: Verificar se elementos existem antes de acessar
+                const elements = {
+                    ticket: document.getElementById('filter-ticket'),
+                    driver: document.getElementById('filter-driver'),
+                    supplier: document.getElementById('filter-supplier'),
+                    status: document.getElementById('filter-status'),
+                    plate: document.getElementById('filter-plate'),
+                    arrival: document.getElementById('filter-arrival')
+                };
                 
-                // Restaurar activeFilters
+                // Restaurar valores nos inputs
+                if (elements.ticket) elements.ticket.value = filterValues.ticket || '';
+                if (elements.driver) elements.driver.value = filterValues.driver || '';
+                if (elements.supplier) elements.supplier.value = filterValues.supplier || '';
+                if (elements.status) elements.status.value = filterValues.status || '';
+                if (elements.plate) elements.plate.value = filterValues.plate || '';
+                if (elements.arrival) elements.arrival.value = filterValues.arrival || '';
+                
+                // ✅ CORREÇÃO: Garantir que valores vazios sejam tratados corretamente
                 activeFilters = {
-                    ticket: filterValues.ticket ? filterValues.ticket.toLowerCase() : '',
-                    driver: filterValues.driver ? filterValues.driver.toLowerCase() : '',
-                    supplier: filterValues.supplier ? filterValues.supplier.toLowerCase() : '',
-                    status: filterValues.status ? filterValues.status.toLowerCase() : '',
-                    plate: filterValues.plate ? filterValues.plate.toLowerCase() : '',
-                    arrival: filterValues.arrival ? filterValues.arrival.toLowerCase() : ''
+                    ticket: filterValues.ticket ? filterValues.ticket.toString().toLowerCase() : '',
+                    driver: filterValues.driver ? filterValues.driver.toString().toLowerCase() : '',
+                    supplier: filterValues.supplier ? filterValues.supplier.toString().toLowerCase() : '',
+                    status: filterValues.status ? filterValues.status.toString().toLowerCase() : '',
+                    plate: filterValues.plate ? filterValues.plate.toString().toLowerCase() : '',
+                    arrival: filterValues.arrival ? filterValues.arrival.toString().toLowerCase() : ''
                 };
                 
                 return true;
@@ -1534,7 +1544,15 @@
             const resultsInfo = document.getElementById('results-info');
             const totalCount = driversData.length;
             
-            if (filteredCount === totalCount) {
+            // ✅ CORREÇÃO: Verificar se o elemento existe
+            if (!resultsInfo) return;
+            
+            // ✅ CORREÇÃO: Melhorar mensagem quando não há registros
+            if (totalCount === 0) {
+                resultsInfo.textContent = 'Nenhum registro encontrado na base de dados';
+            } else if (filteredCount === 0) {
+                resultsInfo.textContent = 'Nenhum registro corresponde aos filtros aplicados';
+            } else if (filteredCount === totalCount) {
                 resultsInfo.textContent = `Mostrando todos os ${totalCount} registros`;
             } else {
                 resultsInfo.textContent = `Mostrando ${filteredCount} de ${totalCount} registros filtrados`;
@@ -1581,6 +1599,9 @@
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
+            // Ignorar atualizações que não tenham ticket
+            if (newRecord && !newRecord.ticket) return;
+
             switch (eventType) {
                 case 'INSERT':
                 case 'UPDATE':
@@ -1609,43 +1630,45 @@
                 const existingDriver = driversData[existingIndex];
                 
                 // Atualizar apenas campos de processo (preservar dados locais)
-                if (updatedDriver.contato_feito) {
+                if (updatedDriver.contato_feito !== undefined && updatedDriver.contato_feito !== null) {
                     existingDriver.contatoFeito = updatedDriver.contato_feito;
                 }
-                if (updatedDriver.liberacao_entregue) {
+                if (updatedDriver.liberacao_entregue !== undefined && updatedDriver.liberacao_entregue !== null) {
                     existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue;
                 }
-                if (updatedDriver.encostou_doca) {
+                if (updatedDriver.encostou_doca !== undefined && updatedDriver.encostou_doca !== null) {
                     existingDriver.encostouDoca = updatedDriver.encostou_doca;
                 }
-                if (updatedDriver.driver_name) {
+                if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
                     existingDriver.driverName = updatedDriver.driver_name;
                 }
-                if (updatedDriver.supplier) {
+                if (updatedDriver.supplier !== undefined && updatedDriver.supplier !== null) {
                     existingDriver.supplier = updatedDriver.supplier;
                 }
-                if (updatedDriver.status) {
+                if (updatedDriver.status !== undefined && updatedDriver.status !== null) {
                     existingDriver.status = updatedDriver.status;
                 }
 
                 console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
             } else {
-                // Adicionar novo motorista
-                driversData.push({
-                    ticket: updatedDriver.ticket,
-                    driverName: updatedDriver.driver_name || '-',
-                    supplier: updatedDriver.supplier || '-',
-                    cd: updatedDriver.cd || '-',
-                    status: updatedDriver.status || '-',
-                    arrivalDateTime: '-',
-                    scheduleDateTime: '-',
-                    truckPlate: '-',
-                    contatoFeito: updatedDriver.contato_feito || '-',
-                    liberacaoEntregue: updatedDriver.liberacao_entregue || '-',
-                    encostouDoca: updatedDriver.encostou_doca || '-',
-                    load: '-'
-                });
-                console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
+                // Adicionar novo motorista apenas se tiver dados básicos
+                if (updatedDriver.driver_name || updatedDriver.supplier) {
+                    driversData.push({
+                        ticket: updatedDriver.ticket,
+                        driverName: updatedDriver.driver_name || '-',
+                        supplier: updatedDriver.supplier || '-',
+                        cd: updatedDriver.cd || '-',
+                        status: updatedDriver.status || '-',
+                        arrivalDateTime: '-',
+                        scheduleDateTime: '-',
+                        truckPlate: '-',
+                        contatoFeito: updatedDriver.contato_feito || '-',
+                        liberacaoEntregue: updatedDriver.liberacao_entregue || '-',
+                        encostouDoca: updatedDriver.encostou_doca || '-',
+                        load: '-'
+                    });
+                    console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
+                }
             }
 
             // Atualizar interface imediatamente
@@ -1700,11 +1723,17 @@
             showNotification('🔄 Sincronizando dados...', 'info');
             
             try {
-                await loadFromSupabase();
-                updateInterface();
-                updateSyncStatus(true, 'Sincronizado');
-                showNotification('✅ Sincronização concluída!', 'success');
+                const success = await loadFromSupabase();
+                if (success) {
+                    updateInterface();
+                    updateSyncStatus(true, 'Sincronizado');
+                    showNotification('✅ Sincronização concluída!', 'success');
+                } else {
+                    updateSyncStatus(false, 'Sincronização parcial');
+                    showNotification('⚠️ Sincronização parcial - alguns dados podem estar desatualizados', 'warning');
+                }
             } catch (error) {
+                console.error('Erro na sincronização forçada:', error);
                 updateSyncStatus(false, 'Erro na sincronização');
                 showNotification('❌ Erro na sincronização', 'error');
             }
@@ -1801,44 +1830,50 @@
             try {
                 let restoredCount = 0;
                 let skippedCount = 0;
+                let errorCount = 0;
                 
                 driversData.forEach(driver => {
-                    if (driver.ticket) {
-                        const ticketKey = driver.ticket.toString().trim();
-                        const backup = processBackupData[ticketKey];
-                        
-                        if (backup) {
-                            // Verificar se o driver atual já tem dados de processo
-                            const currentHasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                                        (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                                        (driver.encostouDoca && driver.encostouDoca !== '-');
+                    try {
+                        if (driver && driver.ticket) {
+                            const ticketKey = driver.ticket.toString().trim();
+                            const backup = processBackupData[ticketKey];
                             
-                            // Só restaurar se o driver atual NÃO tem dados de processo
-                            if (!currentHasProcessData) {
-                                // Restaurar processos do backup
-                                if (backup.contatoFeito !== '-') {
-                                    driver.contatoFeito = backup.contatoFeito;
-                                    restoredCount++;
-                                }
+                            if (backup) {
+                                // Verificar se o driver atual já tem dados de processo
+                                const currentHasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                                                            (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                                                            (driver.encostouDoca && driver.encostouDoca !== '-');
                                 
-                                if (backup.liberacaoEntregue !== '-') {
-                                    driver.liberacaoEntregue = backup.liberacaoEntregue;
-                                    restoredCount++;
+                                // Só restaurar se o driver atual NÃO tem dados de processo
+                                if (!currentHasProcessData) {
+                                    // Restaurar processos do backup
+                                    if (backup.contatoFeito && backup.contatoFeito !== '-') {
+                                        driver.contatoFeito = backup.contatoFeito;
+                                        restoredCount++;
+                                    }
+                                    
+                                    if (backup.liberacaoEntregue && backup.liberacaoEntregue !== '-') {
+                                        driver.liberacaoEntregue = backup.liberacaoEntregue;
+                                        restoredCount++;
+                                    }
+                                    
+                                    if (backup.encostouDoca && backup.encostouDoca !== '-') {
+                                        driver.encostouDoca = backup.encostouDoca;
+                                        restoredCount++;
+                                    }
+                                } else {
+                                    skippedCount++;
                                 }
-                                
-                                if (backup.encostouDoca !== '-') {
-                                    driver.encostouDoca = backup.encostouDoca;
-                                    restoredCount++;
-                                }
-                            } else {
-                                skippedCount++;
                             }
                         }
+                    } catch (driverError) {
+                        console.error('Erro ao restaurar driver do backup:', driverError);
+                        errorCount++;
                     }
                 });
                 
-                if (restoredCount > 0) {
-                    console.log(`✅ ${restoredCount} processos restaurados do backup (${skippedCount} pulados - já possuíam dados)`);
+                if (restoredCount > 0 || errorCount > 0) {
+                    console.log(`✅ ${restoredCount} processos restaurados do backup (${skippedCount} pulados, ${errorCount} erros)`);
                 }
                 
                 return restoredCount;
@@ -2809,18 +2844,23 @@
             const dataToShow = filteredData || driversData;
             const tableBody = document.getElementById('drivers-table-body');
             
+            // ✅ CORREÇÃO: Verificar se o elemento existe
+            if (!tableBody) return;
+            
             tableBody.innerHTML = '';
             
             if (dataToShow.length === 0) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="8" style="text-align: center;">Nenhum motorista encontrado</td>`;
+                row.innerHTML = `<td colspan="8" style="text-align: center; padding: 20px;">Nenhum motorista encontrado</td>`;
                 tableBody.appendChild(row);
                 return;
             }
             
-            const displayData = dataToShow.slice(0, 1000);
-            
-            displayData.forEach(driver => {
+            // ✅ CORREÇÃO: Remover limite para mostrar todos os dados filtrados
+            dataToShow.forEach(driver => {
+                // ✅ CORREÇÃO: Verificar se o driver existe
+                if (!driver) return;
+                
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${driver.ticket || '-'}</td>
@@ -2838,22 +2878,30 @@
                 tableBody.appendChild(row);
             });
             
-            document.querySelectorAll('.view-driver').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const ticket = this.getAttribute('data-ticket');
-                    searchDriver(ticket);
-                    showSection('search-section');
+            // ✅ CORREÇÃO: Adicionar event listeners com verificação de segurança
+            setTimeout(() => {
+                document.querySelectorAll('.view-driver').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const ticket = this.getAttribute('data-ticket');
+                        if (ticket) {
+                            searchDriver(ticket);
+                            showSection('search-section');
+                        }
+                    });
                 });
-            });
-            
-            document.querySelectorAll('.delete-driver').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const ticket = this.getAttribute('data-ticket');
-                    deleteDriver(ticket);
+                
+                document.querySelectorAll('.delete-driver').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const ticket = this.getAttribute('data-ticket');
+                        if (ticket) {
+                            deleteDriver(ticket);
+                        }
+                    });
                 });
-            });
+            }, 0);
             
-            setupColumnFilters();
+            // ✅ CORREÇÃO: Remover setupColumnFilters() se não estiver sendo usado
+            // setupColumnFilters();
         }
 
         function setupColumnFilters() {
@@ -2907,64 +2955,93 @@
         }
 
         function setupFilterListeners() {
+            // ✅ CORREÇÃO: Adicionar debounce para melhor performance
+            let filterTimeout;
+            
+            function debouncedApplyFilters() {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(() => {
+                    applyFilters();
+                }, 300);
+            }
+            
             document.getElementById('filter-ticket').addEventListener('input', function() {
                 activeFilters.ticket = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
             });
             
             document.getElementById('filter-driver').addEventListener('input', function() {
                 activeFilters.driver = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
             });
             
             document.getElementById('filter-supplier').addEventListener('input', function() {
                 activeFilters.supplier = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
             });
             
             document.getElementById('filter-status').addEventListener('input', function() {
                 activeFilters.status = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
             });
             
             document.getElementById('filter-plate').addEventListener('input', function() {
                 activeFilters.plate = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
             });
             
             document.getElementById('filter-arrival').addEventListener('input', function() {
                 activeFilters.arrival = this.value.trim().toLowerCase();
-                applyFilters();
+                debouncedApplyFilters();
+            });
+            
+            // ✅ CORREÇÃO: Adicionar evento de tecla Enter para aplicar filtros imediatamente
+            const filterInputs = document.querySelectorAll('.filtro-input');
+            filterInputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        applyFilters();
+                    }
+                });
             });
         }
 
         function applyFilters() {
             let filteredData = driversData.filter(driver => {
-                if (activeFilters.ticket && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(activeFilters.ticket))) {
+                // ✅ CORREÇÃO: Verificar se o driver existe antes de acessar propriedades
+                if (!driver) return false;
+                
+                // ✅ CORREÇÃO: Usar valores padrão para evitar erros
+                const driverTicket = driver.ticket ? driver.ticket.toString().toLowerCase() : '';
+                const driverName = driver.driverName ? driver.driverName.toString().toLowerCase() : '';
+                const driverSupplier = driver.supplier ? driver.supplier.toString().toLowerCase() : '';
+                const driverStatus = driver.status ? driver.status.toString().toLowerCase() : '';
+                const driverTruckPlate = driver.truckPlate ? driver.truckPlate.toString().toLowerCase() : '';
+                const driverArrival = driver.arrivalDateTime ? driver.arrivalDateTime.toString().toLowerCase() : '';
+                
+                // ✅ CORREÇÃO: Aplicar filtros apenas se houver valor no filtro
+                if (activeFilters.ticket && !driverTicket.includes(activeFilters.ticket)) {
                     return false;
                 }
                 
-                if (activeFilters.driver && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(activeFilters.driver))) {
+                if (activeFilters.driver && !driverName.includes(activeFilters.driver)) {
                     return false;
                 }
                 
-                if (activeFilters.supplier && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(activeFilters.supplier))) {
+                if (activeFilters.supplier && !driverSupplier.includes(activeFilters.supplier)) {
                     return false;
                 }
                 
-                if (activeFilters.status && (!driver.status || !driver.status.toString().toLowerCase().includes(activeFilters.status))) {
+                if (activeFilters.status && !driverStatus.includes(activeFilters.status)) {
                     return false;
                 }
                 
-                if (activeFilters.plate && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(activeFilters.plate))) {
+                if (activeFilters.plate && !driverTruckPlate.includes(activeFilters.plate)) {
                     return false;
                 }
                 
-                if (activeFilters.arrival) {
-                    const arrivalFormatted = driver.arrivalDateTime;
-                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(activeFilters.arrival)) {
-                        return false;
-                    }
+                if (activeFilters.arrival && !driverArrival.includes(activeFilters.arrival)) {
+                    return false;
                 }
                 
                 return true;
