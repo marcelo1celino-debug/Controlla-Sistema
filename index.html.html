@@ -1478,6 +1478,69 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
+        // ========== SISTEMA DE FILTROS PERSISTENTES ========== //
+        let activeFilters = {
+            ticket: '',
+            driver: '',
+            supplier: '',
+            status: '',
+            plate: '',
+            arrival: ''
+        };
+
+        // ✅ FUNÇÕES PARA SALVAR E CARREGAR FILTROS
+        function saveFilterValues() {
+            const filterValues = {
+                ticket: document.getElementById('filter-ticket').value,
+                driver: document.getElementById('filter-driver').value,
+                supplier: document.getElementById('filter-supplier').value,
+                status: document.getElementById('filter-status').value,
+                plate: document.getElementById('filter-plate').value,
+                arrival: document.getElementById('filter-arrival').value
+            };
+            localStorage.setItem('activeFilters', JSON.stringify(filterValues));
+        }
+
+        function loadFilterValues() {
+            const savedFilters = localStorage.getItem('activeFilters');
+            if (savedFilters) {
+                const filterValues = JSON.parse(savedFilters);
+                
+                // Restaurar valores nos inputs
+                document.getElementById('filter-ticket').value = filterValues.ticket || '';
+                document.getElementById('filter-driver').value = filterValues.driver || '';
+                document.getElementById('filter-supplier').value = filterValues.supplier || '';
+                document.getElementById('filter-status').value = filterValues.status || '';
+                document.getElementById('filter-plate').value = filterValues.plate || '';
+                document.getElementById('filter-arrival').value = filterValues.arrival || '';
+                
+                // Restaurar activeFilters
+                activeFilters = {
+                    ticket: filterValues.ticket ? filterValues.ticket.toLowerCase() : '',
+                    driver: filterValues.driver ? filterValues.driver.toLowerCase() : '',
+                    supplier: filterValues.supplier ? filterValues.supplier.toLowerCase() : '',
+                    status: filterValues.status ? filterValues.status.toLowerCase() : '',
+                    plate: filterValues.plate ? filterValues.plate.toLowerCase() : '',
+                    arrival: filterValues.arrival ? filterValues.arrival.toLowerCase() : ''
+                };
+                
+                return true;
+            }
+            return false;
+        }
+
+        // ✅ ATUALIZAR INFORMAÇÃO DE RESULTADOS
+        function updateResultsInfo(filteredCount) {
+            const resultsInfo = document.getElementById('results-info');
+            const totalCount = driversData.length;
+            
+            if (filteredCount === totalCount) {
+                resultsInfo.textContent = `Mostrando todos os ${totalCount} registros`;
+            } else {
+                resultsInfo.textContent = `Mostrando ${filteredCount} de ${totalCount} registros filtrados`;
+            }
+        }
+
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
 
         // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL
@@ -2505,6 +2568,7 @@
                                 <th>Motorista</th>
                                 <th>Fornecedor</th>
                                 <th>Placa Cavalo</th>
+                                <th>Placa Carreta</th>
                                 <th>Carga</th>
                                 <th>Horário Chegada</th>
                                 <th>Status</th>
@@ -2549,6 +2613,7 @@
                         <td>${driver.driverName || '-'}</td>
                         <td>${driver.supplier || '-'}</td>
                         <td>${driver.truckPlate || '-'}</td>
+                        <td>${driver.trailerPlate || '-'}</td>
                         <td>${driver.load || '-'}</td>
                         <td>${driver.arrivalDateTime || '-'}</td>
                         <td>${driver.status || '-'}</td>	
@@ -2738,6 +2803,9 @@
 
         // ========== FUNÇÕES DA BASE DE DADOS ========== //
         function renderDriversTable(filteredData = null) {
+            // ✅ PRESERVAR VALORES DOS FILTROS ANTES DE RENDERIZAR
+            saveFilterValues();
+            
             const dataToShow = filteredData || driversData;
             const tableBody = document.getElementById('drivers-table-body');
             
@@ -2838,15 +2906,6 @@
             renderDriversTable(filteredData);
         }
 
-        let activeFilters = {
-            ticket: '',
-            driver: '',
-            supplier: '',
-            status: '',
-            plate: '',
-            arrival: ''
-        };
-
         function setupFilterListeners() {
             document.getElementById('filter-ticket').addEventListener('input', function() {
                 activeFilters.ticket = this.value.trim().toLowerCase();
@@ -2911,7 +2970,13 @@
                 return true;
             });
             
+            // ✅ SALVAR FILTROS NO LOCALSTORAGE
+            saveFilterValues();
+            
             renderDriversTable(filteredData);
+            
+            // ✅ ATUALIZAR INFORMAÇÃO DE RESULTADOS
+            updateResultsInfo(filteredData.length);
         }
 
         function deleteDriver(ticket) {
@@ -3646,9 +3711,9 @@
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
-                    showNotification('✅ Conectado ao Supabase! Sincronização ativa.', 'success', 3000);
+                    showNotification('✅ Conectado ao Supabase! Sincronização ativa.', 'success', 700);
                 } else {
-                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 3000);
+                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 700);
                 }
             }, 2000);
         }
@@ -3737,16 +3802,35 @@
             });
             
             document.getElementById('reset-drivers-btn').addEventListener('click', function() {
+                // Limpar inputs
                 document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
+                
+                // Limpar activeFilters
                 activeFilters = {
                     ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
                 };
+                
+                // Limpar localStorage dos filtros
+                localStorage.removeItem('activeFilters');
+                
+                // Renderizar tabela completa
                 renderDriversTable();
+                
+                // Atualizar informação de resultados
+                updateResultsInfo(driversData.length);
             });
             
             document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
             setupColumnFilters();
             setupFilterListeners();
+            
+            // ✅ CARREGAR FILTROS SALVOS AO INICIAR
+            setTimeout(() => {
+                if (loadFilterValues()) {
+                    // Se havia filtros salvos, aplicar eles
+                    applyFilters();
+                }
+            }, 100);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
