@@ -1420,7 +1420,6 @@
         let suppliersList = [];
         let cdList = [];
         let isOnline = true;
-        let supabaseSubscription = null;
         let lastUpdateTime = null;
         
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
@@ -1559,9 +1558,9 @@
             }
         }
 
-        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
+        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDO ========== //
 
-        // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL
+        // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
         async function startRealtimeSync() {
             try {
                 // Parar subscription anterior se existir
@@ -1584,10 +1583,18 @@
                             handleRealtimeUpdate(payload);
                         }
                     )
-                    .subscribe();
-
-                console.log('✅ Sincronização em tempo real ativada');
-                updateSyncStatus(true, 'Sincronizado');
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            console.log('✅ Sincronização em tempo real ativada');
+                            updateSyncStatus(true, 'Sincronizado');
+                        } else if (status === 'CHANNEL_ERROR') {
+                            console.error('❌ Erro na sincronização em tempo real');
+                            updateSyncStatus(false, 'Erro na sincronização');
+                        } else if (status === 'TIMED_OUT') {
+                            console.error('❌ Timeout na sincronização em tempo real');
+                            updateSyncStatus(false, 'Timeout na sincronização');
+                        }
+                    });
 
             } catch (error) {
                 console.error('❌ Erro ao iniciar sincronização em tempo real:', error);
@@ -1595,7 +1602,7 @@
             }
         }
 
-        // 2. PROCESSAR ATUALIZAÇÕES EM TEMPO REAL
+        // 2. PROCESSAR ATUALIZAÇÕES EM TEMPO REAL - CORRIGIDA
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
@@ -1616,7 +1623,7 @@
             showNotification('🔄 Dados atualizados em tempo real', 'info', 2000);
         }
 
-        // 3. PROCESSAR ATUALIZAÇÃO/INSERÇÃO DE MOTORISTA
+        // 3. PROCESSAR ATUALIZAÇÃO/INSERÇÃO DE MOTORISTA - CORRIGIDA
         function handleDriverUpdate(updatedDriver) {
             if (!updatedDriver || !updatedDriver.ticket) return;
 
@@ -1678,17 +1685,26 @@
             highlightUpdatedRow(ticketKey);
         }
 
-        // 4. PROCESSAR EXCLUSÃO DE MOTORISTA
+        // 4. PROCESSAR EXCLUSÃO DE MOTORISTA - CORRIGIDA
         function handleDriverDelete(deletedDriver) {
             if (!deletedDriver || !deletedDriver.ticket) return;
 
             const ticketKey = deletedDriver.ticket.toString().trim();
-            driversData = driversData.filter(d => 
-                d.ticket && d.ticket.toString().trim() !== ticketKey
+            
+            // ✅ CORREÇÃO: Em vez de remover o driver, resetamos as etapas de processo
+            const driver = driversData.find(d => 
+                d.ticket && d.ticket.toString().trim() === ticketKey
             );
-
-            console.log(`🗑️ Motorista ${ticketKey} removido via sincronização`);
-            updateInterface();
+            
+            if (driver) {
+                // Resetar apenas os campos de processo
+                driver.contatoFeito = '-';
+                driver.liberacaoEntregue = '-';
+                driver.encostouDoca = '-';
+                
+                console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
+                updateInterface();
+            }
         }
 
         // 5. DESTACAR LINHA ATUALIZADA
@@ -1707,14 +1723,14 @@
 
         // 6. SINCRONIZAR BASE COMPLETA PERIODICAMENTE
         function startPeriodicSync() {
-            // Sincronizar a cada 30 segundos como fallback
+            // Sincronizar a cada 10 segundos como fallback
             setInterval(async () => {
                 if (isOnline) {
                     console.log('🔄 Sincronização periódica iniciada...');
                     await loadFromSupabase();
                     updateInterface();
                 }
-            }, 30000);
+            }, 10000);
         }
 
         // 7. FUNÇÃO PARA FORÇAR SINCRONIZAÇÃO MANUAL
@@ -2357,7 +2373,7 @@
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
-            // Garantir que os campos existam
+            // Garantir que os campos de processo existam
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -2899,59 +2915,6 @@
                     });
                 });
             }, 0);
-            
-            // ✅ CORREÇÃO: Remover setupColumnFilters() se não estiver sendo usado
-            // setupColumnFilters();
-        }
-
-        function setupColumnFilters() {
-            let filterTimeout;
-            
-            document.querySelectorAll('.column-filter').forEach(input => {
-                input.addEventListener('input', function() {
-                    clearTimeout(filterTimeout);
-                    filterTimeout = setTimeout(() => {
-                        filterTableByColumns();
-                    }, 300);
-                });
-            });
-        }
-
-        function filterTableByColumns() {
-            if (driversData.length === 0) {
-                renderDriversTable([]);
-                return;
-            }
-            
-            const filters = [];
-            let hasActiveFilter = false;
-            
-            document.querySelectorAll('.column-filter').forEach((input, index) => {
-                filters[index] = input.value.trim().toLowerCase();
-                if (filters[index]) hasActiveFilter = true;
-            });
-            
-            if (!hasActiveFilter) {
-                renderDriversTable();
-                return;
-            }
-            
-            const filteredData = driversData.filter(driver => {
-                if (filters[0] && (!driver.ticket || !driver.ticket.toString().toLowerCase().includes(filters[0]))) return false;
-                if (filters[1] && (!driver.driverName || !driver.driverName.toString().toLowerCase().includes(filters[1]))) return false;
-                if (filters[2] && (!driver.supplier || !driver.supplier.toString().toLowerCase().includes(filters[2]))) return false;
-                if (filters[3] && (!driver.cd || !driver.cd.toString().toLowerCase().includes(filters[3]))) return false;
-                if (filters[4] && (!driver.truckPlate || !driver.truckPlate.toString().toLowerCase().includes(filters[4]))) return false;
-                if (filters[5] && (!driver.status || !driver.status.toString().toLowerCase().includes(filters[5]))) return false;
-                if (filters[6]) {
-                    const arrivalFormatted = driver.arrivalDateTime;
-                    if (!arrivalFormatted || !arrivalFormatted.toString().toLowerCase().includes(filters[6])) return false;
-                }
-                
-                return true;
-            });
-            
-            renderDriversTable(filteredData);
         }
 
         function setupFilterListeners() {
@@ -3732,7 +3695,7 @@
             }, 2000);
         }
 
-        // ========== INICIALIZAÇÃO ========== //
+        // ========== INICIALIZAÇÃO - CORRIGIDA ========== //
         async function initializeData() {
             // ✅ CORREÇÃO: Primeiro carregar dados base do localStorage
             console.log('📁 Carregando dados base do localStorage...');
@@ -3756,7 +3719,7 @@
                 // Sincronizar apenas processos do Supabase (sem substituir dados base)
                 await loadFromSupabase();
                 
-                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL
+                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
                 await startRealtimeSync();
                 startPeriodicSync();
                 
@@ -3898,7 +3861,6 @@
             });
             
             document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
-            setupColumnFilters();
             setupFilterListeners();
             
             // ✅ CARREGAR FILTROS SALVOS AO INICIAR
@@ -3921,9 +3883,6 @@
             }
             if (realtimeSubscription) {
                 realtimeSubscription.unsubscribe();
-            }
-            if (supabaseSubscription) {
-                supabaseSubscription.unsubscribe();
             }
         });
     </script>
