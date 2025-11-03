@@ -1619,6 +1619,9 @@
                     break;
             }
 
+            // ✅ CORREÇÃO: ATUALIZAR INTERFACE COMPLETA
+            updateInterface();
+            
             // Mostrar notificação de atualização
             showNotification('🔄 Dados atualizados em tempo real', 'info', 2000);
         }
@@ -1633,19 +1636,15 @@
             );
 
             if (existingIndex !== -1) {
-                // Atualizar motorista existente
+                // ✅ CORREÇÃO: ATUALIZAR TODOS OS CAMPOS DE PROCESSO (INCLUINDO QUANDO SÃO NULL/NÃO DEFINIDOS)
                 const existingDriver = driversData[existingIndex];
                 
-                // Atualizar apenas campos de processo (preservar dados locais)
-                if (updatedDriver.contato_feito !== undefined && updatedDriver.contato_feito !== null) {
-                    existingDriver.contatoFeito = updatedDriver.contato_feito;
-                }
-                if (updatedDriver.liberacao_entregue !== undefined && updatedDriver.liberacao_entregue !== null) {
-                    existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue;
-                }
-                if (updatedDriver.encostou_doca !== undefined && updatedDriver.encostou_doca !== null) {
-                    existingDriver.encostouDoca = updatedDriver.encostou_doca;
-                }
+                // Atualizar campos de processo - IMPORTANTE: considerar valores null como '-'
+                existingDriver.contatoFeito = updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-';
+                existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-';
+                existingDriver.encostouDoca = updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-';
+                
+                // Atualizar outros campos se disponíveis
                 if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
                     existingDriver.driverName = updatedDriver.driver_name;
                 }
@@ -1669,18 +1668,25 @@
                         arrivalDateTime: '-',
                         scheduleDateTime: '-',
                         truckPlate: '-',
-                        contatoFeito: updatedDriver.contato_feito || '-',
-                        liberacaoEntregue: updatedDriver.liberacao_entregue || '-',
-                        encostouDoca: updatedDriver.encostou_doca || '-',
+                        contatoFeito: updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-',
+                        liberacaoEntregue: updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-',
+                        encostouDoca: updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-',
                         load: '-'
                     });
                     console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
                 }
             }
 
-            // Atualizar interface imediatamente
-            updateInterface();
-            
+            // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
+            if (currentDriver && currentDriver.ticket === ticketKey) {
+                const updatedCurrentDriver = driversData.find(d => 
+                    d.ticket && d.ticket.toString().trim() === ticketKey
+                );
+                if (updatedCurrentDriver) {
+                    currentDriver = updatedCurrentDriver;
+                }
+            }
+
             // Destacar linha atualizada
             highlightUpdatedRow(ticketKey);
         }
@@ -1691,7 +1697,7 @@
 
             const ticketKey = deletedDriver.ticket.toString().trim();
             
-            // ✅ CORREÇÃO: Em vez de remover o driver, resetamos as etapas de processo
+            // ✅ CORREÇÃO: Resetar processos do motorista
             const driver = driversData.find(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
             );
@@ -1703,7 +1709,11 @@
                 driver.encostouDoca = '-';
                 
                 console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
-                updateInterface();
+                
+                // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
+                if (currentDriver && currentDriver.ticket === ticketKey) {
+                    currentDriver = driver;
+                }
             }
         }
 
@@ -2042,6 +2052,7 @@
             console.log('Etapa registrada com sucesso:', driver);
         }
 
+        // ========== FUNÇÃO DESFAZER ETAPA - CORRIGIDA ========== //
         async function undoProcessStep(ticket, stepField) {
             console.log(`Desfazendo etapa ${stepField} para senha ${ticket}`);
             
@@ -2064,57 +2075,37 @@
                 // Limpar o campo da etapa
                 driver[stepField] = '-';
                 
-                // ✅ VERIFICAR SE TODAS AS ETAPAS ESTÃO VAZIAS PARA REMOVER DO SUPABASE
-                const allStepsEmpty = 
-                    (driver.contatoFeito === '-' || !driver.contatoFeito) &&
-                    (driver.liberacaoEntregue === '-' || !driver.liberacaoEntregue) && 
-                    (driver.encostouDoca === '-' || !driver.encostouDoca);
+                // ✅ CORREÇÃO CRÍTICA: SALVAR IMEDIATAMENTE NO SUPABASE PARA SINCRONIZAR COM TODOS OS USUÁRIOS
+                const success = await saveProcessToSupabase(driver);
                 
-                if (allStepsEmpty) {
-                    // ✅ REMOVER DO SUPABASE SE NÃO TEM MAIS PROCESSOS
-                    await removeFromSupabase(ticket);
+                if (success) {
+                    // Atualizar currentDriver se for o mesmo ticket
+                    if (currentDriver && currentDriver.ticket === ticket) {
+                        currentDriver = driver;
+                    }
+                    
+                    // Marcar mudança nos dados
+                    dataChangeDetected = true;
+                    
+                    // Atualizar a interface IMEDIATAMENTE
+                    updateInterface();
+                    
+                    // ✅ CORREÇÃO CRÍTICA: ATUALIZAR RELATÓRIO IMEDIATAMENTE
+                    if (document.getElementById('report-section').classList.contains('active')) {
+                        generateReport();
+                    }
+                    
+                    // Mostrar confirmação
+                    showNotification(`↩️ ${stepName} desfeito para senha ${ticket}`, 'warning');
+                    
+                    console.log('Etapa desfeita com sucesso:', driver);
                 } else {
-                    // ✅ ATUALIZAR NO SUPABASE COM OS DADOS ATUAIS
-                    await saveProcessToSupabase(driver);
+                    showNotification('❌ Erro ao sincronizar com outros usuários', 'error');
                 }
-                
-                // Atualizar currentDriver se for o mesmo ticket
-                if (currentDriver && currentDriver.ticket === ticket) {
-                    currentDriver = driver;
-                }
-                
-                // Marcar mudança nos dados
-                dataChangeDetected = true;
-                
-                // Atualizar a interface
-                updateInterface();
-                
-                // Mostrar confirmação
-                showNotification(`↩️ ${stepName} desfeito para senha ${ticket}`, 'warning');
-                
-                console.log('Etapa desfeita com sucesso:', driver);
             }
         }
 
-        // ✅ NOVA FUNÇÃO PARA REMOVER DO SUPABASE
-        async function removeFromSupabase(ticket) {
-            try {
-                const { error } = await supabase
-                    .from('drivers')
-                    .delete()
-                    .eq('ticket', ticket);
-
-                if (error) throw error;
-                
-                console.log(`✅ Registro ${ticket} removido do Supabase`);
-                return true;
-            } catch (error) {
-                console.error('❌ Erro ao remover do Supabase:', error);
-                return false;
-            }
-        }
-
-        // ✅ NOVA FUNÇÃO PARA SALVAR APENAS PROCESSO NO SUPABASE
+        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSO NO SUPABASE - CORRIGIDA
         async function saveProcessToSupabase(driver) {
             try {
                 const driverToSave = {
@@ -2137,6 +2128,7 @@
 
                 if (error) throw error;
                 
+                console.log(`✅ Processo salvo no Supabase para senha ${driver.ticket}`);
                 return true;
             } catch (error) {
                 console.error('❌ Erro ao salvar processo no Supabase:', error);
@@ -2414,6 +2406,11 @@
                 `;
                 return;
             }
+            
+            // ✅ CORREÇÃO: GARANTIR QUE OS CAMPOS DE PROCESSO EXISTAM
+            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
+            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
+            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
             
             const processContent = document.getElementById('process-content');
             const steps = [
@@ -2726,7 +2723,7 @@
         }
 
         function extractDateFromProcessDateTime(dateTimeStr) {
-            if (!dateTimeStr || dateTimeStr === '-' || dateTimeStr === '') return null;
+            if (!dateTimeStr || dateTimeStr === '-' || dateTimeStr === '' || dateTimeStr === ' ') return null;
             
             try {
                 const parts = dateTimeStr.split(' ');
@@ -3661,15 +3658,14 @@
             return false;
         }
 
-        // ========== ATUALIZAÇÃO DA INTERFACE ========== //
+        // ========== ATUALIZAÇÃO DA INTERFACE - CORRIGIDA ========== //
         function updateInterface() {
             updateDatabaseStats();
             renderDriversTable();
             
-            // Atualizar seções específicas se estiverem ativas
-            const activeSection = document.querySelector('.section.active');
-            if (activeSection) {
-                const sectionId = activeSection.id;
+            // ✅ CORREÇÃO: ATUALIZAR TODAS AS SEÇÕES VISÍVEIS
+            document.querySelectorAll('.section.active').forEach(section => {
+                const sectionId = section.id;
                 
                 switch(sectionId) {
                     case 'encosta-section':
@@ -3685,7 +3681,7 @@
                         if (currentDriver) displayDriverInfo(currentDriver);
                         break;
                 }
-            }
+            });
         }
 
         function setupAutoRefresh() {
