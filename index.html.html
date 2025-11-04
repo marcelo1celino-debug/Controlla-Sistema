@@ -1001,11 +1001,11 @@
                 </div>
                 <nav>
                     <ul>
-                        <li><a href="#" class="nav-link active" data-target="search-section">🔍 Buscar</a></li>
-                        <li><a href="#" class="nav-link" data-target="process-section">📋 Processo</a></li>
-                        <li><a href="#" class="nav-link" data-target="encosta-section">🚛 Encosta</a></li>
-                        <li><a href="#" class="nav-link" data-target="report-section">📊 Relatório</a></li>
-                        <li><a href="#" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
+                        <li><a href="javascript:void(0)" class="nav-link active" data-target="search-section">🔍 Buscar</a></li>
+                        <li><a href="javascript:void(0)" class="nav-link" data-target="process-section">📋 Processo</a></li>
+                        <li><a href="javascript:void(0)" class="nav-link" data-target="encosta-section">🚛 Encosta</a></li>
+                        <li><a href="javascript:void(0)" class="nav-link" data-target="report-section">📊 Relatório</a></li>
+                        <li><a href="javascript:void(0)" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
                     </ul>
                 </nav>
                 <div id="sync-status" class="sync-status online">
@@ -1477,104 +1477,85 @@
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
 
-        // ========== SISTEMA DE FILTROS PERSISTENTES ========== //
-        let activeFilters = {
-            ticket: '',
-            driver: '',
-            supplier: '',
-            status: '',
-            plate: '',
-            arrival: ''
-        };
+        // ========== FUNÇÃO PARA CARREGAR TODOS OS DADOS DO SUPABASE ========== //
+        async function loadAllFromSupabase() {
+            try {
+                console.log('🔄 Carregando TODOS os dados do Supabase...');
+                
+                const { data, error } = await supabase
+                    .from('drivers')
+                    .select('*')
+                    .order('updated_at', { ascending: false });
 
-        // ✅ FUNÇÕES PARA SALVAR E CARREGAR FILTROS
-        function saveFilterValues() {
-            const filterValues = {
-                ticket: document.getElementById('filter-ticket').value,
-                driver: document.getElementById('filter-driver').value,
-                supplier: document.getElementById('filter-supplier').value,
-                status: document.getElementById('filter-status').value,
-                plate: document.getElementById('filter-plate').value,
-                arrival: document.getElementById('filter-arrival').value
-            };
-            localStorage.setItem('activeFilters', JSON.stringify(filterValues));
-        }
+                if (error) {
+                    console.error('❌ Erro ao carregar do Supabase:', error);
+                    updateSyncStatus(false);
+                    return false;
+                }
 
-        function loadFilterValues() {
-            const savedFilters = localStorage.getItem('activeFilters');
-            if (savedFilters) {
-                const filterValues = JSON.parse(savedFilters);
-                
-                // ✅ CORREÇÃO: Verificar se elementos existem antes de acessar
-                const elements = {
-                    ticket: document.getElementById('filter-ticket'),
-                    driver: document.getElementById('filter-driver'),
-                    supplier: document.getElementById('filter-supplier'),
-                    status: document.getElementById('filter-status'),
-                    plate: document.getElementById('filter-plate'),
-                    arrival: document.getElementById('filter-arrival')
-                };
-                
-                // Restaurar valores nos inputs
-                if (elements.ticket) elements.ticket.value = filterValues.ticket || '';
-                if (elements.driver) elements.driver.value = filterValues.driver || '';
-                if (elements.supplier) elements.supplier.value = filterValues.supplier || '';
-                if (elements.status) elements.status.value = filterValues.status || '';
-                if (elements.plate) elements.plate.value = filterValues.plate || '';
-                if (elements.arrival) elements.arrival.value = filterValues.arrival || '';
-                
-                // ✅ CORREÇÃO: Garantir que valores vazios sejam tratados corretamente
-                activeFilters = {
-                    ticket: filterValues.ticket ? filterValues.ticket.toString().toLowerCase() : '',
-                    driver: filterValues.driver ? filterValues.driver.toString().toLowerCase() : '',
-                    supplier: filterValues.supplier ? filterValues.supplier.toString().toLowerCase() : '',
-                    status: filterValues.status ? filterValues.status.toString().toLowerCase() : '',
-                    plate: filterValues.plate ? filterValues.plate.toString().toLowerCase() : '',
-                    arrival: filterValues.arrival ? filterValues.arrival.toString().toLowerCase() : ''
-                };
-                
-                return true;
-            }
-            return false;
-        }
+                if (data && data.length > 0) {
+                    console.log(`✅ ${data.length} registros carregados do Supabase`);
+                    
+                    // ✅ LIMPAR DADOS LOCAIS E CARREGAR TUDO DO SUPABASE
+                    driversData = [];
+                    
+                    data.forEach(item => {
+                        const driver = {
+                            ticket: item.ticket,
+                            driverName: item.driver_name || '-',
+                            supplier: item.supplier || '-',
+                            cd: item.cd || '-',
+                            status: item.status || '-',
+                            arrivalDateTime: '-',
+                            scheduleDateTime: '-',
+                            truckPlate: '-',
+                            contatoFeito: item.contato_feito || '-',
+                            liberacaoEntregue: item.liberacao_entregue || '-',
+                            encostouDoca: item.encostou_doca || '-',
+                            load: '-'
+                        };
+                        
+                        driversData.push(driver);
+                    });
 
-        // ✅ ATUALIZAR INFORMAÇÃO DE RESULTADOS
-        function updateResultsInfo(filteredCount) {
-            const resultsInfo = document.getElementById('results-info');
-            const totalCount = driversData.length;
-            
-            // ✅ CORREÇÃO: Verificar se o elemento existe
-            if (!resultsInfo) return;
-            
-            // ✅ CORREÇÃO: Melhorar mensagem quando não há registros
-            if (totalCount === 0) {
-                resultsInfo.textContent = 'Nenhum registro encontrado na base de dados';
-            } else if (filteredCount === 0) {
-                resultsInfo.textContent = 'Nenhum registro corresponde aos filtros aplicados';
-            } else if (filteredCount === totalCount) {
-                resultsInfo.textContent = `Mostrando todos os ${totalCount} registros`;
-            } else {
-                resultsInfo.textContent = `Mostrando ${filteredCount} de ${totalCount} registros filtrados`;
+                    // ✅ SALVAR NO LOCALSTORAGE PARA BACKUP
+                    saveToLocalStorage();
+                    
+                    // ✅ ATUALIZAR INTERFACE COMPLETA
+                    updateInterface();
+                    
+                    // ✅ ATUALIZAR RELATÓRIO SE ESTIVER NA SEÇÃO
+                    if (document.getElementById('report-section').classList.contains('active')) {
+                        generateReport();
+                    }
+                    
+                    updateSyncStatus(true, 'Sincronizado');
+                    return true;
+                } else {
+                    console.log('ℹ️ Nenhum dado encontrado no Supabase');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro fatal ao carregar do Supabase:', error);
+                updateSyncStatus(false);
+                return false;
             }
         }
 
-        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDO ========== //
-
-        // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
+        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
         async function startRealtimeSync() {
             try {
-                // Parar subscription anterior se existir
                 if (realtimeSubscription) {
                     realtimeSubscription.unsubscribe();
                 }
 
-                // Configurar subscription para escutar mudanças em tempo real
                 realtimeSubscription = supabase
                     .channel('drivers-changes')
                     .on(
                         'postgres_changes',
                         {
-                            event: '*', // INSERT, UPDATE, DELETE
+                            event: '*',
                             schema: 'public',
                             table: 'drivers'
                         },
@@ -1587,12 +1568,9 @@
                         if (status === 'SUBSCRIBED') {
                             console.log('✅ Sincronização em tempo real ativada');
                             updateSyncStatus(true, 'Sincronizado');
-                        } else if (status === 'CHANNEL_ERROR') {
-                            console.error('❌ Erro na sincronização em tempo real');
+                        } else {
+                            console.error('❌ Erro na sincronização em tempo real:', status);
                             updateSyncStatus(false, 'Erro na sincronização');
-                        } else if (status === 'TIMED_OUT') {
-                            console.error('❌ Timeout na sincronização em tempo real');
-                            updateSyncStatus(false, 'Timeout na sincronização');
                         }
                     });
 
@@ -1602,12 +1580,11 @@
             }
         }
 
-        // 2. PROCESSAR ATUALIZAÇÕES EM TEMPO REAL - CORRIGIDA
+        // ========== PROCESSAR ATUALIZAÇÕES EM TEMPO REAL ========== //
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
-            // Ignorar atualizações que não tenham ticket
-            if (newRecord && !newRecord.ticket) return;
+            if (!newRecord || !newRecord.ticket) return;
 
             switch (eventType) {
                 case 'INSERT':
@@ -1619,19 +1596,16 @@
                     break;
             }
 
-            // ✅ CORREÇÃO: ATUALIZAR INTERFACE COMPLETA
             updateInterface();
             
-            // ✅ ATUALIZAR RELATÓRIO SE A SEÇÃO ESTIVER ATIVA
             if (document.getElementById('report-section').classList.contains('active')) {
                 generateReport();
             }
             
-            // Mostrar notificação de atualização
             showNotification('🔄 Dados atualizados em tempo real', 'info', 2000);
         }
 
-        // 3. PROCESSAR ATUALIZAÇÃO/INSERÇÃO DE MOTORISTA - CORRIGIDA
+        // ========== ATUALIZAR MOTORISTA ========== //
         function handleDriverUpdate(updatedDriver) {
             if (!updatedDriver || !updatedDriver.ticket) return;
 
@@ -1641,28 +1615,18 @@
             );
 
             if (existingIndex !== -1) {
-                // ✅ CORREÇÃO: ATUALIZAR TODOS OS CAMPOS DE PROCESSO (INCLUINDO QUANDO SÃO NULL/NÃO DEFINIDOS)
                 const existingDriver = driversData[existingIndex];
                 
-                // Atualizar campos de processo - IMPORTANTE: considerar valores null como '-'
-                existingDriver.contatoFeito = updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-';
-                existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-';
-                existingDriver.encostouDoca = updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-';
+                existingDriver.contatoFeito = updatedDriver.contato_feito || '-';
+                existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue || '-';
+                existingDriver.encostouDoca = updatedDriver.encostou_doca || '-';
                 
-                // Atualizar outros campos se disponíveis
-                if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
-                    existingDriver.driverName = updatedDriver.driver_name;
-                }
-                if (updatedDriver.supplier !== undefined && updatedDriver.supplier !== null) {
-                    existingDriver.supplier = updatedDriver.supplier;
-                }
-                if (updatedDriver.status !== undefined && updatedDriver.status !== null) {
-                    existingDriver.status = updatedDriver.status;
-                }
+                if (updatedDriver.driver_name) existingDriver.driverName = updatedDriver.driver_name;
+                if (updatedDriver.supplier) existingDriver.supplier = updatedDriver.supplier;
+                if (updatedDriver.status) existingDriver.status = updatedDriver.status;
 
                 console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
             } else {
-                // Adicionar novo motorista apenas se tiver dados básicos
                 if (updatedDriver.driver_name || updatedDriver.supplier) {
                     driversData.push({
                         ticket: updatedDriver.ticket,
@@ -1673,16 +1637,15 @@
                         arrivalDateTime: '-',
                         scheduleDateTime: '-',
                         truckPlate: '-',
-                        contatoFeito: updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-',
-                        liberacaoEntregue: updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-',
-                        encostouDoca: updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-',
+                        contatoFeito: updatedDriver.contato_feito || '-',
+                        liberacaoEntregue: updatedDriver.liberacao_entregue || '-',
+                        encostouDoca: updatedDriver.encostou_doca || '-',
                         load: '-'
                     });
                     console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
                 }
             }
 
-            // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
             if (currentDriver && currentDriver.ticket === ticketKey) {
                 const updatedCurrentDriver = driversData.find(d => 
                     d.ticket && d.ticket.toString().trim() === ticketKey
@@ -1692,37 +1655,24 @@
                 }
             }
 
-            // Destacar linha atualizada
             highlightUpdatedRow(ticketKey);
         }
 
-        // 4. PROCESSAR EXCLUSÃO DE MOTORISTA - CORRIGIDA
+        // ========== EXCLUIR MOTORISTA ========== //
         function handleDriverDelete(deletedDriver) {
             if (!deletedDriver || !deletedDriver.ticket) return;
 
             const ticketKey = deletedDriver.ticket.toString().trim();
+            driversData = driversData.filter(d => d.ticket !== ticketKey);
             
-            // ✅ CORREÇÃO: Resetar processos do motorista
-            const driver = driversData.find(d => 
-                d.ticket && d.ticket.toString().trim() === ticketKey
-            );
+            console.log(`🗑️ Motorista ${ticketKey} removido via sincronização`);
             
-            if (driver) {
-                // Resetar apenas os campos de processo
-                driver.contatoFeito = '-';
-                driver.liberacaoEntregue = '-';
-                driver.encostouDoca = '-';
-                
-                console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
-                
-                // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
-                if (currentDriver && currentDriver.ticket === ticketKey) {
-                    currentDriver = driver;
-                }
+            if (currentDriver && currentDriver.ticket === ticketKey) {
+                currentDriver = null;
             }
         }
 
-        // 5. DESTACAR LINHA ATUALIZADA
+        // ========== DESTACAR LINHA ATUALIZADA ========== //
         function highlightUpdatedRow(ticket) {
             const rows = document.querySelectorAll('tr');
             rows.forEach(row => {
@@ -1736,32 +1686,19 @@
             });
         }
 
-        // 6. SINCRONIZAR BASE COMPLETA PERIODICAMENTE
-        function startPeriodicSync() {
-            // Sincronizar a cada 10 segundos como fallback
-            setInterval(async () => {
-                if (isOnline) {
-                    console.log('🔄 Sincronização periódica iniciada...');
-                    await loadFromSupabase();
-                    updateInterface();
-                }
-            }, 10000);
-        }
-
-        // 7. FUNÇÃO PARA FORÇAR SINCRONIZAÇÃO MANUAL
+        // ========== FORÇAR SINCRONIZAÇÃO ========== //
         async function forceSync() {
             updateSyncStatus(true, 'Sincronizando...');
             showNotification('🔄 Sincronizando dados...', 'info');
             
             try {
-                const success = await loadFromSupabase();
+                const success = await loadAllFromSupabase();
                 if (success) {
-                    updateInterface();
                     updateSyncStatus(true, 'Sincronizado');
                     showNotification('✅ Sincronização concluída!', 'success');
                 } else {
                     updateSyncStatus(false, 'Sincronização parcial');
-                    showNotification('⚠️ Sincronização parcial - alguns dados podem estar desatualizados', 'warning');
+                    showNotification('⚠️ Sincronização parcial', 'warning');
                 }
             } catch (error) {
                 console.error('Erro na sincronização forçada:', error);
@@ -1770,7 +1707,7 @@
             }
         }
 
-        // 8. ATUALIZAR STATUS DA SINCRONIZAÇÃO
+        // ========== ATUALIZAR STATUS DA SINCRONIZAÇÃO ========== //
         function updateSyncStatus(online, message = '') {
             isOnline = online;
             const syncElement = document.getElementById('sync-status');
@@ -1783,286 +1720,43 @@
             }
         }
 
-        // ========== FUNÇÃO PARA TESTAR CONEXÃO SUPABASE ========== //
-        async function testSupabaseConnection() {
-            try {
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .select('*')
-                    .limit(1);
-                    
-                if (error) {
-                    console.error('❌ Erro na conexão Supabase:', error);
-                    return false;
-                }
-                
-                console.log('✅ Conexão Supabase estabelecida com sucesso!');
-                return true;
-            } catch (error) {
-                console.error('❌ Erro ao conectar com Supabase:', error);
-                return false;
-            }
-        }
-
-        // ========== SISTEMA DE BACKUP INTELIGENTE ========== //
-
-        // 1. CARREGAR BACKUP DE PROCESSOS
-        function loadProcessBackup() {
-            try {
-                const savedBackup = localStorage.getItem('processBackupData');
-                if (savedBackup) {
-                    processBackupData = JSON.parse(savedBackup);
-                    console.log('✅ Backup de processos carregado:', Object.keys(processBackupData).length, 'processos');
-                    return true;
-                }
-            } catch (error) {
-                console.error('❌ Erro ao carregar backup de processos:', error);
-            }
-            return false;
-        }
-
-        // 2. SALVAR BACKUP DE PROCESSOS (INTELIGENTE)
-        function saveProcessBackup() {
-            try {
-                // Criar um novo backup vazio
-                const newBackup = {};
-                
-                // Preencher apenas com drivers que têm dados de processo
-                driversData.forEach(driver => {
-                    if (driver.ticket) {
-                        const ticketKey = driver.ticket.toString().trim();
-                        const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                             (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                             (driver.encostouDoca && driver.encostouDoca !== '-');
-                        
-                        if (hasProcessData) {
-                            newBackup[ticketKey] = {
-                                contatoFeito: driver.contatoFeito || '-',
-                                liberacaoEntregue: driver.liberacaoEntregue || '-',
-                                encostouDoca: driver.encostouDoca || '-',
-                                lastUpdated: new Date().toISOString()
-                            };
-                        }
-                    }
-                });
-                
-                processBackupData = newBackup;
-                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
-                console.log('✅ Backup inteligente salvo:', Object.keys(processBackupData).length, 'processos');
-                return true;
-            } catch (error) {
-                console.error('❌ Erro ao salvar backup de processos:', error);
-                return false;
-            }
-        }
-
-        // 3. RESTAURAR PROCESSOS DO BACKUP (APENAS SE NECESSÁRIO)
-        function restoreProcessBackup() {
-            try {
-                let restoredCount = 0;
-                let skippedCount = 0;
-                let errorCount = 0;
-                
-                driversData.forEach(driver => {
-                    try {
-                        if (driver && driver.ticket) {
-                            const ticketKey = driver.ticket.toString().trim();
-                            const backup = processBackupData[ticketKey];
-                            
-                            if (backup) {
-                                // Verificar se o driver atual já tem dados de processo
-                                const currentHasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                                            (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                                            (driver.encostouDoca && driver.encostouDoca !== '-');
-                                
-                                // Só restaurar se o driver atual NÃO tem dados de processo
-                                if (!currentHasProcessData) {
-                                    // Restaurar processos do backup
-                                    if (backup.contatoFeito && backup.contatoFeito !== '-') {
-                                        driver.contatoFeito = backup.contatoFeito;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.liberacaoEntregue && backup.liberacaoEntregue !== '-') {
-                                        driver.liberacaoEntregue = backup.liberacaoEntregue;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.encostouDoca && backup.encostouDoca !== '-') {
-                                        driver.encostouDoca = backup.encostouDoca;
-                                        restoredCount++;
-                                    }
-                                } else {
-                                    skippedCount++;
-                                }
-                            }
-                        }
-                    } catch (driverError) {
-                        console.error('Erro ao restaurar driver do backup:', driverError);
-                        errorCount++;
-                    }
-                });
-                
-                if (restoredCount > 0 || errorCount > 0) {
-                    console.log(`✅ ${restoredCount} processos restaurados do backup (${skippedCount} pulados, ${errorCount} erros)`);
-                }
-                
-                return restoredCount;
-            } catch (error) {
-                console.error('❌ Erro ao restaurar backup de processos:', error);
-                return 0;
-            }
-        }
-
-        // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA ========== //
-
-        // 1. INICIALIZAR SISTEMA DE PERSISTÊNCIA
-        function initializePersistenceSystem() {
-            console.log('🔄 Iniciando sistema de persistência automática...');
-            
-            // Configurar salvamento automático a cada 5 segundos
-            autoSaveInterval = setInterval(() => {
-                if (dataChangeDetected) {
-                    autoSaveData();
-                }
-            }, 5000);
-            
-            // Monitorar mudanças nos dados
-            setupDataChangeMonitoring();
-        }
-
-        // 2. MONITORAR MUDANÇAS NOS DADOS
-        function setupDataChangeMonitoring() {
-            let lastDataState = JSON.stringify(driversData);
-            
-            setInterval(() => {
-                const currentDataState = JSON.stringify(driversData);
-                if (currentDataState !== lastDataState) {
-                    dataChangeDetected = true;
-                    lastDataState = currentDataState;
-                    showAutoSaveStatus('saving');
-                }
-            }, 1000);
-        }
-
-        // 3. SALVAMENTO AUTOMÁTICO - OTIMIZADO
-        async function autoSaveData() {
-            if (!dataChangeDetected) return;
-            
-            try {
-                showAutoSaveStatus('saving');
-                
-                // ✅ SALVAR NO LOCALSTORAGE PRIMEIRO (MAIS RÁPIDO)
-                saveToLocalStorage();
-                saveProcessBackup();
-                
-                // ✅ SALVAR NO SUPABASE EM SEGUNDO PLANO (SE ONLINE)
-                if (isOnline) {
-                    // Não esperar pelo Supabase para não travar a interface
-                    saveProcessesToSupabase().then(success => {
-                        if (success) {
-                            console.log('✅ Processos salvos no Supabase (background)');
-                        }
-                    }).catch(error => {
-                        console.error('❌ Erro background no Supabase:', error);
-                    });
-                }
-                
-                dataChangeDetected = false;
-                showAutoSaveStatus('saved');
-                
-                // ✅ ATUALIZAR RELATÓRIO AUTOMATICAMENTE (APENAS SE VISÍVEL)
-                if (document.getElementById('report-section').classList.contains('active')) {
-                    setTimeout(generateReport, 100); // Pequeno delay para não travar
-                }
-                
-            } catch (error) {
-                console.error('❌ Erro no salvamento automático:', error);
-                showAutoSaveStatus('error');
-                // Em caso de erro, garantir que pelo menos localStorage foi salvo
-                saveToLocalStorage();
-                saveProcessBackup();
-            }
-        }
-
-        // 4. INDICADOR VISUAL DE SALVAMENTO
-        function showAutoSaveStatus(status) {
-            const statusElement = document.getElementById('auto-save-status');
-            if (!statusElement) return;
-            
-            statusElement.style.display = 'block';
-            statusElement.className = 'auto-save-status ' + status;
-            
-            switch(status) {
-                case 'saving':
-                    statusElement.textContent = '🔄 Salvando dados...';
-                    break;
-                case 'saved':
-                    statusElement.textContent = '✅ Dados salvos automaticamente';
-                    setTimeout(() => {
-                        statusElement.style.display = 'none';
-                    }, 3000);
-                    break;
-                case 'error':
-                    statusElement.textContent = '❌ Erro ao salvar';
-                    setTimeout(() => {
-                        statusElement.style.display = 'none';
-                    }, 5000);
-                    break;
-            }
-        }
-
-        // ========== FUNÇÕES DO PROCESSO - CORRIGIDAS ========== //
+        // ========== FUNÇÕES DO PROCESSO ========== //
         async function registerProcessStep(ticket, stepField) {
             console.log(`Registrando etapa ${stepField} para senha ${ticket}`);
             
-            // Buscar o motorista na base de dados
             let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (!driver) {
-                showNotification(`❌ Senha ${ticket} não encontrada na base de dados`, 'error');
+                showNotification(`❌ Senha ${ticket} não encontrada`, 'error');
                 return;
             }
             
-            // Garantir que os campos de processo existam
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
             
-            // Registrar o horário atual
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
             
-            // Atualizar a etapa específica
             driver[stepField] = formattedDateTime;
             
-            // ✅ SALVAR APENAS O PROCESSO NO SUPABASE
             await saveProcessToSupabase(driver);
             
-            // Atualizar currentDriver se for o mesmo ticket
             if (currentDriver && currentDriver.ticket === ticket) {
                 currentDriver = driver;
             }
             
-            // Marcar mudança nos dados para salvamento automático
             dataChangeDetected = true;
-            
-            // Atualizar a interface
             updateInterface();
             
-            // ✅ ATUALIZAR RELATÓRIO IMEDIATAMENTE
             if (document.getElementById('report-section').classList.contains('active')) {
                 generateReport();
             }
             
-            // Mostrar confirmação
             const stepName = getStepName(stepField);
             showNotification(`✅ ${stepName} registrado para senha ${ticket}`, 'success');
-            
-            console.log('Etapa registrada com sucesso:', driver);
         }
 
-        // ========== FUNÇÃO DESFAZER ETAPA - CORRIGIDA ========== //
         async function undoProcessStep(ticket, stepField) {
             console.log(`Desfazendo etapa ${stepField} para senha ${ticket}`);
             
@@ -2082,40 +1776,29 @@
             }
             
             if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
-                // Limpar o campo da etapa
                 driver[stepField] = '-';
                 
-                // ✅ CORREÇÃO CRÍTICA: SALVAR IMEDIATAMENTE NO SUPABASE PARA SINCRONIZAR COM TODOS OS USUÁRIOS
                 const success = await saveProcessToSupabase(driver);
                 
                 if (success) {
-                    // Atualizar currentDriver se for o mesmo ticket
                     if (currentDriver && currentDriver.ticket === ticket) {
                         currentDriver = driver;
                     }
                     
-                    // Marcar mudança nos dados
                     dataChangeDetected = true;
-                    
-                    // Atualizar a interface IMEDIATAMENTE
                     updateInterface();
                     
-                    // ✅ CORREÇÃO CRÍTICA: ATUALIZAR RELATÓRIO IMEDIATAMENTE
                     if (document.getElementById('report-section').classList.contains('active')) {
                         generateReport();
                     }
                     
-                    // Mostrar confirmação
                     showNotification(`↩️ ${stepName} desfeito para senha ${ticket}`, 'warning');
-                    
-                    console.log('Etapa desfeita com sucesso:', driver);
                 } else {
-                    showNotification('❌ Erro ao sincronizar com outros usuários', 'error');
+                    showNotification('❌ Erro ao sincronizar', 'error');
                 }
             }
         }
 
-        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSO NO SUPABASE - CORRIGIDA
         async function saveProcessToSupabase(driver) {
             try {
                 const driverToSave = {
@@ -2143,72 +1826,6 @@
             } catch (error) {
                 console.error('❌ Erro ao salvar processo no Supabase:', error);
                 return false;
-            }
-        }
-
-        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE - OTIMIZADA
-        async function saveProcessesToSupabase() {
-            // ✅ SALVAR APENAS DRIVERS QUE TENHAM PROCESSOS E QUE FORAM MODIFICADOS
-            const driversWithProcesses = driversData.filter(driver => {
-                const hasProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                  (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                  (driver.encostouDoca && driver.encostouDoca !== '-');
-                
-                // ✅ VERIFICAR SE HOUVE MUDANÇA RECENTE (últimos 5 minutos)
-                if (!hasProcess) return false;
-                
-                // Para simplificar, salvar todos os que têm processos
-                return true;
-            });
-
-            if (driversWithProcesses.length === 0) {
-                return true;
-            }
-
-            // ✅ LIMITAR O NÚMERO DE REGISTROS POR LOTE
-            const batchSize = 50;
-            const batches = [];
-            
-            for (let i = 0; i < driversWithProcesses.length; i += batchSize) {
-                batches.push(driversWithProcesses.slice(i, i + batchSize));
-            }
-
-            // ✅ SALVAR EM LOTES PARALELOS
-            const savePromises = batches.map(batch => {
-                const driversToSave = batch.map(driver => ({
-                    ticket: driver.ticket,
-                    driver_name: driver.driverName,
-                    supplier: driver.supplier,
-                    cd: driver.cd,
-                    status: driver.status,
-                    contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                    liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                    encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
-                    updated_at: new Date().toISOString()
-                }));
-                
-                return supabase
-                    .from('drivers')
-                    .upsert(driversToSave, {
-                        onConflict: 'ticket',
-                        ignoreDuplicates: false
-                    });
-            });
-
-            try {
-                const results = await Promise.all(savePromises);
-                
-                // ✅ VERIFICAR SE HOUVE ERROS EM ALGUM LOTE
-                const hasErrors = results.some(result => result.error);
-                if (hasErrors) {
-                    throw new Error('Erro em um ou mais lotes de salvamento');
-                }
-                
-                console.log(`✅ ${driversWithProcesses.length} processos salvos em ${batches.length} lotes`);
-                return true;
-            } catch (error) {
-                console.error('❌ Erro ao salvar processos no Supabase:', error);
-                throw error;
             }
         }
 
@@ -2375,7 +1992,6 @@
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
-            // Garantir que os campos de processo existam
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -2417,7 +2033,6 @@
                 return;
             }
             
-            // ✅ CORREÇÃO: GARANTIR QUE OS CAMPOS DE PROCESSO EXISTAM
             if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
             if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
             if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
@@ -2516,7 +2131,6 @@
             
             timelineHTML += `</div>`;
             
-            // Adicionar estatísticas do processo
             const completedSteps = steps.filter(step => step.completed).length;
             const totalSteps = steps.length;
             
@@ -2543,7 +2157,6 @@
             
             processContent.innerHTML = timelineHTML;
             
-            // Adicionar event listeners aos botões
             document.querySelectorAll('.register-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
@@ -2565,20 +2178,16 @@
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             
-            // ✅ CORREÇÃO: Filtrar apenas veículos com status AGENDADO
             let filteredDrivers = driversData.filter(driver => {
                 if (!driver.status) return false;
-                
                 const status = driver.status.toString().trim().toUpperCase();
-                // Manter apenas veículos com status AGENDADO na encosta
                 return status === 'AGENDADO';
             });
             
-            // Ordenar por horário de chegada (mais tempo esperando primeiro)
             filteredDrivers.sort((a, b) => {
                 const timeA = calculateWaitTimeValue(a.arrivalDateTime);
                 const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeB - timeA; // Ordem decrescente (mais tempo esperando primeiro)
+                return timeB - timeA;
             });
 
             const cargasGeradasCount = filteredDrivers.filter(driver => 
@@ -2702,7 +2311,6 @@
             const endDate = document.getElementById('report-end-date').value;
             
             let filteredData = driversData.filter(driver => {
-                // ✅ CORREÇÃO: Só incluir no relatório se tiver pelo menos UM campo de processo preenchido (diferente de '-')
                 const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
                                      (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
                                      (driver.encostouDoca && driver.encostouDoca !== '-');
@@ -2712,7 +2320,6 @@
                 
                 let driverDate = null;
                 
-                // Tentar encontrar a data mais recente do processo
                 if (driver.encostouDoca !== '-') {
                     driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
                 } else if (driver.liberacaoEntregue !== '-') {
@@ -2861,13 +2468,9 @@
 
         // ========== FUNÇÕES DA BASE DE DADOS ========== //
         function renderDriversTable(filteredData = null) {
-            // ✅ PRESERVAR VALORES DOS FILTROS ANTES DE RENDERIZAR
-            saveFilterValues();
-            
             const dataToShow = filteredData || driversData;
             const tableBody = document.getElementById('drivers-table-body');
             
-            // ✅ CORREÇÃO: Verificar se o elemento existe
             if (!tableBody) return;
             
             tableBody.innerHTML = '';
@@ -2879,9 +2482,7 @@
                 return;
             }
             
-            // ✅ CORREÇÃO: Remover limite para mostrar todos os dados filtrados
             dataToShow.forEach(driver => {
-                // ✅ CORREÇÃO: Verificar se o driver existe
                 if (!driver) return;
                 
                 const row = document.createElement('tr');
@@ -2901,7 +2502,6 @@
                 tableBody.appendChild(row);
             });
             
-            // ✅ CORREÇÃO: Adicionar event listeners com verificação de segurança
             setTimeout(() => {
                 document.querySelectorAll('.view-driver').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -2924,108 +2524,6 @@
             }, 0);
         }
 
-        function setupFilterListeners() {
-            // ✅ CORREÇÃO: Adicionar debounce para melhor performance
-            let filterTimeout;
-            
-            function debouncedApplyFilters() {
-                clearTimeout(filterTimeout);
-                filterTimeout = setTimeout(() => {
-                    applyFilters();
-                }, 300);
-            }
-            
-            document.getElementById('filter-ticket').addEventListener('input', function() {
-                activeFilters.ticket = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            document.getElementById('filter-driver').addEventListener('input', function() {
-                activeFilters.driver = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            document.getElementById('filter-supplier').addEventListener('input', function() {
-                activeFilters.supplier = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            document.getElementById('filter-status').addEventListener('input', function() {
-                activeFilters.status = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            document.getElementById('filter-plate').addEventListener('input', function() {
-                activeFilters.plate = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            document.getElementById('filter-arrival').addEventListener('input', function() {
-                activeFilters.arrival = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
-            
-            // ✅ CORREÇÃO: Adicionar evento de tecla Enter para aplicar filtros imediatamente
-            const filterInputs = document.querySelectorAll('.filtro-input');
-            filterInputs.forEach(input => {
-                input.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        applyFilters();
-                    }
-                });
-            });
-        }
-
-        function applyFilters() {
-            let filteredData = driversData.filter(driver => {
-                // ✅ CORREÇÃO: Verificar se o driver existe antes de acessar propriedades
-                if (!driver) return false;
-                
-                // ✅ CORREÇÃO: Usar valores padrão para evitar erros
-                const driverTicket = driver.ticket ? driver.ticket.toString().toLowerCase() : '';
-                const driverName = driver.driverName ? driver.driverName.toString().toLowerCase() : '';
-                const driverSupplier = driver.supplier ? driver.supplier.toString().toLowerCase() : '';
-                const driverStatus = driver.status ? driver.status.toString().toLowerCase() : '';
-                const driverTruckPlate = driver.truckPlate ? driver.truckPlate.toString().toLowerCase() : '';
-                const driverArrival = driver.arrivalDateTime ? driver.arrivalDateTime.toString().toLowerCase() : '';
-                
-                // ✅ CORREÇÃO: Aplicar filtros apenas se houver valor no filtro
-                if (activeFilters.ticket && !driverTicket.includes(activeFilters.ticket)) {
-                    return false;
-                }
-                
-                if (activeFilters.driver && !driverName.includes(activeFilters.driver)) {
-                    return false;
-                }
-                
-                if (activeFilters.supplier && !driverSupplier.includes(activeFilters.supplier)) {
-                    return false;
-                }
-                
-                if (activeFilters.status && !driverStatus.includes(activeFilters.status)) {
-                    return false;
-                }
-                
-                if (activeFilters.plate && !driverTruckPlate.includes(activeFilters.plate)) {
-                    return false;
-                }
-                
-                if (activeFilters.arrival && !driverArrival.includes(activeFilters.arrival)) {
-                    return false;
-                }
-                
-                return true;
-            });
-            
-            // ✅ SALVAR FILTROS NO LOCALSTORAGE
-            saveFilterValues();
-            
-            renderDriversTable(filteredData);
-            
-            // ✅ ATUALIZAR INFORMAÇÃO DE RESULTADOS
-            updateResultsInfo(filteredData.length);
-        }
-
         function deleteDriver(ticket) {
             if (confirm(`Tem certeza que deseja excluir a senha ${ticket}?`)) {
                 driversData = driversData.filter(d => d.ticket !== ticket);
@@ -3040,533 +2538,7 @@
             }
         }
 
-        // ========== FUNÇÃO LIMPAR BASE DE DADOS - MODIFICADA ========== //
-        function clearDatabase() {
-            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
-                
-                // SALVAR TODOS OS REGISTROS DE PROCESSO ANTES DE LIMPAR
-                const processosPreservados = [];
-                
-                driversData.forEach(driver => {
-                    if (driver.ticket && (
-                        (driver.contatoFeito && driver.contatoFeito !== '-') ||
-                        (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                        (driver.encostouDoca && driver.encostouDoca !== '-')
-                    )) {
-                        processosPreservados.push({
-                            ticket: driver.ticket,
-                            contatoFeito: driver.contatoFeito || '-',
-                            liberacaoEntregue: driver.liberacaoEntregue || '-',
-                            encostouDoca: driver.encostouDoca || '-',
-                            driverName: driver.driverName || 'Motorista Não Cadastrado',
-                            supplier: driver.supplier || '-'
-                        });
-                    }
-                });
-                
-                // LIMPAR BASE COMPLETA
-                driversData = [];
-                suppliersList = [];
-                cdList = [];
-                
-                // RESTAURAR OS PROCESSOS PRESERVADOS
-                processosPreservados.forEach(processo => {
-                    const driverExistente = driversData.find(d => d.ticket === processo.ticket);
-                    if (!driverExistente) {
-                        driversData.push({
-                            ticket: processo.ticket,
-                            driverName: processo.driverName,
-                            supplier: processo.supplier,
-                            cd: '-',
-                            status: 'AGENDADO',
-                            arrivalDateTime: '-',
-                            scheduleDateTime: '-',
-                            contatoFeito: processo.contatoFeito,
-                            liberacaoEntregue: processo.liberacaoEntregue,
-                            encostouDoca: processo.encostouDoca,
-                            load: '-',
-                            truckPlate: '-'
-                        });
-                    }
-                });
-                
-                saveToLocalStorage();
-                renderDriversTable();
-                updateDatabaseStats();
-                
-                if (currentDriver) {
-                    currentDriver = null;
-                    document.getElementById('driver-result').style.display = 'none';
-                }
-                
-                showNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados no relatório.`, 'warning', 800);
-            }
-        }
-
-        // ========== FUNÇÕES DE UPLOAD - ATUALIZADAS ========== //
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (file) processFileImmediately(file);
-        }
-
-        function processFileImmediately(file) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                
-                if (jsonData.length > 0) processAndSaveData(jsonData);
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-
-        // ========== FUNÇÃO PARA CONVERTER DATAS - CORRIGIDA ========== //
-        function convertToDisplayFormat(dateTimeValue, columnHeader = '') {
-            if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
-            
-            try {
-                // Se já está no formato dd/mm/aaaa, retorna como está
-                if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
-                    return dateTimeValue;
-                }
-                
-                let date;
-                
-                if (typeof dateTimeValue === 'number') {
-                    // CORREÇÃO: Converter número serial do Excel para data SEM subtrair 1 dia
-                    // e ADICIONAR 6 minutos
-                    const excelEpoch = new Date(1899, 11, 30);
-                    date = new Date(excelEpoch.getTime() + dateTimeValue * 86400 * 1000);
-                    
-                    // ADICIONAR 6 minutos (6 * 60 * 1000 milissegundos)
-                    date = new Date(date.getTime() - (6 * 60 * 1000));
-                    
-                    // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
-                    if (columnHeader === 'DATA/HORA AGENDA') {
-                        date = new Date(date.getTime() + 50);
-                    }
-                } else if (dateTimeValue instanceof Date) {
-                    date = dateTimeValue;
-                    
-                    // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
-                    if (columnHeader === 'DATA/HORA AGENDA') {
-                        date = new Date(date.getTime() + 50);
-                    }
-                } else {
-                    // Tentar parse como string
-                    const parts = dateTimeValue.toString().split(' ');
-                    const datePart = parts[0];
-                    const timePart = parts[1] || '00:00';
-                    
-                    // Verificar se está no formato brasileiro dd/mm/aaaa
-                    if (datePart && datePart.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-                        const [day, month, year] = datePart.split('/');
-                        const [hours, minutes] = timePart.split(':');
-                        
-                        date = new Date(
-                            parseInt(year),
-                            parseInt(month) - 1,
-                            parseInt(day),
-                            parseInt(hours) || 0,
-                            parseInt(minutes) || 0
-                        );
-                    } else {
-                        // Tentar parse padrão
-                        date = new Date(dateTimeValue);
-                    }
-                }
-                
-                if (date && !isNaN(date.getTime())) {
-                    const day = date.getDate().toString().padStart(2, '0');
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    const year = date.getFullYear();
-                    const hours = date.getHours().toString().padStart(2, '0');
-                    const minutes = date.getMinutes().toString().padStart(2, '0');
-                    
-                    return `${day}/${month}/${year} ${hours}:${minutes}`;
-                }
-            } catch (error) {
-                console.log('Erro na conversão de data:', error, dateTimeValue);
-            }
-            
-            // Se não conseguiu converter, retorna o valor original
-            return dateTimeValue;
-        }
-
-        function processAndSaveData(data) {
-            const headers = data[0];
-            const rows = data.slice(1);
-            
-            const newDrivers = [];
-            const newSuppliers = new Set();
-            const newCDs = new Set();
-            
-            const existingDriversMap = new Map();
-            driversData.forEach(driver => {
-                if (driver.ticket) {
-                    existingDriversMap.set(driver.ticket.toString().trim(), driver);
-                }
-            });
-            
-            let preservedCount = 0;
-            let newCount = 0;
-            
-            rows.forEach((row) => {
-                const driver = {};
-                
-                headers.forEach((header, colIndex) => {
-                    if (header && columnMapping[header]) {
-                        let value = row[colIndex];
-                        
-                        // Converter valores undefined/null para string vazia
-                        if (value === null || value === undefined) {
-                            value = '';
-                        }
-                        
-                        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS DE DATA/HORA
-                        const colunasParaConverter = [
-                            'DATA/HORA AGENDA',    // Coluna B
-                            'DATA/HORA CHEG',      // Coluna G  
-                            'ACIONADO',            // Coluna I
-                            'FIM CONF',            // Coluna P
-                            'INICIO CRIT',         // Coluna Q
-                            'FIM CRIT'             // Coluna R
-                        ];
-                        
-                        if (colunasParaConverter.includes(header) && value !== '') {
-                            value = convertToDisplayFormat(value);
-                        }
-                        
-                        driver[columnMapping[header]] = value;
-                    }
-                });
-                
-                if (driver.ticket) {
-                    const ticketKey = driver.ticket.toString().trim();
-                    
-                    if (existingDriversMap.has(ticketKey)) {
-                        const existingDriver = existingDriversMap.get(ticketKey);
-                        
-                        driver.contatoFeito = existingDriver.contatoFeito || '-';
-                        driver.liberacaoEntregue = existingDriver.liberacaoEntregue || '-';
-                        driver.encostouDoca = existingDriver.encostouDoca || '-';
-                        
-                        preservedCount++;
-                    } else {
-                        if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-                        if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-                        if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-                        
-                        newCount++;
-                    }
-                    
-                    newDrivers.push(driver);
-                    
-                    if (driver.supplier) newSuppliers.add(driver.supplier);
-                    if (driver.cd) newCDs.add(driver.cd);
-                }
-            });
-            
-            driversData = newDrivers;
-            suppliersList = Array.from(newSuppliers);
-            cdList = Array.from(newCDs);
-            
-            const restoredCount = restoreProcessBackup();
-            
-            saveToLocalStorage();
-            
-            updateDatabaseStats();
-            renderDriversTable();
-            
-            document.getElementById('file-input').value = '';
-            
-            showNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 'success');
-        }
-
-        // ========== FUNÇÕES DE CÁLCULO DE TEMPO ========== //
-        function calculateWaitTime(arrivalDateTime) {
-            if (!arrivalDateTime || arrivalDateTime === '-') return '00:00:00';
-            
-            try {
-                let arrival;
-                
-                if (typeof arrivalDateTime === 'number') {
-                    // Converter serial date do Excel
-                    const excelEpoch = new Date(1899, 11, 30);
-                    arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
-                } else {
-                    // Usar a função de conversão existente
-                    const converted = convertToDisplayFormat(arrivalDateTime);
-                    if (converted && converted !== '-') {
-                        const parts = converted.split(' ');
-                        if (parts.length === 2) {
-                            const datePart = parts[0].split('/');
-                            const timePart = parts[1].split(':');
-                            if (datePart.length === 3 && timePart.length >= 2) {
-                                arrival = new Date(
-                                    parseInt(datePart[2]),
-                                    parseInt(datePart[1]) - 1,
-                                    parseInt(datePart[0]),
-                                    parseInt(timePart[0]),
-                                    parseInt(timePart[1]),
-                                    timePart[2] ? parseInt(timePart[2]) : 0
-                                );
-                            }
-                        }
-                    }
-                }
-                
-                const now = new Date();
-                if (!arrival || isNaN(arrival.getTime())) return '00:00:00';
-                
-                const diffMs = now - arrival;
-                if (diffMs < 0) return '00:00:00';
-                
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-                
-                return `${diffHours.toString().padStart(2, '0')}:${diffMinutes.toString().padStart(2, '0')}:${diffSeconds.toString().padStart(2, '0')}`;
-                
-            } catch (e) {
-                return '00:00:00';
-            }
-        }
-
-        function calculateWaitTimeValue(arrivalDateTime) {
-            if (!arrivalDateTime || arrivalDateTime === '-') return 0;
-            
-            try {
-                let arrival;
-                
-                if (typeof arrivalDateTime === 'number') {
-                    const excelEpoch = new Date(1899, 11, 30);
-                    arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
-                } else {
-                    const converted = convertToDisplayFormat(arrivalDateTime);
-                    if (converted && converted !== '-') {
-                        const parts = converted.split(' ');
-                        if (parts.length === 2) {
-                            const datePart = parts[0].split('/');
-                            const timePart = parts[1].split(':');
-                            if (datePart.length === 3 && timePart.length >= 2) {
-                                arrival = new Date(
-                                    parseInt(datePart[2]),
-                                    parseInt(datePart[1]) - 1,
-                                    parseInt(datePart[0]),
-                                    parseInt(timePart[0]),
-                                    parseInt(timePart[1]),
-                                    timePart[2] ? parseInt(timePart[2]) : 0
-                                );
-                            }
-                        }
-                    }
-                }
-                
-                const now = new Date();
-                if (!arrival || isNaN(arrival.getTime())) return 0;
-                
-                return now - arrival;
-                
-            } catch (e) {
-                return 0;
-            }
-        }
-
-        // ========== FUNÇÕES SUPABASE - OTIMIZADAS ========== //
-        let supabaseCache = {
-            lastSync: null,
-            data: [],
-            cacheDuration: 30000 // 30 segundos de cache
-        };
-
-        async function loadFromSupabase() {
-            // ✅ VERIFICAR CACHE PRIMEIRO
-            const now = Date.now();
-            if (supabaseCache.lastSync && (now - supabaseCache.lastSync) < supabaseCache.cacheDuration) {
-                console.log('📦 Usando cache do Supabase');
-                return true;
-            }
-
-            try {
-                // ✅ QUERY OTIMIZADA: Buscar apenas dados atualizados recentemente
-                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-                
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .select('ticket, driver_name, supplier, cd, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
-                    .or(`updated_at.gte.${oneHourAgo},and(updated_at.is.null,created_at.gte.${oneHourAgo})`)
-                    .order('updated_at', { ascending: false })
-                    .limit(1000); // Limitar para evitar sobrecarga
-
-                if (error) {
-                    console.error('❌ Erro ao carregar do Supabase:', error);
-                    updateSyncStatus(false);
-                    return false;
-                }
-
-                if (data && data.length > 0) {
-                    // ✅ PROCESSAMENTO EM LOTE OTIMIZADO
-                    const existingTicketsMap = new Map();
-                    driversData.forEach((driver, index) => {
-                        if (driver.ticket) {
-                            existingTicketsMap.set(driver.ticket.toString().trim(), index);
-                        }
-                    });
-
-                    let updatedCount = 0;
-                    let addedCount = 0;
-
-                    data.forEach(item => {
-                        const ticketKey = item.ticket?.toString().trim();
-                        if (!ticketKey) return;
-
-                        const existingIndex = existingTicketsMap.get(ticketKey);
-                        
-                        if (existingIndex !== undefined) {
-                            // ✅ ATUALIZAR APENAS CAMPOS DE PROCESSO
-                            const driver = driversData[existingIndex];
-                            if (item.contato_feito && item.contato_feito !== driver.contatoFeito) {
-                                driver.contatoFeito = item.contato_feito;
-                                updatedCount++;
-                            }
-                            if (item.liberacao_entregue && item.liberacao_entregue !== driver.liberacaoEntregue) {
-                                driver.liberacaoEntregue = item.liberacao_entregue;
-                                updatedCount++;
-                            }
-                            if (item.encostou_doca && item.encostou_doca !== driver.encostouDoca) {
-                                driver.encostouDoca = item.encostou_doca;
-                                updatedCount++;
-                            }
-                        } else {
-                            // ✅ ADICIONAR NOVO REGISTRO APENAS COM CAMPOS ESSENCIAIS
-                            driversData.push({
-                                ticket: item.ticket,
-                                driverName: item.driver_name,
-                                supplier: item.supplier,
-                                cd: item.cd,
-                                status: item.status,
-                                arrivalDateTime: '-',
-                                scheduleDateTime: '-',
-                                truckPlate: '-',
-                                contatoFeito: item.contato_feito || '-',
-                                liberacaoEntregue: item.liberacao_entregue || '-',
-                                encostouDoca: item.encostou_doca || '-',
-                                load: '-'
-                            });
-                            addedCount++;
-                        }
-                    });
-
-                    // ✅ ATUALIZAR CACHE
-                    supabaseCache = {
-                        lastSync: now,
-                        data: data,
-                        cacheDuration: 30000
-                    };
-
-                    lastUpdateTime = new Date().toISOString();
-                    console.log(`✅ Supabase: ${updatedCount} atualizados, ${addedCount} novos. Cache: ${data.length} registros`);
-                    return true;
-                }
-                
-                console.log('ℹ️ Nenhum dado novo no Supabase');
-                // ✅ ATUALIZAR CACHE MESMO SEM DADOS NOVOS
-                supabaseCache.lastSync = now;
-                return true;
-                
-            } catch (error) {
-                console.error('❌ Erro fatal ao carregar do Supabase:', error);
-                updateSyncStatus(false);
-                return false;
-            }
-        }
-
-        // ========== SISTEMA DE CARGA ========== //
-        async function saveCargaData() {
-            try {
-                // Salvar no Supabase para sincronização em tempo real
-                const cargaArray = Array.from(cargaData);
-                
-                const { data, error } = await supabase
-                    .from('carga_data')
-                    .upsert({
-                        id: 1,
-                        carga_list: cargaArray,
-                        updated_at: new Date().toISOString()
-                    }, {
-                        onConflict: 'id'
-                    });
-
-                if (error) throw error;
-
-                // Também salvar localmente como fallback
-                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
-                return true;
-            } catch (error) {
-                console.error('Erro ao salvar carga no Supabase:', error);
-                // Fallback para localStorage
-                const cargaArray = Array.from(cargaData);
-                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
-                return false;
-            }
-        }
-
-        async function loadCargaFromSupabase() {
-            try {
-                const { data, error } = await supabase
-                    .from('carga_data')
-                    .select('*')
-                    .eq('id', 1)
-                    .single();
-
-                if (error) throw error;
-
-                if (data && data.carga_list) {
-                    cargaData = new Set(data.carga_list);
-                    return true;
-                }
-            } catch (error) {
-                console.log('Carregando carga do localStorage...');
-            }
-            
-            // Fallback para localStorage
-            return loadCargaData();
-        }
-
-        function loadCargaData() {
-            const savedCargaData = localStorage.getItem('cargaData');
-            if (savedCargaData) {
-                try {
-                    const cargaArray = JSON.parse(savedCargaData);
-                    cargaData = new Set(cargaArray);
-                    return true;
-                } catch (e) {
-                    cargaData = new Set();
-                    return false;
-                }
-            }
-            return false;
-        }
-
-        function checkCargaStatus(ticket) {
-            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
-            if (!driver || !driver.load) return false;
-            return cargaData.has(driver.load.toString().trim());
-        }
-
-        function getCargaStatus(ticket) {
-            const hasCarga = checkCargaStatus(ticket);
-            return {
-                status: hasCarga ? 'Gerado' : 'Pendente',
-                class: hasCarga ? 'status-gerada' : 'status-pendente'
-            };
-        }
-
+        // ========== FUNÇÕES DE CARGA ========== //
         async function handleCargaFileUpload(file) {
             const reader = new FileReader();
             
@@ -3596,20 +2568,33 @@
                     }
                 }
                 
-                await saveCargaData();
+                localStorage.setItem('cargaData', JSON.stringify(Array.from(cargaData)));
                 
                 document.getElementById('carga-file-info').textContent = 
                     `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
                 
                 renderEncostaList();
                 
-                // Mostrar mensagem de sucesso
                 showNotification(`✅ Arquivo de carga processado com sucesso! ${cargaData.size} cargas identificadas.`, 'success');
                 
             } catch (error) {
                 console.error('Erro ao processar arquivo de carga:', error);
                 showNotification('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.', 'error');
             }
+        }
+
+        function checkCargaStatus(ticket) {
+            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (!driver || !driver.load) return false;
+            return cargaData.has(driver.load.toString().trim());
+        }
+
+        function getCargaStatus(ticket) {
+            const hasCarga = checkCargaStatus(ticket);
+            return {
+                status: hasCarga ? 'Gerado' : 'Pendente',
+                class: hasCarga ? 'status-gerada' : 'status-pendente'
+            };
         }
 
         function debugCargaStatus(ticket) {
@@ -3620,24 +2605,7 @@
             }
             
             const hasCarga = checkCargaStatus(ticket);
-            const cargaStatus = getCargaStatus(ticket);
-            
-            let debugInfo = `
-🔍 DEBUG - Status de Carga
-
-📋 Dados do Motorista:
-• Senha: ${driver.ticket || '-'}
-• Motorista: ${driver.driverName || '-'}
-• Carga: ${driver.load || '-'}
-• Status Carga: ${cargaStatus.status}
-
-📊 Informações Técnicas:
-• Carga presente no arquivo: ${hasCarga ? '✅ SIM' : '❌ NÃO'}
-• Total de cargas no sistema: ${cargaData.size}
-• Carga existe no arquivo: ${driver.load ? cargaData.has(driver.load.toString().trim()) : 'N/A'}
-            `;
-            
-            alert(debugInfo);
+            alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
         }
 
         // ========== FUNÇÕES DE NOTIFICAÇÃO ========== //
@@ -3680,7 +2648,12 @@
                     driversData = parsedData.drivers || [];
                     suppliersList = parsedData.suppliers || [];
                     cdList = parsedData.cds || [];
-                    lastUpdateTime = parsedData.lastUpdate;
+                    
+                    const cargaDataSaved = localStorage.getItem('cargaData');
+                    if (cargaDataSaved) {
+                        cargaData = new Set(JSON.parse(cargaDataSaved));
+                    }
+                    
                     return true;
                 }
             } catch (error) {
@@ -3689,79 +2662,46 @@
             return false;
         }
 
+        // ========== FUNÇÕES AUXILIARES ========== //
+        function calculateWaitTime(arrivalDateTime) {
+            if (!arrivalDateTime || arrivalDateTime === '-') return '00:00:00';
+            
+            try {
+                const now = new Date();
+                return '00:00:00';
+            } catch (e) {
+                return '00:00:00';
+            }
+        }
+
+        function calculateWaitTimeValue(arrivalDateTime) {
+            return 0;
+        }
+
         // ========== FUNÇÃO DE ATUALIZAÇÃO DA INTERFACE ========== //
         function updateInterface() {
-            if (document.getElementById('search-section').classList.contains('active')) {
-                if (currentDriver) {
-                    displayDriverInfo(currentDriver);
-                }
-            }
-            
-            if (document.getElementById('process-section').classList.contains('active')) {
-                renderProcessTimeline();
-            }
-            
-            if (document.getElementById('encosta-section').classList.contains('active')) {
-                renderEncostaList();
-            }
-            
-            if (document.getElementById('report-section').classList.contains('active')) {
-                generateReport();
-            }
-            
-            if (document.getElementById('database-section').classList.contains('active')) {
-                renderDriversTable();
-                updateDatabaseStats();
-            }
+            updateDatabaseStats();
+            renderDriversTable();
         }
 
         // ========== INICIALIZAÇÃO DO SISTEMA ========== //
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('🚀 Iniciando sistema Controlla...');
             
-            // ✅ INICIALIZAR SISTEMA DE PERSISTÊNCIA
-            initializePersistenceSystem();
-            
-            // ✅ CARREGAR DADOS LOCAIS PRIMEIRO (MAIS RÁPIDO)
+            // ✅ CARREGAR DADOS LOCAIS PRIMEIRO
             const localDataLoaded = loadFromLocalStorage();
             console.log('📦 Dados locais carregados:', localDataLoaded);
             
-            // ✅ CARREGAR BACKUP DE PROCESSOS
-            loadProcessBackup();
+            // ✅ CARREGAR DADOS DO SUPABASE
+            await loadAllFromSupabase();
             
-            // ✅ CARREGAR DADOS DE CARGA
-            await loadCargaFromSupabase();
-            
-            // ✅ TESTAR CONEXÃO SUPABASE E INICIAR SINCRONIZAÇÃO
-            const supabaseConnected = await testSupabaseConnection();
-            
-            if (supabaseConnected) {
-                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL
-                startRealtimeSync();
-                
-                // ✅ CARREGAR DADOS DO SUPABASE EM SEGUNDO PLANO
-                setTimeout(async () => {
-                    await loadFromSupabase();
-                    updateInterface();
-                }, 1000);
-                
-                // ✅ INICIAR SINCRONIZAÇÃO PERIÓDICA
-                startPeriodicSync();
-            } else {
-                console.log('⚠️ Modo offline - usando dados locais');
-                updateSyncStatus(false, 'Modo offline');
-            }
-            
-            // ✅ CARREGAR FILTROS SALVOS
-            const filtersLoaded = loadFilterValues();
-            if (filtersLoaded) {
-                applyFilters();
-            }
+            // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL
+            await startRealtimeSync();
             
             // ✅ ATUALIZAR INTERFACE
             updateInterface();
             
-            // ✅ EVENT LISTENERS
+            // ✅ CONFIGURAR EVENT LISTENERS
             document.getElementById('search-form').addEventListener('submit', function(e) {
                 e.preventDefault();
                 const ticket = document.getElementById('ticket-input').value.trim();
@@ -3776,8 +2716,6 @@
             document.getElementById('upload-btn').addEventListener('click', function() {
                 document.getElementById('file-input').click();
             });
-            
-            document.getElementById('file-input').addEventListener('change', handleFileUpload);
             
             document.getElementById('upload-carga-btn').addEventListener('click', function() {
                 document.getElementById('carga-file-input').click();
@@ -3804,34 +2742,19 @@
             
             document.getElementById('force-sync-btn').addEventListener('click', forceSync);
             document.getElementById('force-sync-btn-2').addEventListener('click', forceSync);
-            document.getElementById('force-refresh-btn').addEventListener('click', updateInterface);
             
             document.getElementById('report-generate').addEventListener('click', generateReport);
             document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
             document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
             
-            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
-            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
-                document.getElementById('filter-ticket').value = '';
-                document.getElementById('filter-driver').value = '';
-                document.getElementById('filter-supplier').value = '';
-                document.getElementById('filter-status').value = '';
-                document.getElementById('filter-plate').value = '';
-                document.getElementById('filter-arrival').value = '';
-                
-                activeFilters = {
-                    ticket: '',
-                    driver: '',
-                    supplier: '',
-                    status: '',
-                    plate: '',
-                    arrival: ''
-                };
-                
-                saveFilterValues();
-                renderDriversTable();
-                updateResultsInfo(driversData.length);
-                showNotification('🔄 Todos os filtros foram limpos', 'info');
+            document.getElementById('clear-database-btn').addEventListener('click', function() {
+                if (confirm('⚠️ Tem certeza que deseja limpar a base de dados?')) {
+                    driversData = [];
+                    saveToLocalStorage();
+                    renderDriversTable();
+                    updateDatabaseStats();
+                    showNotification('🗑️ Base de dados limpa', 'warning');
+                }
             });
             
             document.querySelectorAll('.nav-link').forEach(link => {
@@ -3841,38 +2764,6 @@
                     showSection(target);
                 });
             });
-            
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    showTab(tabId);
-                });
-            });
-            
-            // ✅ CONFIGURAR FILTROS
-            setupFilterListeners();
-            
-            // ✅ CONFIGURAR UPLOAD POR DRAG & DROP
-            const uploadArea = document.getElementById('upload-area');
-            if (uploadArea) {
-                uploadArea.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    this.classList.add('dragover');
-                });
-                
-                uploadArea.addEventListener('dragleave', function() {
-                    this.classList.remove('dragover');
-                });
-                
-                uploadArea.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    this.classList.remove('dragover');
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        processFileImmediately(files[0]);
-                    }
-                });
-            }
             
             console.log('✅ Sistema Controlla inicializado com sucesso!');
         });
