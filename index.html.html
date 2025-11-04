@@ -1622,6 +1622,11 @@
             // ✅ CORREÇÃO: ATUALIZAR INTERFACE COMPLETA
             updateInterface();
             
+            // ✅ ATUALIZAR RELATÓRIO SE A SEÇÃO ESTIVER ATIVA
+            if (document.getElementById('report-section').classList.contains('active')) {
+                generateReport();
+            }
+            
             // Mostrar notificação de atualização
             showNotification('🔄 Dados atualizados em tempo real', 'info', 2000);
         }
@@ -2044,6 +2049,11 @@
             
             // Atualizar a interface
             updateInterface();
+            
+            // ✅ ATUALIZAR RELATÓRIO IMEDIATAMENTE
+            if (document.getElementById('report-section').classList.contains('active')) {
+                generateReport();
+            }
             
             // Mostrar confirmação
             const stepName = getStepName(stepField);
@@ -2692,7 +2702,7 @@
             const endDate = document.getElementById('report-end-date').value;
             
             let filteredData = driversData.filter(driver => {
-                // Só incluir no relatório se tiver pelo menos UM campo de processo preenchido
+                // ✅ CORREÇÃO: Só incluir no relatório se tiver pelo menos UM campo de processo preenchido (diferente de '-')
                 const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
                                      (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
                                      (driver.encostouDoca && driver.encostouDoca !== '-');
@@ -3610,14 +3620,32 @@
             }
             
             const hasCarga = checkCargaStatus(ticket);
-            alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
+            const cargaStatus = getCargaStatus(ticket);
+            
+            let debugInfo = `
+🔍 DEBUG - Status de Carga
+
+📋 Dados do Motorista:
+• Senha: ${driver.ticket || '-'}
+• Motorista: ${driver.driverName || '-'}
+• Carga: ${driver.load || '-'}
+• Status Carga: ${cargaStatus.status}
+
+📊 Informações Técnicas:
+• Carga presente no arquivo: ${hasCarga ? '✅ SIM' : '❌ NÃO'}
+• Total de cargas no sistema: ${cargaData.size}
+• Carga existe no arquivo: ${driver.load ? cargaData.has(driver.load.toString().trim()) : 'N/A'}
+            `;
+            
+            alert(debugInfo);
         }
 
-        // ========== FUNÇÃO DE NOTIFICAÇÃO MINIMALISTA ========== //
-        function showNotification(message, type = 'info', duration = 800) {
+        // ========== FUNÇÕES DE NOTIFICAÇÃO ========== //
+        function showNotification(message, type = 'info', duration = 4000) {
             const notification = document.createElement('div');
             notification.className = `notification-minimal ${type}`;
             notification.textContent = message;
+            
             document.body.appendChild(notification);
             
             setTimeout(() => {
@@ -3627,135 +3655,185 @@
             }, duration);
         }
 
-        // ========== FUNÇÕES PRINCIPAIS DE DADOS ========== //
-        async function loadData() {
+        // ========== FUNÇÕES DE PERSISTÊNCIA LOCAL ========== //
+        function saveToLocalStorage() {
             try {
-                const success = await loadFromSupabase();
-                if (success) {
-                    updateSyncStatus(true);
-                    return true;
-                } else {
-                    return loadFromLocalStorage();
-                }
+                const dataToSave = {
+                    drivers: driversData,
+                    suppliers: suppliersList,
+                    cds: cdList,
+                    lastUpdate: new Date().toISOString()
+                };
+                localStorage.setItem('controllaData', JSON.stringify(dataToSave));
+                return true;
             } catch (error) {
-                updateSyncStatus(false);
-                return loadFromLocalStorage();
+                console.error('❌ Erro ao salvar no localStorage:', error);
+                return false;
             }
         }
 
-        function saveToLocalStorage() {
-            localStorage.setItem('driversData', JSON.stringify(driversData));
-            localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
-            localStorage.setItem('cdList', JSON.stringify(cdList));
-        }
-
         function loadFromLocalStorage() {
-            const savedData = localStorage.getItem('driversData');
-            if (savedData) {
-                driversData = JSON.parse(savedData);
-                return true;
+            try {
+                const savedData = localStorage.getItem('controllaData');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    driversData = parsedData.drivers || [];
+                    suppliersList = parsedData.suppliers || [];
+                    cdList = parsedData.cds || [];
+                    lastUpdateTime = parsedData.lastUpdate;
+                    return true;
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar do localStorage:', error);
             }
             return false;
         }
 
-        // ========== ATUALIZAÇÃO DA INTERFACE - CORRIGIDA ========== //
+        // ========== FUNÇÃO DE ATUALIZAÇÃO DA INTERFACE ========== //
         function updateInterface() {
-            updateDatabaseStats();
-            renderDriversTable();
-            
-            // ✅ CORREÇÃO: ATUALIZAR TODAS AS SEÇÕES VISÍVEIS
-            document.querySelectorAll('.section.active').forEach(section => {
-                const sectionId = section.id;
-                
-                switch(sectionId) {
-                    case 'encosta-section':
-                        renderEncostaList();
-                        break;
-                    case 'report-section':
-                        generateReport();
-                        break;
-                    case 'process-section':
-                        if (currentDriver) renderProcessTimeline();
-                        break;
-                    case 'search-section':
-                        if (currentDriver) displayDriverInfo(currentDriver);
-                        break;
+            if (document.getElementById('search-section').classList.contains('active')) {
+                if (currentDriver) {
+                    displayDriverInfo(currentDriver);
                 }
-            });
-        }
-
-        function setupAutoRefresh() {
-            // Atualizar a interface a cada 2 segundos
-            setInterval(() => {
-                updateInterface();
-            }, 2000);
-        }
-
-        // ========== INICIALIZAÇÃO - CORRIGIDA ========== //
-        async function initializeData() {
-            // ✅ CORREÇÃO: Primeiro carregar dados base do localStorage
-            console.log('📁 Carregando dados base do localStorage...');
-            const hasLocalData = loadFromLocalStorage();
-            
-            if (hasLocalData && driversData.length > 0) {
-                console.log(`✅ ${driversData.length} registros carregados do localStorage`);
-            } else {
-                console.log('📋 Nenhum dado no localStorage, criando dados de exemplo...');
-                createSampleData();
             }
+            
+            if (document.getElementById('process-section').classList.contains('active')) {
+                renderProcessTimeline();
+            }
+            
+            if (document.getElementById('encosta-section').classList.contains('active')) {
+                renderEncostaList();
+            }
+            
+            if (document.getElementById('report-section').classList.contains('active')) {
+                generateReport();
+            }
+            
+            if (document.getElementById('database-section').classList.contains('active')) {
+                renderDriversTable();
+                updateDatabaseStats();
+            }
+        }
 
-            // Testar conexão Supabase
+        // ========== INICIALIZAÇÃO DO SISTEMA ========== //
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Iniciando sistema Controlla...');
+            
+            // ✅ INICIALIZAR SISTEMA DE PERSISTÊNCIA
+            initializePersistenceSystem();
+            
+            // ✅ CARREGAR DADOS LOCAIS PRIMEIRO (MAIS RÁPIDO)
+            const localDataLoaded = loadFromLocalStorage();
+            console.log('📦 Dados locais carregados:', localDataLoaded);
+            
+            // ✅ CARREGAR BACKUP DE PROCESSOS
+            loadProcessBackup();
+            
+            // ✅ CARREGAR DADOS DE CARGA
+            await loadCargaFromSupabase();
+            
+            // ✅ TESTAR CONEXÃO SUPABASE E INICIAR SINCRONIZAÇÃO
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
-                console.log('🔄 Sincronizando processos do Supabase...');
-                // Carregar backup de processos primeiro
-                loadProcessBackup();
+                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL
+                startRealtimeSync();
                 
-                // Sincronizar apenas processos do Supabase (sem substituir dados base)
-                await loadFromSupabase();
+                // ✅ CARREGAR DADOS DO SUPABASE EM SEGUNDO PLANO
+                setTimeout(async () => {
+                    await loadFromSupabase();
+                    updateInterface();
+                }, 1000);
                 
-                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
-                await startRealtimeSync();
+                // ✅ INICIAR SINCRONIZAÇÃO PERIÓDICA
                 startPeriodicSync();
-                
             } else {
-                console.log('📁 Supabase offline, usando dados locais...');
-                // Apenas carregar backup local
-                loadProcessBackup();
+                console.log('⚠️ Modo offline - usando dados locais');
+                updateSyncStatus(false, 'Modo offline');
             }
-
-            // Restaurar processos do backup automaticamente
-            restoreProcessBackup();
-
-            // Carregar dados de carga do Supabase
-            await loadCargaFromSupabase();
-
-            // Iniciar sistema de persistência automática
-            initializePersistenceSystem();
             
-            // Configurar atualização automática
-            setupAutoRefresh();
+            // ✅ CARREGAR FILTROS SALVOS
+            const filtersLoaded = loadFilterValues();
+            if (filtersLoaded) {
+                applyFilters();
+            }
             
-            // Atualizar interface
+            // ✅ ATUALIZAR INTERFACE
             updateInterface();
-            setupEventListeners();
             
-            console.log('✅ Sistema inicializado com sincronização em tempo real');
-
-            // Debug temporário para verificar conexão
-            setTimeout(async () => {
-                const testResult = await testSupabaseConnection();
-                if (testResult) {
-                    showNotification('✅ Conectado ao Supabase! Sincronização ativa.', 'success', 700);
-                } else {
-                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 700);
+            // ✅ EVENT LISTENERS
+            document.getElementById('search-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const ticket = document.getElementById('ticket-input').value.trim();
+                searchDriver(ticket);
+            });
+            
+            document.getElementById('go-to-process').addEventListener('click', function() {
+                showSection('process-section');
+                renderProcessTimeline();
+            });
+            
+            document.getElementById('upload-btn').addEventListener('click', function() {
+                document.getElementById('file-input').click();
+            });
+            
+            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            
+            document.getElementById('upload-carga-btn').addEventListener('click', function() {
+                document.getElementById('carga-file-input').click();
+            });
+            
+            document.getElementById('carga-file-input').addEventListener('change', function(e) {
+                if (e.target.files[0]) {
+                    currentCargaFile = e.target.files[0];
+                    handleCargaFileUpload(currentCargaFile);
                 }
-            }, 2000);
-        }
-
-        // ========== CONFIGURAÇÃO DE EVENT LISTENERS - ATUALIZADA ========== //
-        function setupEventListeners() {
+            });
+            
+            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
+                renderEncostaList();
+                showNotification('🔄 Status de carga atualizado', 'info');
+            });
+            
+            document.getElementById('debug-carga-btn').addEventListener('click', function() {
+                const ticket = prompt('Digite a senha para debug:');
+                if (ticket) {
+                    debugCargaStatus(ticket);
+                }
+            });
+            
+            document.getElementById('force-sync-btn').addEventListener('click', forceSync);
+            document.getElementById('force-sync-btn-2').addEventListener('click', forceSync);
+            document.getElementById('force-refresh-btn').addEventListener('click', updateInterface);
+            
+            document.getElementById('report-generate').addEventListener('click', generateReport);
+            document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
+            document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
+            
+            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
+            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
+                document.getElementById('filter-ticket').value = '';
+                document.getElementById('filter-driver').value = '';
+                document.getElementById('filter-supplier').value = '';
+                document.getElementById('filter-status').value = '';
+                document.getElementById('filter-plate').value = '';
+                document.getElementById('filter-arrival').value = '';
+                
+                activeFilters = {
+                    ticket: '',
+                    driver: '',
+                    supplier: '',
+                    status: '',
+                    plate: '',
+                    arrival: ''
+                };
+                
+                saveFilterValues();
+                renderDriversTable();
+                updateResultsInfo(driversData.length);
+                showNotification('🔄 Todos os filtros foram limpos', 'info');
+            });
+            
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -3771,115 +3849,32 @@
                 });
             });
             
-            document.getElementById('search-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const ticket = document.getElementById('ticket-input').value.trim();
-                if (ticket) searchDriver(ticket);
-            });
-            
-            document.getElementById('go-to-process').addEventListener('click', function() {
-                showSection('process-section');
-                renderProcessTimeline();
-            });
-            
-            document.getElementById('report-generate').addEventListener('click', generateReport);
-            document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
-            document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
-            
-            // ✅ ADICIONAR EVENT LISTENERS PARA SINCRONIZAÇÃO
-            document.getElementById('force-sync-btn').addEventListener('click', forceSync);
-            document.getElementById('force-sync-btn-2').addEventListener('click', forceSync);
-            
-            document.getElementById('upload-btn').addEventListener('click', function() {
-                document.getElementById('file-input').click();
-            });
-            document.getElementById('file-input').addEventListener('change', handleFileUpload);
-            
-            document.getElementById('upload-carga-btn').addEventListener('click', function() {
-                document.getElementById('carga-file-input').click();
-            });
-            
-            document.getElementById('carga-file-input').addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    currentCargaFile = file;
-                    handleCargaFileUpload(file);
-                }
-            });
-            
-            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
-                if (currentCargaFile) {
-                    handleCargaFileUpload(currentCargaFile);
-                } else {
-                    alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
-                }
-            });
-            
-            document.getElementById('debug-carga-btn').addEventListener('click', function() {
-                const ticket = prompt("Digite a senha para verificar o status da carga:");
-                if (ticket) {
-                    debugCargaStatus(ticket);
-                }
-            });
-            
-            const uploadArea = document.getElementById('upload-area');
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                this.classList.add('dragover');
-            });
-            uploadArea.addEventListener('dragleave', function() {
-                this.classList.remove('dragover');
-            });
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) processFileImmediately(files[0]);
-            });
-            
-            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
-                // Limpar inputs
-                document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
-                
-                // Limpar activeFilters
-                activeFilters = {
-                    ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
-                };
-                
-                // Limpar localStorage dos filtros
-                localStorage.removeItem('activeFilters');
-                
-                // Renderizar tabela completa
-                renderDriversTable();
-                
-                // Atualizar informação de resultados
-                updateResultsInfo(driversData.length);
-            });
-            
-            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
+            // ✅ CONFIGURAR FILTROS
             setupFilterListeners();
             
-            // ✅ CARREGAR FILTROS SALVOS AO INICIAR
-            setTimeout(() => {
-                if (loadFilterValues()) {
-                    // Se havia filtros salvos, aplicar eles
-                    applyFilters();
-                }
-            }, 100);
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeData();
-        });
-
-        // Limpar intervalos ao sair da página
-        window.addEventListener('beforeunload', () => {
-            if (autoSaveInterval) {
-                clearInterval(autoSaveInterval);
+            // ✅ CONFIGURAR UPLOAD POR DRAG & DROP
+            const uploadArea = document.getElementById('upload-area');
+            if (uploadArea) {
+                uploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('dragover');
+                });
+                
+                uploadArea.addEventListener('dragleave', function() {
+                    this.classList.remove('dragover');
+                });
+                
+                uploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        processFileImmediately(files[0]);
+                    }
+                });
             }
-            if (realtimeSubscription) {
-                realtimeSubscription.unsubscribe();
-            }
+            
+            console.log('✅ Sistema Controlla inicializado com sucesso!');
         });
     </script>
 </body>
