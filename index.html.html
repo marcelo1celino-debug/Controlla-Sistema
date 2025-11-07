@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlla - Sistema de Controle de Comparecimento</title>
     
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <!-- Removido favicon.ico que não existe -->
     <meta name="theme-color" content="#013A63">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -1490,12 +1490,12 @@
         // ✅ FUNÇÕES PARA SALVAR E CARREGAR FILTROS
         function saveFilterValues() {
             const filterValues = {
-                ticket: document.getElementById('filter-ticket').value,
-                driver: document.getElementById('filter-driver').value,
-                supplier: document.getElementById('filter-supplier').value,
-                status: document.getElementById('filter-status').value,
-                plate: document.getElementById('filter-plate').value,
-                arrival: document.getElementById('filter-arrival').value
+                ticket: document.getElementById('filter-ticket')?.value || '',
+                driver: document.getElementById('filter-driver')?.value || '',
+                supplier: document.getElementById('filter-supplier')?.value || '',
+                status: document.getElementById('filter-status')?.value || '',
+                plate: document.getElementById('filter-plate')?.value || '',
+                arrival: document.getElementById('filter-arrival')?.value || ''
             };
             localStorage.setItem('activeFilters', JSON.stringify(filterValues));
         }
@@ -1967,7 +1967,7 @@
                 showAutoSaveStatus('saved');
                 
                 // ✅ ATUALIZAR RELATÓRIO AUTOMATICAMENTE (APENAS SE VISÍVEL)
-                if (document.getElementById('report-section').classList.contains('active')) {
+                if (document.getElementById('report-section')?.classList.contains('active')) {
                     setTimeout(generateReport, 100); // Pequeno delay para não travar
                 }
                 
@@ -2091,7 +2091,7 @@
                     updateInterface();
                     
                     // ✅ CORREÇÃO CRÍTICA: ATUALIZAR RELATÓRIO IMEDIATAMENTE
-                    if (document.getElementById('report-section').classList.contains('active')) {
+                    if (document.getElementById('report-section')?.classList.contains('active')) {
                         generateReport();
                     }
                     
@@ -2272,16 +2272,29 @@
                     }
                 }).length;
                 
-                document.getElementById('total-drivers').textContent = totalDrivers;
-                document.getElementById('total-suppliers').textContent = totalSuppliers;
-                document.getElementById('active-processes').textContent = activeProcesses;
-                document.getElementById('completed-today').textContent = completedToday;
+                // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
+                const totalDriversEl = document.getElementById('total-drivers');
+                const totalSuppliersEl = document.getElementById('total-suppliers');
+                const activeProcessesEl = document.getElementById('active-processes');
+                const completedTodayEl = document.getElementById('completed-today');
+                
+                if (totalDriversEl) totalDriversEl.textContent = totalDrivers;
+                if (totalSuppliersEl) totalSuppliersEl.textContent = totalSuppliers;
+                if (activeProcessesEl) activeProcessesEl.textContent = activeProcesses;
+                if (completedTodayEl) completedTodayEl.textContent = completedToday;
                 
             } catch (error) {
-                document.getElementById('total-drivers').textContent = driversData.length || '0';
-                document.getElementById('total-suppliers').textContent = '0';
-                document.getElementById('active-processes').textContent = '0';
-                document.getElementById('completed-today').textContent = '0';
+                console.error('Erro ao atualizar estatísticas:', error);
+                // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
+                const totalDriversEl = document.getElementById('total-drivers');
+                const totalSuppliersEl = document.getElementById('total-suppliers');
+                const activeProcessesEl = document.getElementById('active-processes');
+                const completedTodayEl = document.getElementById('completed-today');
+                
+                if (totalDriversEl) totalDriversEl.textContent = driversData.length || '0';
+                if (totalSuppliersEl) totalSuppliersEl.textContent = '0';
+                if (activeProcessesEl) activeProcessesEl.textContent = '0';
+                if (completedTodayEl) completedTodayEl.textContent = '0';
             }
         }
 
@@ -2289,8 +2302,8 @@
         function showSection(sectionId) {
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-            document.getElementById(sectionId).classList.add('active');
-            document.querySelector(`[data-target="${sectionId}"]`).classList.add('active');
+            document.getElementById(sectionId)?.classList.add('active');
+            document.querySelector(`[data-target="${sectionId}"]`)?.classList.add('active');
             
             if (sectionId === 'report-section') generateReport();
             else if (sectionId === 'encosta-section') renderEncostaList();
@@ -2299,8 +2312,8 @@
         function showTab(tabId) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+            document.getElementById(tabId)?.classList.add('active');
         }
 
         function goToProcessFromEncosta(ticket) {
@@ -2334,32 +2347,40 @@
         }
 
         function displayDriverInfo(driver) {
-            document.getElementById('driver-ticket').textContent = driver.ticket || '-';
-            document.getElementById('driver-name').textContent = driver.driverName || '-';
-            document.getElementById('driver-supplier').textContent = driver.supplier || '-';
-            document.getElementById('driver-cd').textContent = driver.cd || '-';
-            document.getElementById('driver-schedule').textContent = driver.scheduleDateTime || '-';
-            document.getElementById('driver-arrival').textContent = driver.arrivalDateTime || '-';
-            document.getElementById('driver-status').textContent = driver.status || '-';
-            document.getElementById('driver-called').textContent = driver.called || '-';
-            
-            document.getElementById('driver-truck-plate').textContent = driver.truckPlate || '-';
-            document.getElementById('driver-trailer-plate').textContent = driver.trailerPlate || '-';
-            document.getElementById('driver-equipment-type').textContent = driver.equipmentType || '-';
-            document.getElementById('driver-equipment-qty').textContent = driver.equipmentQty || '-';
-            document.getElementById('driver-nf').textContent = driver.nfNumber || '-';
-            document.getElementById('driver-nf-emission').textContent = driver.nfEmission || '-';
-            document.getElementById('driver-nf-value').textContent = driver.nfValue || '-';
-            document.getElementById('driver-load').textContent = driver.load || '-';
-            
-            document.getElementById('driver-conf-start').textContent = driver.confStart || '-';
-            document.getElementById('driver-conf-end').textContent = driver.confEnd || '-';
-            document.getElementById('driver-crit-start').textContent = driver.critStart || '-';
-            document.getElementById('driver-crit-end').textContent = driver.critEnd || '-';
-            document.getElementById('driver-crit-time').textContent = driver.critTime || '-';
-            document.getElementById('driver-release').textContent = driver.releaseTime || '-';
-            document.getElementById('driver-warehouse').textContent = driver.warehouse || '-';
-            document.getElementById('driver-process-status').textContent = getProcessStatus(driver) || '-';
+            // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
+            const elements = {
+                'driver-ticket': driver.ticket || '-',
+                'driver-name': driver.driverName || '-',
+                'driver-supplier': driver.supplier || '-',
+                'driver-cd': driver.cd || '-',
+                'driver-schedule': driver.scheduleDateTime || '-',
+                'driver-arrival': driver.arrivalDateTime || '-',
+                'driver-status': driver.status || '-',
+                'driver-called': driver.called || '-',
+                'driver-truck-plate': driver.truckPlate || '-',
+                'driver-trailer-plate': driver.trailerPlate || '-',
+                'driver-equipment-type': driver.equipmentType || '-',
+                'driver-equipment-qty': driver.equipmentQty || '-',
+                'driver-nf': driver.nfNumber || '-',
+                'driver-nf-emission': driver.nfEmission || '-',
+                'driver-nf-value': driver.nfValue || '-',
+                'driver-load': driver.load || '-',
+                'driver-conf-start': driver.confStart || '-',
+                'driver-conf-end': driver.confEnd || '-',
+                'driver-crit-start': driver.critStart || '-',
+                'driver-crit-end': driver.critEnd || '-',
+                'driver-crit-time': driver.critTime || '-',
+                'driver-release': driver.releaseTime || '-',
+                'driver-warehouse': driver.warehouse || '-',
+                'driver-process-status': getProcessStatus(driver) || '-'
+            };
+
+            Object.keys(elements).forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = elements[id];
+                }
+            });
         }
 
         function getProcessStatus(driver) {
@@ -2395,6 +2416,8 @@
         function renderProcessTimeline() {
             if (!currentDriver) {
                 const processContent = document.getElementById('process-content');
+                if (!processContent) return;
+                
                 processContent.innerHTML = `
                     <div class="alert alert-warning">
                         <strong>⚠️ Nenhum motorista selecionado</strong><br>
@@ -2413,6 +2436,8 @@
             if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
             
             const processContent = document.getElementById('process-content');
+            if (!processContent) return;
+            
             const steps = [
                 { 
                     id: 'contato', 
@@ -2554,6 +2579,7 @@
         // ========== FUNÇÕES DA ENCOSTA ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
+            if (!encostaContent) return;
             
             // ✅ CORREÇÃO: Filtrar apenas veículos com status AGENDADO
             let filteredDrivers = driversData.filter(driver => {
@@ -2687,39 +2713,122 @@
         }
 
         // ========== FUNÇÕES DO RELATÓRIO ========== //
-        function generateReport() {
-            const startDate = document.getElementById('report-start-date').value;
-            const endDate = document.getElementById('report-end-date').value;
+        async function generateReport() {
+            console.log('🔄 Gerando relatório com dados do Supabase...');
             
-            let filteredData = driversData.filter(driver => {
-                // Só incluir no relatório se tiver pelo menos UM campo de processo preenchido
-                const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                     (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                     (driver.encostouDoca && driver.encostouDoca !== '-');
-                
-                if (!hasProcessData) return false;
-                if (!startDate && !endDate) return true;
-                
-                let driverDate = null;
-                
-                // Tentar encontrar a data mais recente do processo
-                if (driver.encostouDoca !== '-') {
-                    driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
-                } else if (driver.liberacaoEntregue !== '-') {
-                    driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
-                } else if (driver.contatoFeito !== '-') {
-                    driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+            try {
+                // ✅ CORREÇÃO CRÍTICA: BUSCAR DIRETAMENTE DO SUPABASE SEM FILTRO DE TEMPO
+                const { data, error } = await supabase
+                    .from('drivers')
+                    .select('ticket, driver_name, supplier, cd, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .or('contato_feito.not.is.null,liberacao_entregue.not.is.null,encostou_doca.not.is.null')
+                    .order('updated_at', { ascending: false });
+
+                if (error) {
+                    console.error('❌ Erro ao buscar dados do relatório do Supabase:', error);
+                    showNotification('❌ Erro ao carregar relatório do Supabase', 'error');
+                    return;
                 }
+
+                if (!data || data.length === 0) {
+                    console.log('ℹ️ Nenhum dado de processo encontrado no Supabase');
+                    updateReportStats([]);
+                    renderReportTable([]);
+                    return;
+                }
+
+                console.log(`✅ ${data.length} registros carregados do Supabase para o relatório`);
+
+                // Converter dados do Supabase para o formato interno
+                const reportData = data.map(item => {
+                    // Buscar dados base locais se existirem
+                    const localDriver = driversData.find(d => d.ticket && d.ticket.toString().trim() === item.ticket.toString().trim());
+                    
+                    return {
+                        ticket: item.ticket,
+                        driverName: item.driver_name || (localDriver ? localDriver.driverName : '-'),
+                        supplier: item.supplier || (localDriver ? localDriver.supplier : '-'),
+                        cd: item.cd || (localDriver ? localDriver.cd : '-'),
+                        status: item.status || (localDriver ? localDriver.status : '-'),
+                        contatoFeito: item.contato_feito || '-',
+                        liberacaoEntregue: item.liberacao_entregue || '-',
+                        encostouDoca: item.encostou_doca || '-',
+                        // Manter dados base locais se disponíveis
+                        arrivalDateTime: localDriver ? localDriver.arrivalDateTime : '-',
+                        scheduleDateTime: localDriver ? localDriver.scheduleDateTime : '-',
+                        truckPlate: localDriver ? localDriver.truckPlate : '-',
+                        load: localDriver ? localDriver.load : '-'
+                    };
+                });
+
+                // Aplicar filtros de data se existirem
+                const startDate = document.getElementById('report-start-date')?.value;
+                const endDate = document.getElementById('report-end-date')?.value;
                 
-                if (!driverDate) return false;
-                if (startDate && driverDate < startDate) return false;
-                if (endDate && driverDate > endDate) return false;
+                let filteredData = reportData;
                 
-                return true;
-            });
-            
-            updateReportStats(filteredData);
-            renderReportTable(filteredData);
+                if (startDate || endDate) {
+                    filteredData = reportData.filter(driver => {
+                        let driverDate = null;
+                        
+                        // Tentar encontrar a data mais recente do processo
+                        if (driver.encostouDoca !== '-') {
+                            driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
+                        } else if (driver.liberacaoEntregue !== '-') {
+                            driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
+                        } else if (driver.contatoFeito !== '-') {
+                            driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+                        }
+                        
+                        if (!driverDate) return false;
+                        if (startDate && driverDate < startDate) return false;
+                        if (endDate && driverDate > endDate) return false;
+                        
+                        return true;
+                    });
+                }
+
+                updateReportStats(filteredData);
+                renderReportTable(filteredData);
+                
+                console.log(`📊 Relatório gerado: ${filteredData.length} registros`);
+
+            } catch (error) {
+                console.error('❌ Erro ao gerar relatório:', error);
+                showNotification('❌ Erro ao gerar relatório', 'error');
+                
+                // Fallback: usar dados locais em caso de erro
+                const startDate = document.getElementById('report-start-date')?.value;
+                const endDate = document.getElementById('report-end-date')?.value;
+                
+                let filteredData = driversData.filter(driver => {
+                    const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                                         (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                                         (driver.encostouDoca && driver.encostouDoca !== '-');
+                    
+                    if (!hasProcessData) return false;
+                    if (!startDate && !endDate) return true;
+                    
+                    let driverDate = null;
+                    
+                    if (driver.encostouDoca !== '-') {
+                        driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
+                    } else if (driver.liberacaoEntregue !== '-') {
+                        driverDate = extractDateFromProcessDateTime(driver.liberacaoEntregue);
+                    } else if (driver.contatoFeito !== '-') {
+                        driverDate = extractDateFromProcessDateTime(driver.contatoFeito);
+                    }
+                    
+                    if (!driverDate) return false;
+                    if (startDate && driverDate < startDate) return false;
+                    if (endDate && driverDate > endDate) return false;
+                    
+                    return true;
+                });
+                
+                updateReportStats(filteredData);
+                renderReportTable(filteredData);
+            }
         }
 
         function extractDateFromProcessDateTime(dateTimeStr) {
@@ -2747,14 +2856,21 @@
                 d.contatoFeito === '-' && d.liberacaoEntregue === '-' && d.encostouDoca === '-'
             ).length;
 
-            document.getElementById('total-processes').textContent = totalProcesses;
-            document.getElementById('completed-processes').textContent = completedProcesses;
-            document.getElementById('in-progress-processes').textContent = inProgressProcesses;
-            document.getElementById('pending-processes').textContent = pendingProcesses;
+            // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
+            const totalProcessesEl = document.getElementById('total-processes');
+            const completedProcessesEl = document.getElementById('completed-processes');
+            const inProgressProcessesEl = document.getElementById('in-progress-processes');
+            const pendingProcessesEl = document.getElementById('pending-processes');
+
+            if (totalProcessesEl) totalProcessesEl.textContent = totalProcesses;
+            if (completedProcessesEl) completedProcessesEl.textContent = completedProcesses;
+            if (inProgressProcessesEl) inProgressProcessesEl.textContent = inProgressProcesses;
+            if (pendingProcessesEl) pendingProcessesEl.textContent = pendingProcesses;
         }
 
         function renderReportTable(data) {
             const tableBody = document.getElementById('report-table-body');
+            if (!tableBody) return;
             
             if (data.length === 0) {
                 tableBody.innerHTML = `
@@ -2797,8 +2913,8 @@
         }
 
         function exportReportToExcel() {
-            const startDate = document.getElementById('report-start-date').value;
-            const endDate = document.getElementById('report-end-date').value;
+            const startDate = document.getElementById('report-start-date')?.value;
+            const endDate = document.getElementById('report-end-date')?.value;
             
             let filteredData = driversData.filter(driver => {
                 const hasProcessData = driver.contatoFeito !== '-' || 
@@ -2844,8 +2960,11 @@
         }
 
         function clearReportFilters() {
-            document.getElementById('report-start-date').value = '';
-            document.getElementById('report-end-date').value = '';
+            const startDateEl = document.getElementById('report-start-date');
+            const endDateEl = document.getElementById('report-end-date');
+            
+            if (startDateEl) startDateEl.value = '';
+            if (endDateEl) endDateEl.value = '';
             generateReport();
         }
 
@@ -2925,35 +3044,55 @@
                 }, 300);
             }
             
-            document.getElementById('filter-ticket').addEventListener('input', function() {
-                activeFilters.ticket = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            // ✅ CORREÇÃO: Verificar se elementos existem antes de adicionar listeners
+            const filterTicket = document.getElementById('filter-ticket');
+            const filterDriver = document.getElementById('filter-driver');
+            const filterSupplier = document.getElementById('filter-supplier');
+            const filterStatus = document.getElementById('filter-status');
+            const filterPlate = document.getElementById('filter-plate');
+            const filterArrival = document.getElementById('filter-arrival');
             
-            document.getElementById('filter-driver').addEventListener('input', function() {
-                activeFilters.driver = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            if (filterTicket) {
+                filterTicket.addEventListener('input', function() {
+                    activeFilters.ticket = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
             
-            document.getElementById('filter-supplier').addEventListener('input', function() {
-                activeFilters.supplier = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            if (filterDriver) {
+                filterDriver.addEventListener('input', function() {
+                    activeFilters.driver = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
             
-            document.getElementById('filter-status').addEventListener('input', function() {
-                activeFilters.status = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            if (filterSupplier) {
+                filterSupplier.addEventListener('input', function() {
+                    activeFilters.supplier = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
             
-            document.getElementById('filter-plate').addEventListener('input', function() {
-                activeFilters.plate = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            if (filterStatus) {
+                filterStatus.addEventListener('input', function() {
+                    activeFilters.status = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
             
-            document.getElementById('filter-arrival').addEventListener('input', function() {
-                activeFilters.arrival = this.value.trim().toLowerCase();
-                debouncedApplyFilters();
-            });
+            if (filterPlate) {
+                filterPlate.addEventListener('input', function() {
+                    activeFilters.plate = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
+            
+            if (filterArrival) {
+                filterArrival.addEventListener('input', function() {
+                    activeFilters.arrival = this.value.trim().toLowerCase();
+                    debouncedApplyFilters();
+                });
+            }
             
             // ✅ CORREÇÃO: Adicionar evento de tecla Enter para aplicar filtros imediatamente
             const filterInputs = document.querySelectorAll('.filtro-input');
@@ -3384,14 +3523,12 @@
 
             try {
                 // ✅ QUERY OTIMIZADA: Buscar apenas dados atualizados recentemente
-                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-                
+                // CORREÇÃO: Remover query complexa que causava erro 400
                 const { data, error } = await supabase
                     .from('drivers')
                     .select('ticket, driver_name, supplier, cd, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
-                    .or(`updated_at.gte.${oneHourAgo},and(updated_at.is.null,created_at.gte.${oneHourAgo})`)
                     .order('updated_at', { ascending: false })
-                    .limit(1000); // Limitar para evitar sobrecarga
+                    .limit(1000);
 
                 if (error) {
                     console.error('❌ Erro ao carregar do Supabase:', error);
@@ -3492,13 +3629,16 @@
                         onConflict: 'id'
                     });
 
-                if (error) throw error;
+                if (error) {
+                    // Se a tabela não existe, apenas salvar localmente
+                    console.log('Tabela carga_data não existe, salvando apenas localmente');
+                }
 
                 // Também salvar localmente como fallback
                 localStorage.setItem('cargaData', JSON.stringify(cargaArray));
                 return true;
             } catch (error) {
-                console.error('Erro ao salvar carga no Supabase:', error);
+                console.error('Erro ao salvar carga:', error);
                 // Fallback para localStorage
                 const cargaArray = Array.from(cargaData);
                 localStorage.setItem('cargaData', JSON.stringify(cargaArray));
@@ -3514,7 +3654,11 @@
                     .eq('id', 1)
                     .single();
 
-                if (error) throw error;
+                if (error) {
+                    // Se a tabela não existe, carregar do localStorage
+                    console.log('Tabela carga_data não encontrada, carregando do localStorage');
+                    return loadCargaData();
+                }
 
                 if (data && data.carga_list) {
                     cargaData = new Set(data.carga_list);
@@ -3588,8 +3732,11 @@
                 
                 await saveCargaData();
                 
-                document.getElementById('carga-file-info').textContent = 
-                    `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
+                const cargaFileInfo = document.getElementById('carga-file-info');
+                if (cargaFileInfo) {
+                    cargaFileInfo.textContent = 
+                        `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
+                }
                 
                 renderEncostaList();
                 
@@ -3771,92 +3918,127 @@
                 });
             });
             
-            document.getElementById('search-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const ticket = document.getElementById('ticket-input').value.trim();
-                if (ticket) searchDriver(ticket);
-            });
+            const searchForm = document.getElementById('search-form');
+            if (searchForm) {
+                searchForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const ticket = document.getElementById('ticket-input').value.trim();
+                    if (ticket) searchDriver(ticket);
+                });
+            }
             
-            document.getElementById('go-to-process').addEventListener('click', function() {
-                showSection('process-section');
-                renderProcessTimeline();
-            });
+            const goToProcessBtn = document.getElementById('go-to-process');
+            if (goToProcessBtn) {
+                goToProcessBtn.addEventListener('click', function() {
+                    showSection('process-section');
+                    renderProcessTimeline();
+                });
+            }
             
-            document.getElementById('report-generate').addEventListener('click', generateReport);
-            document.getElementById('report-export-excel').addEventListener('click', exportReportToExcel);
-            document.getElementById('report-clear-filters').addEventListener('click', clearReportFilters);
+            const reportGenerateBtn = document.getElementById('report-generate');
+            if (reportGenerateBtn) reportGenerateBtn.addEventListener('click', generateReport);
+            
+            const reportExportBtn = document.getElementById('report-export-excel');
+            if (reportExportBtn) reportExportBtn.addEventListener('click', exportReportToExcel);
+            
+            const reportClearBtn = document.getElementById('report-clear-filters');
+            if (reportClearBtn) reportClearBtn.addEventListener('click', clearReportFilters);
             
             // ✅ ADICIONAR EVENT LISTENERS PARA SINCRONIZAÇÃO
-            document.getElementById('force-sync-btn').addEventListener('click', forceSync);
-            document.getElementById('force-sync-btn-2').addEventListener('click', forceSync);
+            const forceSyncBtn1 = document.getElementById('force-sync-btn');
+            const forceSyncBtn2 = document.getElementById('force-sync-btn-2');
             
-            document.getElementById('upload-btn').addEventListener('click', function() {
-                document.getElementById('file-input').click();
-            });
-            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            if (forceSyncBtn1) forceSyncBtn1.addEventListener('click', forceSync);
+            if (forceSyncBtn2) forceSyncBtn2.addEventListener('click', forceSync);
             
-            document.getElementById('upload-carga-btn').addEventListener('click', function() {
-                document.getElementById('carga-file-input').click();
-            });
+            const uploadBtn = document.getElementById('upload-btn');
+            const fileInput = document.getElementById('file-input');
+            if (uploadBtn && fileInput) {
+                uploadBtn.addEventListener('click', function() {
+                    fileInput.click();
+                });
+                fileInput.addEventListener('change', handleFileUpload);
+            }
             
-            document.getElementById('carga-file-input').addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    currentCargaFile = file;
-                    handleCargaFileUpload(file);
-                }
-            });
+            const uploadCargaBtn = document.getElementById('upload-carga-btn');
+            const cargaFileInput = document.getElementById('carga-file-input');
+            if (uploadCargaBtn && cargaFileInput) {
+                uploadCargaBtn.addEventListener('click', function() {
+                    cargaFileInput.click();
+                });
+                
+                cargaFileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        currentCargaFile = file;
+                        handleCargaFileUpload(file);
+                    }
+                });
+            }
             
-            document.getElementById('refresh-carga-btn').addEventListener('click', function() {
-                if (currentCargaFile) {
-                    handleCargaFileUpload(currentCargaFile);
-                } else {
-                    alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
-                }
-            });
+            const refreshCargaBtn = document.getElementById('refresh-carga-btn');
+            if (refreshCargaBtn) {
+                refreshCargaBtn.addEventListener('click', function() {
+                    if (currentCargaFile) {
+                        handleCargaFileUpload(currentCargaFile);
+                    } else {
+                        alert('ℹ️ Nenhum arquivo de carga carregado. Por favor, carregue um arquivo TXT primeiro.');
+                    }
+                });
+            }
             
-            document.getElementById('debug-carga-btn').addEventListener('click', function() {
-                const ticket = prompt("Digite a senha para verificar o status da carga:");
-                if (ticket) {
-                    debugCargaStatus(ticket);
-                }
-            });
+            const debugCargaBtn = document.getElementById('debug-carga-btn');
+            if (debugCargaBtn) {
+                debugCargaBtn.addEventListener('click', function() {
+                    const ticket = prompt("Digite a senha para verificar o status da carga:");
+                    if (ticket) {
+                        debugCargaStatus(ticket);
+                    }
+                });
+            }
             
             const uploadArea = document.getElementById('upload-area');
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                this.classList.add('dragover');
-            });
-            uploadArea.addEventListener('dragleave', function() {
-                this.classList.remove('dragover');
-            });
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                this.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) processFileImmediately(files[0]);
-            });
+            if (uploadArea) {
+                uploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('dragover');
+                });
+                uploadArea.addEventListener('dragleave', function() {
+                    this.classList.remove('dragover');
+                });
+                uploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) processFileImmediately(files[0]);
+                });
+            }
             
-            document.getElementById('reset-drivers-btn').addEventListener('click', function() {
-                // Limpar inputs
-                document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
-                
-                // Limpar activeFilters
-                activeFilters = {
-                    ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
-                };
-                
-                // Limpar localStorage dos filtros
-                localStorage.removeItem('activeFilters');
-                
-                // Renderizar tabela completa
-                renderDriversTable();
-                
-                // Atualizar informação de resultados
-                updateResultsInfo(driversData.length);
-            });
+            const resetDriversBtn = document.getElementById('reset-drivers-btn');
+            if (resetDriversBtn) {
+                resetDriversBtn.addEventListener('click', function() {
+                    // Limpar inputs
+                    document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
+                    
+                    // Limpar activeFilters
+                    activeFilters = {
+                        ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
+                    };
+                    
+                    // Limpar localStorage dos filtros
+                    localStorage.removeItem('activeFilters');
+                    
+                    // Renderizar tabela completa
+                    renderDriversTable();
+                    
+                    // Atualizar informação de resultados
+                    updateResultsInfo(driversData.length);
+                });
+            }
             
-            document.getElementById('clear-database-btn').addEventListener('click', clearDatabase);
+            const clearDatabaseBtn = document.getElementById('clear-database-btn');
+            if (clearDatabaseBtn) clearDatabaseBtn.addEventListener('click', clearDatabase);
+            
             setupFilterListeners();
             
             // ✅ CARREGAR FILTROS SALVOS AO INICIAR
