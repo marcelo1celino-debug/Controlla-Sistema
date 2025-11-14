@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controlla - Sistema de Controle de Comparecimento</title>
     
-    <!-- Removido favicon.ico que não existe -->
     <meta name="theme-color" content="#013A63">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -881,111 +880,102 @@
             display: none !important;
         }
 
-        /* ========== NOVOS ESTILOS PARA SISTEMA DE PERSISTÊNCIA ========== */
-        .auto-save-status {
+        /* ========== NOTIFICAÇÕES DISCRETAS ========== */
+        .notification-discreet {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            border-radius: var(--border-radius);
-            font-size: 0.8rem;
+            bottom: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
             font-weight: 500;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10000;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .notification-discreet.show {
+            opacity: 0.9;
+        }
+
+        /* ========== STATUS DE SINCRONIZAÇÃO DISCRETO ========== */
+        .sync-status-discreet {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .sync-status-discreet.online {
+            background-color: #2ECC71;
+        }
+
+        .sync-status-discreet.offline {
+            background-color: #E74C3C;
+        }
+
+        .sync-status-discreet.syncing {
+            background-color: #F1C40F;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* ========== REMOVER ELEMENTOS VISUAIS DESNECESSÁRIOS ========== */
+        .auto-save-status {
+            display: none !important;
+        }
+
+        /* Manter apenas notificações importantes por menos tempo */
+        .notification-minimal {
             transition: all 0.3s ease;
         }
 
-        .auto-save-status.saving {
-            background-color: var(--warning-color);
-            color: var(--dark-text);
-        }
-
-        .auto-save-status.saved {
-            background-color: var(--secondary-color);
-            color: white;
-        }
-
-        .auto-save-status.error {
-            background-color: var(--danger-color);
-            color: white;
-        }
-
-        /* ========== NOVOS ESTILOS PARA NOTIFICAÇÃO MINIMALISTA ========== */
-        .notification-minimal {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: 500;
-            z-index: 10000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            max-width: 400px;
-            animation: slideInRight 0.3s ease-out;
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
-            line-height: 1.4;
-            border-left: 4px solid;
-            background: white;
-        }
-
-        .notification-minimal.success {
-            border-left-color: var(--secondary-color);
-            color: #155724;
-            background: #f8fff9;
-        }
-
-        .notification-minimal.error {
-            border-left-color: var(--danger-color);
-            color: #721c24;
-            background: #fdf3f4;
-        }
-
-        .notification-minimal.info {
-            border-left-color: var(--primary-color);
-            color: #004085;
-            background: #f0f8ff;
-        }
-
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* ========== STATUS DE SINCRONIZAÇÃO ========== */
-        .sync-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .notification-minimal:not(.success):not(.error) {
+            opacity: 0.7;
             font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .sync-status.online {
-            color: #2ECC71;
-        }
-
-        .sync-status.offline {
-            color: #E74C3C;
-        }
-
-        .sync-status.syncing {
-            color: #F1C40F;
-            animation: pulse 1.5s infinite;
+            padding: 8px 12px;
         }
 
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+
+        /* ========== CORREÇÃO PARA BARRA DE ROLAGEM DA ENCOSTA ========== */
+        .encosta-table-container {
+            overflow-x: auto;
+            width: 100%;
+            position: relative;
+        }
+
+        .encosta-table {
+            min-width: 1200px;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .encosta-table th {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+
+        .encosta-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+
+        .encosta-table tr:hover {
+            background-color: rgba(1, 58, 99, 0.05);
         }
     </style>
 </head>
@@ -1008,9 +998,8 @@
                         <li><a href="#" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
                     </ul>
                 </nav>
-                <div id="sync-status" class="sync-status online">
-                    <span>🟢 Sincronizado</span>
-                </div>
+                <!-- Versão discreta do status de sincronização -->
+                <div id="sync-status-discreet" class="sync-status-discreet online" title="Sincronizado"></div>
             </div>
         </div>
     </header>
@@ -1220,6 +1209,8 @@
                     <button class="btn btn-success" id="report-export-excel">📥 Exportar para Excel</button>
                     <button class="btn btn-warning" id="report-clear-filters">🔄 Limpar Filtros</button>
                     <button class="btn btn-success" id="force-sync-btn">🔄 Sincronizar Agora</button>
+                    <!-- NOVO BOTÃO: Limpar Todos os Registros -->
+                    <button class="btn btn-danger" id="clear-all-processes">🗑️ Limpar Todos os Registros</button>
                 </div>
                 
                 <div class="report-stats" id="report-stats">
@@ -1401,10 +1392,8 @@
         </div>
     </footer>
 
-    <!-- Indicador de salvamento automático -->
-    <div id="auto-save-status" class="auto-save-status saved" style="display: none;">
-        ✅ Dados salvos automaticamente
-    </div>
+    <!-- Notificação discreta -->
+    <div id="notification-discreet" class="notification-discreet"></div>
 
     <script>
         // ========== CONFIGURAÇÃO SUPABASE ========== //
@@ -1435,6 +1424,10 @@
         // ========== SISTEMA DE CARGA ========== //
         let cargaData = new Set();
         let currentCargaFile = null;
+
+        // ========== SISTEMA DE PRESERVAÇÃO DE SCROLL ========== //
+        let encostaScrollPosition = 0;
+        let driversTableScrollPosition = 0;
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -1558,6 +1551,19 @@
             }
         }
 
+        // ========== SISTEMA DE NOTIFICAÇÕES DISCRETAS ========== //
+        function showDiscreetNotification(message, duration = 2000) {
+            const notification = document.getElementById('notification-discreet');
+            if (!notification) return;
+            
+            notification.textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, duration);
+        }
+
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDO ========== //
 
         // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
@@ -1622,8 +1628,8 @@
             // ✅ CORREÇÃO: ATUALIZAR INTERFACE COMPLETA
             updateInterface();
             
-            // Mostrar notificação de atualização
-            showNotification('🔄 Dados atualizados em tempo real', 'info', 2000);
+            // Apenas log discreto
+            console.log('🔄 Dados atualizados em tempo real');
         }
 
         // 3. PROCESSAR ATUALIZAÇÃO/INSERÇÃO DE MOTORISTA - CORRIGIDA
@@ -1746,35 +1752,33 @@
         // 7. FUNÇÃO PARA FORÇAR SINCRONIZAÇÃO MANUAL
         async function forceSync() {
             updateSyncStatus(true, 'Sincronizando...');
-            showNotification('🔄 Sincronizando dados...', 'info');
+            showDiscreetNotification('Sincronizando...', 1000);
             
             try {
                 const success = await loadFromSupabase();
                 if (success) {
                     updateInterface();
                     updateSyncStatus(true, 'Sincronizado');
-                    showNotification('✅ Sincronização concluída!', 'success');
+                    showDiscreetNotification('✓ Sincronizado', 1000);
                 } else {
                     updateSyncStatus(false, 'Sincronização parcial');
-                    showNotification('⚠️ Sincronização parcial - alguns dados podem estar desatualizados', 'warning');
+                    showDiscreetNotification('⚠ Sincronização parcial', 1500);
                 }
             } catch (error) {
                 console.error('Erro na sincronização forçada:', error);
                 updateSyncStatus(false, 'Erro na sincronização');
-                showNotification('❌ Erro na sincronização', 'error');
+                showDiscreetNotification('✗ Erro na sincronização', 2000);
             }
         }
 
         // 8. ATUALIZAR STATUS DA SINCRONIZAÇÃO
         function updateSyncStatus(online, message = '') {
             isOnline = online;
-            const syncElement = document.getElementById('sync-status');
+            const syncElement = document.getElementById('sync-status-discreet');
             
             if (syncElement) {
-                syncElement.className = 'sync-status ' + (online ? 'online' : 'offline');
-                if (message) {
-                    syncElement.innerHTML = online ? `🟢 ${message}` : `🔴 ${message}`;
-                }
+                syncElement.className = 'sync-status-discreet ' + (online ? 'online' : 'offline');
+                syncElement.title = message || (online ? 'Sincronizado' : 'Offline');
             }
         }
 
@@ -1935,7 +1939,8 @@
                 if (currentDataState !== lastDataState) {
                     dataChangeDetected = true;
                     lastDataState = currentDataState;
-                    showAutoSaveStatus('saving');
+                    // Apenas log discreto, sem indicador visual
+                    console.log('📝 Mudança detectada nos dados');
                 }
             }, 1000);
         }
@@ -1945,7 +1950,8 @@
             if (!dataChangeDetected) return;
             
             try {
-                showAutoSaveStatus('saving');
+                // Apenas um log discreto no console
+                console.log('💾 Salvando dados automaticamente...');
                 
                 // ✅ SALVAR NO LOCALSTORAGE PRIMEIRO (MAIS RÁPIDO)
                 saveToLocalStorage();
@@ -1964,46 +1970,12 @@
                 }
                 
                 dataChangeDetected = false;
-                showAutoSaveStatus('saved');
-                
-                // ✅ ATUALIZAR RELATÓRIO AUTOMATICAMENTE (APENAS SE VISÍVEL)
-                if (document.getElementById('report-section')?.classList.contains('active')) {
-                    setTimeout(generateReport, 100); // Pequeno delay para não travar
-                }
                 
             } catch (error) {
                 console.error('❌ Erro no salvamento automático:', error);
-                showAutoSaveStatus('error');
                 // Em caso de erro, garantir que pelo menos localStorage foi salvo
                 saveToLocalStorage();
                 saveProcessBackup();
-            }
-        }
-
-        // 4. INDICADOR VISUAL DE SALVAMENTO
-        function showAutoSaveStatus(status) {
-            const statusElement = document.getElementById('auto-save-status');
-            if (!statusElement) return;
-            
-            statusElement.style.display = 'block';
-            statusElement.className = 'auto-save-status ' + status;
-            
-            switch(status) {
-                case 'saving':
-                    statusElement.textContent = '🔄 Salvando dados...';
-                    break;
-                case 'saved':
-                    statusElement.textContent = '✅ Dados salvos automaticamente';
-                    setTimeout(() => {
-                        statusElement.style.display = 'none';
-                    }, 3000);
-                    break;
-                case 'error':
-                    statusElement.textContent = '❌ Erro ao salvar';
-                    setTimeout(() => {
-                        statusElement.style.display = 'none';
-                    }, 5000);
-                    break;
             }
         }
 
@@ -2045,9 +2017,9 @@
             // Atualizar a interface
             updateInterface();
             
-            // Mostrar confirmação
+            // Mostrar confirmação discreta
             const stepName = getStepName(stepField);
-            showNotification(`✅ ${stepName} registrado para senha ${ticket}`, 'success');
+            showDiscreetNotification(`✓ ${stepName} registrado`, 1500);
             
             console.log('Etapa registrada com sucesso:', driver);
         }
@@ -2095,8 +2067,8 @@
                         generateReport();
                     }
                     
-                    // Mostrar confirmação
-                    showNotification(`↩️ ${stepName} desfeito para senha ${ticket}`, 'warning');
+                    // Mostrar confirmação discreta
+                    showDiscreetNotification(`↩️ ${stepName} desfeito`, 1500);
                     
                     console.log('Etapa desfeita com sucesso:', driver);
                 } else {
@@ -2199,6 +2171,48 @@
             } catch (error) {
                 console.error('❌ Erro ao salvar processos no Supabase:', error);
                 throw error;
+            }
+        }
+
+        // ========== NOVA FUNÇÃO: LIMPAR TODOS OS REGISTROS DE PROCESSO ========== //
+        async function clearAllProcesses() {
+            if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar TODOS os registros de processo?\n\nIsso irá remover:\n• Todos os Contatos Feitos\n• Todas as Liberações Entregues\n• Todos os Encostou em Doca\n\nEsta ação não pode ser desfeita e afetará todos os usuários conectados.')) {
+                return;
+            }
+
+            try {
+                // Resetar localmente
+                driversData.forEach(driver => {
+                    driver.contatoFeito = '-';
+                    driver.liberacaoEntregue = '-';
+                    driver.encostouDoca = '-';
+                });
+
+                // Atualizar no Supabase (definir como null)
+                const updates = driversData.map(driver => ({
+                    ticket: driver.ticket,
+                    contato_feito: null,
+                    liberacao_entregue: null,
+                    encostou_doca: null,
+                    updated_at: new Date().toISOString()
+                }));
+
+                // Fazer um lote de atualizações no Supabase
+                const { error } = await supabase
+                    .from('drivers')
+                    .upsert(updates, {
+                        onConflict: 'ticket'
+                    });
+
+                if (error) throw error;
+
+                // Atualizar a interface
+                updateInterface();
+                showDiscreetNotification('✅ Todos os registros de processo foram limpos!', 2000);
+
+            } catch (error) {
+                console.error('Erro ao limpar processos:', error);
+                showNotification('❌ Erro ao limpar registros no Supabase', 'error');
             }
         }
 
@@ -2576,7 +2590,7 @@
             });
         }
 
-        // ========== FUNÇÕES DA ENCOSTA ========== //
+        // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS PARA PRESERVAR SCROLL ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
@@ -2633,8 +2647,8 @@
                 </div>
                 
                 <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
-                <div style="overflow-x: auto;">
-                    <table class="data-table">
+                <div class="encosta-table-container">
+                    <table class="encosta-table">
                         <thead>
                             <tr>
                                 <th>Posição</th>
@@ -2702,7 +2716,19 @@
             });
             
             encostaHTML += `</tbody></table></div>`;
+            
+            // ✅ CORREÇÃO CRÍTICA: PRESERVAR POSIÇÃO DO SCROLL DURANTE ATUALIZAÇÃO
+            const tableContainer = document.querySelector('.encosta-table-container');
+            if (tableContainer) {
+                encostaScrollPosition = tableContainer.scrollLeft;
+            }
+            
             encostaContent.innerHTML = encostaHTML;
+            
+            // ✅ CORREÇÃO: RESTAURAR POSIÇÃO DO SCROLL APÓS ATUALIZAÇÃO
+            if (tableContainer) {
+                tableContainer.scrollLeft = encostaScrollPosition;
+            }
             
             document.querySelectorAll('.processo-encosta').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -2968,7 +2994,7 @@
             generateReport();
         }
 
-        // ========== FUNÇÕES DA BASE DE DADOS ========== //
+        // ========== FUNÇÕES DA BASE DE DADOS - CORRIGIDAS PARA PRESERVAR SCROLL ========== //
         function renderDriversTable(filteredData = null) {
             // ✅ PRESERVAR VALORES DOS FILTROS ANTES DE RENDERIZAR
             saveFilterValues();
@@ -2978,6 +3004,12 @@
             
             // ✅ CORREÇÃO: Verificar se o elemento existe
             if (!tableBody) return;
+            
+            // ✅ CORREÇÃO: PRESERVAR POSIÇÃO DO SCROLL ANTES DE ATUALIZAR
+            const tableContainer = document.getElementById('drivers-table-container');
+            if (tableContainer) {
+                driversTableScrollPosition = tableContainer.scrollLeft;
+            }
             
             tableBody.innerHTML = '';
             
@@ -3009,6 +3041,11 @@
                 `;
                 tableBody.appendChild(row);
             });
+            
+            // ✅ CORREÇÃO: RESTAURAR POSIÇÃO DO SCROLL APÓS ATUALIZAÇÃO
+            if (tableContainer) {
+                tableContainer.scrollLeft = driversTableScrollPosition;
+            }
             
             // ✅ CORREÇÃO: Adicionar event listeners com verificação de segurança
             setTimeout(() => {
@@ -3228,11 +3265,11 @@
                     document.getElementById('driver-result').style.display = 'none';
                 }
                 
-                showNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados no relatório.`, 'warning', 800);
+                showDiscreetNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados`, 800);
             }
         }
 
-        // ========== FUNÇÕES DE UPLOAD - ATUALIZADAS ========== //
+        // ========== FUNÇÕES DE UPLOAD - CORRIGIDAS ========== //
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if (file) processFileImmediately(file);
@@ -3380,12 +3417,14 @@
                     if (existingDriversMap.has(ticketKey)) {
                         const existingDriver = existingDriversMap.get(ticketKey);
                         
+                        // ✅ CORREÇÃO CRÍTICA: PRESERVAR APENAS OS DADOS DE PROCESSO DO EXISTENTE
                         driver.contatoFeito = existingDriver.contatoFeito || '-';
                         driver.liberacaoEntregue = existingDriver.liberacaoEntregue || '-';
                         driver.encostouDoca = existingDriver.encostouDoca || '-';
                         
                         preservedCount++;
                     } else {
+                        // ✅ CORREÇÃO: NOVOS REGISTROS COMEÇAM SEM DADOS DE PROCESSO
                         if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
                         if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
                         if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -3406,6 +3445,7 @@
             
             const restoredCount = restoreProcessBackup();
             
+            // ✅ CORREÇÃO CRÍTICA: SALVAR APENAS LOCALMENTE, NÃO NO SUPABASE
             saveToLocalStorage();
             
             updateDatabaseStats();
@@ -3413,7 +3453,7 @@
             
             document.getElementById('file-input').value = '';
             
-            showNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 'success');
+            showDiscreetNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 1500);
         }
 
         // ========== FUNÇÕES DE CÁLCULO DE TEMPO ========== //
@@ -3506,7 +3546,7 @@
             }
         }
 
-        // ========== FUNÇÕES SUPABASE - OTIMIZADAS ========== //
+        // ========== FUNÇÕES SUPABASE - CORRIGIDAS ========== //
         let supabaseCache = {
             lastSync: null,
             data: [],
@@ -3522,13 +3562,11 @@
             }
 
             try {
-                // ✅ QUERY OTIMIZADA: Buscar apenas dados atualizados recentemente
-                // CORREÇÃO: Remover query complexa que causava erro 400
+                // ✅ CORREÇÃO: BUSCAR APENAS DADOS DE PROCESSO DO SUPABASE
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, driver_name, supplier, cd, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
-                    .order('updated_at', { ascending: false })
-                    .limit(1000);
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .order('updated_at', { ascending: false });
 
                 if (error) {
                     console.error('❌ Erro ao carregar do Supabase:', error);
@@ -3537,56 +3575,34 @@
                 }
 
                 if (data && data.length > 0) {
-                    // ✅ PROCESSAMENTO EM LOTE OTIMIZADO
-                    const existingTicketsMap = new Map();
-                    driversData.forEach((driver, index) => {
-                        if (driver.ticket) {
-                            existingTicketsMap.set(driver.ticket.toString().trim(), index);
-                        }
-                    });
-
+                    // ✅ CORREÇÃO: ATUALIZAR APENAS OS DADOS DE PROCESSO NOS DRIVERS LOCAIS
                     let updatedCount = 0;
-                    let addedCount = 0;
 
                     data.forEach(item => {
                         const ticketKey = item.ticket?.toString().trim();
                         if (!ticketKey) return;
 
-                        const existingIndex = existingTicketsMap.get(ticketKey);
+                        // Buscar o driver local correspondente
+                        const localDriver = driversData.find(d => 
+                            d.ticket && d.ticket.toString().trim() === ticketKey
+                        );
                         
-                        if (existingIndex !== undefined) {
+                        if (localDriver) {
                             // ✅ ATUALIZAR APENAS CAMPOS DE PROCESSO
-                            const driver = driversData[existingIndex];
-                            if (item.contato_feito && item.contato_feito !== driver.contatoFeito) {
-                                driver.contatoFeito = item.contato_feito;
+                            if (item.contato_feito !== null && item.contato_feito !== undefined) {
+                                localDriver.contatoFeito = item.contato_feito;
                                 updatedCount++;
                             }
-                            if (item.liberacao_entregue && item.liberacao_entregue !== driver.liberacaoEntregue) {
-                                driver.liberacaoEntregue = item.liberacao_entregue;
+                            if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
+                                localDriver.liberacaoEntregue = item.liberacao_entregue;
                                 updatedCount++;
                             }
-                            if (item.encostou_doca && item.encostou_doca !== driver.encostouDoca) {
-                                driver.encostouDoca = item.encostou_doca;
+                            if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
+                                localDriver.encostouDoca = item.encostou_doca;
                                 updatedCount++;
                             }
-                        } else {
-                            // ✅ ADICIONAR NOVO REGISTRO APENAS COM CAMPOS ESSENCIAIS
-                            driversData.push({
-                                ticket: item.ticket,
-                                driverName: item.driver_name,
-                                supplier: item.supplier,
-                                cd: item.cd,
-                                status: item.status,
-                                arrivalDateTime: '-',
-                                scheduleDateTime: '-',
-                                truckPlate: '-',
-                                contatoFeito: item.contato_feito || '-',
-                                liberacaoEntregue: item.liberacao_entregue || '-',
-                                encostouDoca: item.encostou_doca || '-',
-                                load: '-'
-                            });
-                            addedCount++;
                         }
+                        // ❌ NÃO adicionar motoristas que não existem localmente
                     });
 
                     // ✅ ATUALIZAR CACHE
@@ -3597,12 +3613,11 @@
                     };
 
                     lastUpdateTime = new Date().toISOString();
-                    console.log(`✅ Supabase: ${updatedCount} atualizados, ${addedCount} novos. Cache: ${data.length} registros`);
+                    console.log(`✅ Supabase: ${updatedCount} processos atualizados. Cache: ${data.length} registros`);
                     return true;
                 }
                 
                 console.log('ℹ️ Nenhum dado novo no Supabase');
-                // ✅ ATUALIZAR CACHE MESMO SEM DADOS NOVOS
                 supabaseCache.lastSync = now;
                 return true;
                 
@@ -3616,59 +3631,18 @@
         // ========== SISTEMA DE CARGA ========== //
         async function saveCargaData() {
             try {
-                // Salvar no Supabase para sincronização em tempo real
+                // Salvar apenas localmente - CORREÇÃO: Removido tentativa de salvar no Supabase
                 const cargaArray = Array.from(cargaData);
-                
-                const { data, error } = await supabase
-                    .from('carga_data')
-                    .upsert({
-                        id: 1,
-                        carga_list: cargaArray,
-                        updated_at: new Date().toISOString()
-                    }, {
-                        onConflict: 'id'
-                    });
-
-                if (error) {
-                    // Se a tabela não existe, apenas salvar localmente
-                    console.log('Tabela carga_data não existe, salvando apenas localmente');
-                }
-
-                // Também salvar localmente como fallback
                 localStorage.setItem('cargaData', JSON.stringify(cargaArray));
                 return true;
             } catch (error) {
                 console.error('Erro ao salvar carga:', error);
-                // Fallback para localStorage
-                const cargaArray = Array.from(cargaData);
-                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
                 return false;
             }
         }
 
         async function loadCargaFromSupabase() {
-            try {
-                const { data, error } = await supabase
-                    .from('carga_data')
-                    .select('*')
-                    .eq('id', 1)
-                    .single();
-
-                if (error) {
-                    // Se a tabela não existe, carregar do localStorage
-                    console.log('Tabela carga_data não encontrada, carregando do localStorage');
-                    return loadCargaData();
-                }
-
-                if (data && data.carga_list) {
-                    cargaData = new Set(data.carga_list);
-                    return true;
-                }
-            } catch (error) {
-                console.log('Carregando carga do localStorage...');
-            }
-            
-            // Fallback para localStorage
+            // CORREÇÃO: Removida tentativa de carregar do Supabase, carregar apenas do localStorage
             return loadCargaData();
         }
 
@@ -3740,8 +3714,8 @@
                 
                 renderEncostaList();
                 
-                // Mostrar mensagem de sucesso
-                showNotification(`✅ Arquivo de carga processado com sucesso! ${cargaData.size} cargas identificadas.`, 'success');
+                // Mostrar mensagem de sucesso discreta
+                showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
                 
             } catch (error) {
                 console.error('Erro ao processar arquivo de carga:', error);
@@ -3762,16 +3736,24 @@
 
         // ========== FUNÇÃO DE NOTIFICAÇÃO MINIMALISTA ========== //
         function showNotification(message, type = 'info', duration = 800) {
-            const notification = document.createElement('div');
-            notification.className = `notification-minimal ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, duration);
+            // Notificações de sucesso e erro ainda são mostradas, mas por menos tempo
+            if (type === 'success' || type === 'error') {
+                const notification = document.createElement('div');
+                notification.className = `notification-minimal ${type}`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, type === 'error' ? 3000 : 1500); // Erros ficam mais tempo
+            }
+            // Notificações 'info' são completamente discretas (apenas no console)
+            else if (type === 'info') {
+                // Mostrar apenas no console para não perturbar o usuário
+                console.log(`ℹ️ ${message}`);
+            }
         }
 
         // ========== FUNÇÕES PRINCIPAIS DE DADOS ========== //
@@ -3832,10 +3814,10 @@
         }
 
         function setupAutoRefresh() {
-            // Atualizar a interface a cada 2 segundos
+            // Atualizar a interface a cada 1 Minuto
             setInterval(() => {
                 updateInterface();
-            }, 2000);
+            }, 600000);
         }
 
         // ========== INICIALIZAÇÃO - CORRIGIDA ========== //
@@ -3859,7 +3841,7 @@
                 // Carregar backup de processos primeiro
                 loadProcessBackup();
                 
-                // Sincronizar apenas processos do Supabase (sem substituir dados base)
+                // ✅ CORREÇÃO: Sincronizar apenas processos do Supabase (sem substituir dados base)
                 await loadFromSupabase();
                 
                 // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
@@ -3875,8 +3857,8 @@
             // Restaurar processos do backup automaticamente
             restoreProcessBackup();
 
-            // Carregar dados de carga do Supabase
-            await loadCargaFromSupabase();
+            // Carregar dados de carga do localStorage
+            loadCargaData();
 
             // Iniciar sistema de persistência automática
             initializePersistenceSystem();
@@ -3894,9 +3876,9 @@
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
-                    showNotification('✅ Conectado ao Supabase! Sincronização ativa.', 'success', 700);
+                    showDiscreetNotification('✅ Conectado ao Supabase!', 1000);
                 } else {
-                    showNotification('❌ Supabase offline. Usando dados locais.', 'warning', 700);
+                    showDiscreetNotification('❌ Supabase offline', 1000);
                 }
             }, 2000);
         }
@@ -3950,6 +3932,10 @@
             
             if (forceSyncBtn1) forceSyncBtn1.addEventListener('click', forceSync);
             if (forceSyncBtn2) forceSyncBtn2.addEventListener('click', forceSync);
+            
+            // ✅ ADICIONAR EVENT LISTENER PARA LIMPAR TODOS OS PROCESSOS
+            const clearAllProcessesBtn = document.getElementById('clear-all-processes');
+            if (clearAllProcessesBtn) clearAllProcessesBtn.addEventListener('click', clearAllProcesses);
             
             const uploadBtn = document.getElementById('upload-btn');
             const fileInput = document.getElementById('file-input');
