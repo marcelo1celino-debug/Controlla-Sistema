@@ -977,6 +977,38 @@
         .encosta-table tr:hover {
             background-color: rgba(1, 58, 99, 0.05);
         }
+
+        /* ========== ESTILOS PARA COLUNA CONGELADA DO MOTORISTA ========== */
+        .encosta-table th:nth-child(3),
+        .encosta-table td:nth-child(3) {
+            position: sticky;
+            left: 150px; /* Posição após as colunas Posição e Senha */
+            background-color: white;
+            z-index: 2;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .encosta-table th:nth-child(1),
+        .encosta-table td:nth-child(1) {
+            position: sticky;
+            left: 0;
+            background-color: white;
+            z-index: 3;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .encosta-table th:nth-child(2),
+        .encosta-table td:nth-child(2) {
+            position: sticky;
+            left: 60px; /* Largura aproximada da coluna Posição */
+            background-color: white;
+            z-index: 3;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .encosta-table th {
+            z-index: 4; /* Garantir que os cabeçalhos fiquem acima das células */
+        }
     </style>
 </head>
 <body>
@@ -1344,7 +1376,7 @@
                         </div>
                         
                         <div class="filtro-grupo filtro-chegada">
-                            <label class="filtro-label" for="filter-arrival">Filtrar Chegada</label>
+                            <label class="filtro-label" para="filter-arrival">Filtrar Chegada</label>
                             <input type="text" id="filter-arrival" class="filtro-input" placeholder="Digite a data/hora...">
                         </div>
                     </div>
@@ -1957,7 +1989,7 @@
                 saveToLocalStorage();
                 saveProcessBackup();
                 
-                // ✅ SALVAR NO SUPABASE EM SEGUNDO PLANO (SE ONLINE)
+                // ✅ SALVAR APENAS OS PROCESSOS NO SUPABASE (NÃO A BASE COMPLETA)
                 if (isOnline) {
                     // Não esperar pelo Supabase para não travar a interface
                     saveProcessesToSupabase().then(success => {
@@ -2174,9 +2206,24 @@
             }
         }
 
-        // ========== NOVA FUNÇÃO: LIMPAR TODOS OS REGISTROS DE PROCESSO ========== //
+        // ========== NOVA FUNÇÃO: LIMPAR TODOS OS REGISTROS DE PROCESSO COM SENHA ========== //
         async function clearAllProcesses() {
-            if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar TODOS os registros de processo?\n\nIsso irá remover:\n• Todos os Contatos Feitos\n• Todas as Liberações Entregues\n• Todos os Encostou em Doca\n\nEsta ação não pode ser desfeita e afetará todos os usuários conectados.')) {
+            // Solicitar senha
+            const password = prompt("🔒 Para limpar TODOS os registros de processo, digite a senha de segurança:");
+            
+            // Verificar se o usuário cancelou
+            if (password === null) {
+                return; // Usuário clicou em cancelar
+            }
+            
+            // Verificar se a senha está correta (case insensitive)
+            if (password.trim().toLowerCase() !== "assai") {
+                alert("❌ Senha incorreta. Ação cancelada.");
+                return;
+            }
+
+            // Se a senha estiver correta, mostrar confirmação final
+            if (!confirm('⚠️ ATENÇÃO: Senha confirmada!\n\nTem certeza que deseja limpar TODOS os registros de processo?\n\nIsso irá remover:\n• Todos os Contatos Feitos\n• Todas as Liberações Entregues\n• Todos os Encostou em Doca\n\nEsta ação não pode ser desfeita e afetará todos os usuários conectados.')) {
                 return;
             }
 
