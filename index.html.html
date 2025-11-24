@@ -1450,8 +1450,8 @@
         let autoSaveInterval;
         let dataChangeDetected = false;
 
-        // ========== SISTEMA DE BACKUP AUTOMÁTICO DE PROCESSOS ========== //
-        let processBackupData = {};
+        // ========== SISTEMA DE PROCESSOS SEPARADO ========== //
+        let processosData = {}; // { ticket: { contatoFeito, liberacaoEntregue, encostouDoca } }
         
         // ========== SISTEMA DE CARGA ========== //
         let cargaData = new Set();
@@ -1669,60 +1669,31 @@
             if (!updatedDriver || !updatedDriver.ticket) return;
 
             const ticketKey = updatedDriver.ticket.toString().trim();
-            const existingIndex = driversData.findIndex(d => 
-                d.ticket && d.ticket.toString().trim() === ticketKey
-            );
-
-            if (existingIndex !== -1) {
-                // ✅ CORREÇÃO: ATUALIZAR TODOS OS CAMPOS DE PROCESSO (INCLUINDO QUANDO SÃO NULL/NÃO DEFINIDOS)
-                const existingDriver = driversData[existingIndex];
-                
-                // Atualizar campos de processo - IMPORTANTE: considerar valores null como '-'
-                existingDriver.contatoFeito = updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-';
-                existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-';
-                existingDriver.encostouDoca = updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-';
-                
-                // Atualizar outros campos se disponíveis
-                if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
-                    existingDriver.driverName = updatedDriver.driver_name;
-                }
-                if (updatedDriver.supplier !== undefined && updatedDriver.supplier !== null) {
-                    existingDriver.supplier = updatedDriver.supplier;
-                }
-                if (updatedDriver.status !== undefined && updatedDriver.status !== null) {
-                    existingDriver.status = updatedDriver.status;
-                }
-
-                console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
-            } else {
-                // Adicionar novo motorista apenas se tiver dados básicos
-                if (updatedDriver.driver_name || updatedDriver.supplier) {
-                    driversData.push({
-                        ticket: updatedDriver.ticket,
-                        driverName: updatedDriver.driver_name || '-',
-                        supplier: updatedDriver.supplier || '-',
-                        cd: updatedDriver.cd || '-',
-                        status: updatedDriver.status || '-',
-                        arrivalDateTime: '-',
-                        scheduleDateTime: '-',
-                        truckPlate: '-',
-                        contatoFeito: updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-',
-                        liberacaoEntregue: updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-',
-                        encostouDoca: updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-',
-                        load: '-'
-                    });
-                    console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
-                }
+            
+            // ✅ CORREÇÃO CRÍTICA: ATUALIZAR APENAS OS PROCESSOS, NÃO OS DADOS BASE
+            if (updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined) {
+                if (!processosData[ticketKey]) processosData[ticketKey] = {};
+                processosData[ticketKey].contatoFeito = updatedDriver.contato_feito;
             }
+            
+            if (updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined) {
+                if (!processosData[ticketKey]) processosData[ticketKey] = {};
+                processosData[ticketKey].liberacaoEntregue = updatedDriver.liberacao_entregue;
+            }
+            
+            if (updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined) {
+                if (!processosData[ticketKey]) processosData[ticketKey] = {};
+                processosData[ticketKey].encostouDoca = updatedDriver.encostou_doca;
+            }
+            
+            // ✅ CORREÇÃO: SALVAR PROCESSOS ATUALIZADOS
+            saveProcessosData();
+            
+            console.log(`✅ Processos do motorista ${ticketKey} atualizados via sincronização`);
 
             // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
             if (currentDriver && currentDriver.ticket === ticketKey) {
-                const updatedCurrentDriver = driversData.find(d => 
-                    d.ticket && d.ticket.toString().trim() === ticketKey
-                );
-                if (updatedCurrentDriver) {
-                    currentDriver = updatedCurrentDriver;
-                }
+                applyProcessToDriver(currentDriver);
             }
 
             // Destacar linha atualizada
@@ -1735,23 +1706,11 @@
 
             const ticketKey = deletedDriver.ticket.toString().trim();
             
-            // ✅ CORREÇÃO: Resetar processos do motorista
-            const driver = driversData.find(d => 
-                d.ticket && d.ticket.toString().trim() === ticketKey
-            );
-            
-            if (driver) {
-                // Resetar apenas os campos de processo
-                driver.contatoFeito = '-';
-                driver.liberacaoEntregue = '-';
-                driver.encostouDoca = '-';
-                
+            // ✅ CORREÇÃO: Remover apenas os processos do motorista
+            if (processosData[ticketKey]) {
+                delete processosData[ticketKey];
+                saveProcessosData();
                 console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
-                
-                // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
-                if (currentDriver && currentDriver.ticket === ticketKey) {
-                    currentDriver = driver;
-                }
             }
         }
 
@@ -1835,114 +1794,57 @@
             }
         }
 
-        // ========== SISTEMA DE BACKUP INTELIGENTE ========== //
+        // ========== SISTEMA DE PROCESSOS SEPARADO ========== //
 
-        // 1. CARREGAR BACKUP DE PROCESSOS
-        function loadProcessBackup() {
+        // 1. SALVAR DADOS DE PROCESSOS
+        function saveProcessosData() {
             try {
-                const savedBackup = localStorage.getItem('processBackupData');
-                if (savedBackup) {
-                    processBackupData = JSON.parse(savedBackup);
-                    console.log('✅ Backup de processos carregado:', Object.keys(processBackupData).length, 'processos');
-                    return true;
-                }
-            } catch (error) {
-                console.error('❌ Erro ao carregar backup de processos:', error);
-            }
-            return false;
-        }
-
-        // 2. SALVAR BACKUP DE PROCESSOS (INTELIGENTE)
-        function saveProcessBackup() {
-            try {
-                // Criar um novo backup vazio
-                const newBackup = {};
-                
-                // Preencher apenas com drivers que têm dados de processo
-                driversData.forEach(driver => {
-                    if (driver.ticket) {
-                        const ticketKey = driver.ticket.toString().trim();
-                        const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                             (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                             (driver.encostouDoca && driver.encostouDoca !== '-');
-                        
-                        if (hasProcessData) {
-                            newBackup[ticketKey] = {
-                                contatoFeito: driver.contatoFeito || '-',
-                                liberacaoEntregue: driver.liberacaoEntregue || '-',
-                                encostouDoca: driver.encostouDoca || '-',
-                                lastUpdated: new Date().toISOString()
-                            };
-                        }
-                    }
-                });
-                
-                processBackupData = newBackup;
-                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
-                console.log('✅ Backup inteligente salvo:', Object.keys(processBackupData).length, 'processos');
+                localStorage.setItem('processosData', JSON.stringify(processosData));
                 return true;
             } catch (error) {
-                console.error('❌ Erro ao salvar backup de processos:', error);
+                console.error('❌ Erro ao salvar processos:', error);
                 return false;
             }
         }
 
-        // 3. RESTAURAR PROCESSOS DO BACKUP (APENAS SE NECESSÁRIO)
-        function restoreProcessBackup() {
+        // 2. CARREGAR DADOS DE PROCESSOS
+        function loadProcessosData() {
             try {
-                let restoredCount = 0;
-                let skippedCount = 0;
-                let errorCount = 0;
-                
-                driversData.forEach(driver => {
-                    try {
-                        if (driver && driver.ticket) {
-                            const ticketKey = driver.ticket.toString().trim();
-                            const backup = processBackupData[ticketKey];
-                            
-                            if (backup) {
-                                // Verificar se o driver atual já tem dados de processo
-                                const currentHasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                                            (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                                            (driver.encostouDoca && driver.encostouDoca !== '-');
-                                
-                                // Só restaurar se o driver atual NÃO tem dados de processo
-                                if (!currentHasProcessData) {
-                                    // Restaurar processos do backup
-                                    if (backup.contatoFeito && backup.contatoFeito !== '-') {
-                                        driver.contatoFeito = backup.contatoFeito;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.liberacaoEntregue && backup.liberacaoEntregue !== '-') {
-                                        driver.liberacaoEntregue = backup.liberacaoEntregue;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.encostouDoca && backup.encostouDoca !== '-') {
-                                        driver.encostouDoca = backup.encostouDoca;
-                                        restoredCount++;
-                                    }
-                                } else {
-                                    skippedCount++;
-                                }
-                            }
-                        }
-                    } catch (driverError) {
-                        console.error('Erro ao restaurar driver do backup:', driverError);
-                        errorCount++;
-                    }
-                });
-                
-                if (restoredCount > 0 || errorCount > 0) {
-                    console.log(`✅ ${restoredCount} processos restaurados do backup (${skippedCount} pulados, ${errorCount} erros)`);
+                const saved = localStorage.getItem('processosData');
+                if (saved) {
+                    processosData = JSON.parse(saved);
+                    console.log('✅ Processos carregados:', Object.keys(processosData).length, 'processos');
+                    return true;
                 }
-                
-                return restoredCount;
             } catch (error) {
-                console.error('❌ Erro ao restaurar backup de processos:', error);
-                return 0;
+                console.error('❌ Erro ao carregar processos:', error);
             }
+            return false;
+        }
+
+        // 3. APLICAR PROCESSOS A UM DRIVER
+        function applyProcessToDriver(driver) {
+            if (!driver || !driver.ticket) return;
+            
+            const ticketKey = driver.ticket.toString().trim();
+            const processo = processosData[ticketKey];
+            
+            if (processo) {
+                driver.contatoFeito = processo.contatoFeito || '-';
+                driver.liberacaoEntregue = processo.liberacaoEntregue || '-';
+                driver.encostouDoca = processo.encostouDoca || '-';
+            } else {
+                driver.contatoFeito = '-';
+                driver.liberacaoEntregue = '-';
+                driver.encostouDoca = '-';
+            }
+        }
+
+        // 4. APLICAR PROCESSOS A TODOS OS DRIVERS
+        function applyProcessosToAllDrivers() {
+            driversData.forEach(driver => {
+                applyProcessToDriver(driver);
+            });
         }
 
         // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA ========== //
@@ -1964,15 +1866,15 @@
 
         // 2. MONITORAR MUDANÇAS NOS DADOS
         function setupDataChangeMonitoring() {
-            let lastDataState = JSON.stringify(driversData);
+            let lastDataState = JSON.stringify(processosData);
             
             setInterval(() => {
-                const currentDataState = JSON.stringify(driversData);
+                const currentDataState = JSON.stringify(processosData);
                 if (currentDataState !== lastDataState) {
                     dataChangeDetected = true;
                     lastDataState = currentDataState;
                     // Apenas log discreto, sem indicador visual
-                    console.log('📝 Mudança detectada nos dados');
+                    console.log('📝 Mudança detectada nos processos');
                 }
             }, 1000);
         }
@@ -1983,13 +1885,12 @@
             
             try {
                 // Apenas um log discreto no console
-                console.log('💾 Salvando dados automaticamente...');
+                console.log('💾 Salvando processos automaticamente...');
                 
-                // ✅ SALVAR NO LOCALSTORAGE PRIMEIRO (MAIS RÁPIDO)
-                saveToLocalStorage();
-                saveProcessBackup();
+                // ✅ SALVAR PROCESSOS NO LOCALSTORAGE
+                saveProcessosData();
                 
-                // ✅ SALVAR APENAS OS PROCESSOS NO SUPABASE (NÃO A BASE COMPLETA)
+                // ✅ SALVAR PROCESSOS NO SUPABASE
                 if (isOnline) {
                     // Não esperar pelo Supabase para não travar a interface
                     saveProcessesToSupabase().then(success => {
@@ -2006,8 +1907,7 @@
             } catch (error) {
                 console.error('❌ Erro no salvamento automático:', error);
                 // Em caso de erro, garantir que pelo menos localStorage foi salvo
-                saveToLocalStorage();
-                saveProcessBackup();
+                saveProcessosData();
             }
         }
 
@@ -2023,19 +1923,20 @@
                 return;
             }
             
-            // Garantir que os campos de processo existam
-            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-            
             // Registrar o horário atual
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
             
-            // Atualizar a etapa específica
-            driver[stepField] = formattedDateTime;
+            // ✅ CORREÇÃO CRÍTICA: SALVAR APENAS NO SISTEMA DE PROCESSOS SEPARADO
+            if (!processosData[ticket]) {
+                processosData[ticket] = {};
+            }
+            processosData[ticket][stepField] = formattedDateTime;
             
-            // ✅ SALVAR APENAS O PROCESSO NO SUPABASE
+            // Aplicar ao driver atual
+            applyProcessToDriver(driver);
+            
+            // ✅ SALVAR PROCESSOS NO SUPABASE
             await saveProcessToSupabase(driver);
             
             // Atualizar currentDriver se for o mesmo ticket
@@ -2068,7 +1969,7 @@
             }
             
             const stepName = getStepName(stepField);
-            const currentValue = driver[stepField];
+            const currentValue = processosData[ticket] ? processosData[ticket][stepField] : '-';
             
             if (!currentValue || currentValue === '-') {
                 showNotification(`ℹ️ A etapa "${stepName}" já está vazia`, 'info');
@@ -2076,8 +1977,13 @@
             }
             
             if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
-                // Limpar o campo da etapa
-                driver[stepField] = '-';
+                // ✅ CORREÇÃO CRÍTICA: LIMPAR APENAS NO SISTEMA DE PROCESSOS SEPARADO
+                if (processosData[ticket]) {
+                    processosData[ticket][stepField] = '-';
+                }
+                
+                // Aplicar ao driver
+                applyProcessToDriver(driver);
                 
                 // ✅ CORREÇÃO CRÍTICA: SALVAR IMEDIATAMENTE NO SUPABASE PARA SINCRONIZAR COM TODOS OS USUÁRIOS
                 const success = await saveProcessToSupabase(driver);
@@ -2112,15 +2018,18 @@
         // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSO NO SUPABASE - CORRIGIDA
         async function saveProcessToSupabase(driver) {
             try {
+                const ticket = driver.ticket.toString().trim();
+                const processo = processosData[ticket] || {};
+                
                 const driverToSave = {
-                    ticket: driver.ticket,
+                    ticket: ticket,
                     driver_name: driver.driverName,
                     supplier: driver.supplier,
                     cd: driver.cd,
                     status: driver.status,
-                    contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                    liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                    encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+                    contato_feito: processo.contatoFeito && processo.contatoFeito !== '-' ? processo.contatoFeito : null,
+                    liberacao_entregue: processo.liberacaoEntregue && processo.liberacaoEntregue !== '-' ? processo.liberacaoEntregue : null,
+                    encostou_doca: processo.encostouDoca && processo.encostouDoca !== '-' ? processo.encostouDoca : null,
                     updated_at: new Date().toISOString()
                 };
                 
@@ -2142,20 +2051,16 @@
 
         // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE - OTIMIZADA
         async function saveProcessesToSupabase() {
-            // ✅ SALVAR APENAS DRIVERS QUE TENHAM PROCESSOS E QUE FORAM MODIFICADOS
-            const driversWithProcesses = driversData.filter(driver => {
-                const hasProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                  (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                  (driver.encostouDoca && driver.encostouDoca !== '-');
-                
-                // ✅ VERIFICAR SE HOUVE MUDANÇA RECENTE (últimos 5 minutos)
-                if (!hasProcess) return false;
-                
-                // Para simplificar, salvar todos os que têm processos
-                return true;
+            // ✅ SALVAR APENAS TICKETS QUE TENHAM PROCESSOS
+            const ticketsComProcessos = Object.keys(processosData).filter(ticket => {
+                const processo = processosData[ticket];
+                const hasProcess = (processo.contatoFeito && processo.contatoFeito !== '-') || 
+                                  (processo.liberacaoEntregue && processo.liberacaoEntregue !== '-') || 
+                                  (processo.encostouDoca && processo.encostouDoca !== '-');
+                return hasProcess;
             });
 
-            if (driversWithProcesses.length === 0) {
+            if (ticketsComProcessos.length === 0) {
                 return true;
             }
 
@@ -2163,23 +2068,28 @@
             const batchSize = 50;
             const batches = [];
             
-            for (let i = 0; i < driversWithProcesses.length; i += batchSize) {
-                batches.push(driversWithProcesses.slice(i, i + batchSize));
+            for (let i = 0; i < ticketsComProcessos.length; i += batchSize) {
+                batches.push(ticketsComProcessos.slice(i, i + batchSize));
             }
 
             // ✅ SALVAR EM LOTES PARALELOS
             const savePromises = batches.map(batch => {
-                const driversToSave = batch.map(driver => ({
-                    ticket: driver.ticket,
-                    driver_name: driver.driverName,
-                    supplier: driver.supplier,
-                    cd: driver.cd,
-                    status: driver.status,
-                    contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                    liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                    encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
-                    updated_at: new Date().toISOString()
-                }));
+                const driversToSave = batch.map(ticket => {
+                    const processo = processosData[ticket];
+                    const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket) || {};
+                    
+                    return {
+                        ticket: ticket,
+                        driver_name: driver.driverName || 'Motorista Não Cadastrado',
+                        supplier: driver.supplier || '-',
+                        cd: driver.cd || '-',
+                        status: driver.status || '-',
+                        contato_feito: processo.contatoFeito && processo.contatoFeito !== '-' ? processo.contatoFeito : null,
+                        liberacao_entregue: processo.liberacaoEntregue && processo.liberacaoEntregue !== '-' ? processo.liberacaoEntregue : null,
+                        encostou_doca: processo.encostouDoca && processo.encostouDoca !== '-' ? processo.encostouDoca : null,
+                        updated_at: new Date().toISOString()
+                    };
+                });
                 
                 return supabase
                     .from('drivers')
@@ -2198,7 +2108,7 @@
                     throw new Error('Erro em um ou mais lotes de salvamento');
                 }
                 
-                console.log(`✅ ${driversWithProcesses.length} processos salvos em ${batches.length} lotes`);
+                console.log(`✅ ${ticketsComProcessos.length} processos salvos em ${batches.length} lotes`);
                 return true;
             } catch (error) {
                 console.error('❌ Erro ao salvar processos no Supabase:', error);
@@ -2228,7 +2138,10 @@
             }
 
             try {
-                // Resetar localmente
+                // ✅ CORREÇÃO CRÍTICA: LIMPAR APENAS OS PROCESSOS, NÃO OS DADOS BASE
+                processosData = {};
+
+                // Atualizar todos os drivers para remover processos
                 driversData.forEach(driver => {
                     driver.contatoFeito = '-';
                     driver.liberacaoEntregue = '-';
@@ -2252,6 +2165,9 @@
                     });
 
                 if (error) throw error;
+
+                // Salvar processos limpos
+                saveProcessosData();
 
                 // Atualizar a interface
                 updateInterface();
@@ -2447,11 +2363,6 @@
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
-            // Garantir que os campos de processo existam
-            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-            
             if (driver.encostouDoca && driver.encostouDoca !== '-') {
                 return 'Encostou em Doca';
             }
@@ -2490,11 +2401,6 @@
                 `;
                 return;
             }
-            
-            // ✅ CORREÇÃO: GARANTIR QUE OS CAMPOS DE PROCESSO EXISTAM
-            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
-            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
-            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
             
             const processContent = document.getElementById('process-content');
             if (!processContent) return;
@@ -3255,53 +3161,12 @@
 
         // ========== FUNÇÃO LIMPAR BASE DE DADOS - MODIFICADA ========== //
         function clearDatabase() {
-            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
+            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados base (motoristas, fornecedores, etc.), MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS no relatório.\n\nEsta ação não pode ser desfeita.')) {
                 
-                // SALVAR TODOS OS REGISTROS DE PROCESSO ANTES DE LIMPAR
-                const processosPreservados = [];
-                
-                driversData.forEach(driver => {
-                    if (driver.ticket && (
-                        (driver.contatoFeito && driver.contatoFeito !== '-') ||
-                        (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                        (driver.encostouDoca && driver.encostouDoca !== '-')
-                    )) {
-                        processosPreservados.push({
-                            ticket: driver.ticket,
-                            contatoFeito: driver.contatoFeito || '-',
-                            liberacaoEntregue: driver.liberacaoEntregue || '-',
-                            encostouDoca: driver.encostouDoca || '-',
-                            driverName: driver.driverName || 'Motorista Não Cadastrado',
-                            supplier: driver.supplier || '-'
-                        });
-                    }
-                });
-                
-                // LIMPAR BASE COMPLETA
+                // ✅ CORREÇÃO CRÍTICA: LIMPAR APENAS OS DADOS BASE, PRESERVAR PROCESSOS
                 driversData = [];
                 suppliersList = [];
                 cdList = [];
-                
-                // RESTAURAR OS PROCESSOS PRESERVADOS
-                processosPreservados.forEach(processo => {
-                    const driverExistente = driversData.find(d => d.ticket === processo.ticket);
-                    if (!driverExistente) {
-                        driversData.push({
-                            ticket: processo.ticket,
-                            driverName: processo.driverName,
-                            supplier: processo.supplier,
-                            cd: '-',
-                            status: 'AGENDADO',
-                            arrivalDateTime: '-',
-                            scheduleDateTime: '-',
-                            contatoFeito: processo.contatoFeito,
-                            liberacaoEntregue: processo.liberacaoEntregue,
-                            encostouDoca: processo.encostouDoca,
-                            load: '-',
-                            truckPlate: '-'
-                        });
-                    }
-                });
                 
                 saveToLocalStorage();
                 renderDriversTable();
@@ -3312,7 +3177,7 @@
                     document.getElementById('driver-result').style.display = 'none';
                 }
                 
-                showDiscreetNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados`, 800);
+                showDiscreetNotification(`🗑️ Base limpa! Processos preservados.`, 800);
             }
         }
 
@@ -3425,7 +3290,6 @@
                 }
             });
             
-            let preservedCount = 0;
             let newCount = 0;
             
             rows.forEach((row) => {
@@ -3461,23 +3325,13 @@
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
                     
-                    if (existingDriversMap.has(ticketKey)) {
-                        const existingDriver = existingDriversMap.get(ticketKey);
-                        
-                        // ✅ CORREÇÃO CRÍTICA: PRESERVAR APENAS OS DADOS DE PROCESSO DO EXISTENTE
-                        driver.contatoFeito = existingDriver.contatoFeito || '-';
-                        driver.liberacaoEntregue = existingDriver.liberacaoEntregue || '-';
-                        driver.encostouDoca = existingDriver.encostouDoca || '-';
-                        
-                        preservedCount++;
-                    } else {
-                        // ✅ CORREÇÃO: NOVOS REGISTROS COMEÇAM SEM DADOS DE PROCESSO
-                        if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-                        if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-                        if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
-                        
-                        newCount++;
-                    }
+                    // ✅ CORREÇÃO CRÍTICA: NÃO PRESERVAR PROCESSOS NA BASE DE DADOS
+                    // Todos os novos drivers começam sem dados de processo
+                    driver.contatoFeito = '-';
+                    driver.liberacaoEntregue = '-';
+                    driver.encostouDoca = '-';
+                    
+                    newCount++;
                     
                     newDrivers.push(driver);
                     
@@ -3490,7 +3344,8 @@
             suppliersList = Array.from(newSuppliers);
             cdList = Array.from(newCDs);
             
-            const restoredCount = restoreProcessBackup();
+            // ✅ CORREÇÃO CRÍTICA: APLICAR PROCESSOS EXISTENTES AOS NOVOS DRIVERS
+            applyProcessosToAllDrivers();
             
             // ✅ CORREÇÃO CRÍTICA: SALVAR APENAS LOCALMENTE, NÃO NO SUPABASE
             saveToLocalStorage();
@@ -3500,7 +3355,7 @@
             
             document.getElementById('file-input').value = '';
             
-            showDiscreetNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 1500);
+            showDiscreetNotification(`✅ Base atualizada! ${newCount} novos registros`, 1500);
         }
 
         // ========== FUNÇÕES DE CÁLCULO DE TEMPO ========== //
@@ -3622,34 +3477,29 @@
                 }
 
                 if (data && data.length > 0) {
-                    // ✅ CORREÇÃO: ATUALIZAR APENAS OS DADOS DE PROCESSO NOS DRIVERS LOCAIS
+                    // ✅ CORREÇÃO: ATUALIZAR APENAS OS DADOS DE PROCESSO
                     let updatedCount = 0;
 
                     data.forEach(item => {
                         const ticketKey = item.ticket?.toString().trim();
                         if (!ticketKey) return;
 
-                        // Buscar o driver local correspondente
-                        const localDriver = driversData.find(d => 
-                            d.ticket && d.ticket.toString().trim() === ticketKey
-                        );
-                        
-                        if (localDriver) {
-                            // ✅ ATUALIZAR APENAS CAMPOS DE PROCESSO
-                            if (item.contato_feito !== null && item.contato_feito !== undefined) {
-                                localDriver.contatoFeito = item.contato_feito;
-                                updatedCount++;
-                            }
-                            if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
-                                localDriver.liberacaoEntregue = item.liberacao_entregue;
-                                updatedCount++;
-                            }
-                            if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
-                                localDriver.encostouDoca = item.encostou_doca;
-                                updatedCount++;
-                            }
+                        if (!processosData[ticketKey]) {
+                            processosData[ticketKey] = {};
                         }
-                        // ❌ NÃO adicionar motoristas que não existem localmente
+                        
+                        if (item.contato_feito !== null && item.contato_feito !== undefined) {
+                            processosData[ticketKey].contatoFeito = item.contato_feito;
+                            updatedCount++;
+                        }
+                        if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
+                            processosData[ticketKey].liberacaoEntregue = item.liberacao_entregue;
+                            updatedCount++;
+                        }
+                        if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
+                            processosData[ticketKey].encostouDoca = item.encostou_doca;
+                            updatedCount++;
+                        }
                     });
 
                     // ✅ ATUALIZAR CACHE
@@ -3658,6 +3508,9 @@
                         data: data,
                         cacheDuration: 30000
                     };
+
+                    // ✅ APLICAR PROCESSOS AOS DRIVERS
+                    applyProcessosToAllDrivers();
 
                     lastUpdateTime = new Date().toISOString();
                     console.log(`✅ Supabase: ${updatedCount} processos atualizados. Cache: ${data.length} registros`);
@@ -3880,13 +3733,18 @@
                 createSampleData();
             }
 
+            // ✅ CARREGAR PROCESSOS SEPARADOS
+            console.log('📁 Carregando dados de processo...');
+            loadProcessosData();
+            
+            // ✅ APLICAR PROCESSOS AOS DRIVERS
+            applyProcessosToAllDrivers();
+
             // Testar conexão Supabase
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
                 console.log('🔄 Sincronizando processos do Supabase...');
-                // Carregar backup de processos primeiro
-                loadProcessBackup();
                 
                 // ✅ CORREÇÃO: Sincronizar apenas processos do Supabase (sem substituir dados base)
                 await loadFromSupabase();
@@ -3897,12 +3755,7 @@
                 
             } else {
                 console.log('📁 Supabase offline, usando dados locais...');
-                // Apenas carregar backup local
-                loadProcessBackup();
             }
-
-            // Restaurar processos do backup automaticamente
-            restoreProcessBackup();
 
             // Carregar dados de carga do localStorage
             loadCargaData();
