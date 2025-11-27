@@ -22,7 +22,7 @@
             --light-text: #FFFFFF;
             --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --border-radius: 8px;
-            --info-color: #3498DB; /* Nova cor corporativa para o botão */
+            --info-color: #3498DB;
         }
         
         * {
@@ -992,7 +992,7 @@
         .encosta-table th:nth-child(3),
         .encosta-table td:nth-child(3) {
             position: sticky;
-            left: 150px; /* Posição após as colunas Posição e Senha */
+            left: 150px;
             background-color: white;
             z-index: 2;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
@@ -1010,14 +1010,14 @@
         .encosta-table th:nth-child(2),
         .encosta-table td:nth-child(2) {
             position: sticky;
-            left: 60px; /* Largura aproximada da coluna Posição */
+            left: 60px;
             background-color: white;
             z-index: 3;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
         }
 
         .encosta-table th {
-            z-index: 4; /* Garantir que os cabeçalhos fiquem acima das células */
+            z-index: 4;
         }
 
         /* ========== MODAL DE SENHA ========== */
@@ -1126,7 +1126,6 @@
                         <li><a href="#" class="nav-link" data-target="database-section">💾 Base de Dados</a></li>
                     </ul>
                 </nav>
-                <!-- Versão discreta do status de sincronização -->
                 <div id="sync-status-discreet" class="sync-status-discreet online" title="Sincronizado"></div>
             </div>
         </div>
@@ -1134,7 +1133,6 @@
     
     <main>
         <div class="container">
-            <!-- Seção de Busca -->
             <section id="search-section" class="section active">
                 <h1>Buscar Senha do Motorista</h1>
                 <form class="search-form" id="search-form">
@@ -1276,7 +1274,6 @@
                 </div>
             </section>
             
-            <!-- Seção de Etapas do Processo -->
             <section id="process-section" class="section">
                 <h1>Etapas do Processo</h1>
                 <div id="process-content">
@@ -1284,7 +1281,6 @@
                 </div>
             </section>
             
-            <!-- Seção de Encosta -->
             <section id="encosta-section" class="section">
                 <h1>Encosta - Ranking por Horário de Chegada</h1>
                 
@@ -1315,7 +1311,6 @@
                 </div>
             </section>
             
-            <!-- Seção de Relatório -->
             <section id="report-section" class="section">
                 <h1>📊 Relatório de Processos</h1>
                 
@@ -1337,9 +1332,7 @@
                     <button class="btn btn-success" id="report-export-excel">📥 Exportar para Excel</button>
                     <button class="btn btn-warning" id="report-clear-filters">🔄 Limpar Filtros</button>
                     <button class="btn btn-success" id="force-sync-btn">🔄 Sincronizar Agora</button>
-                    <!-- NOVO BOTÃO: Limpar Todos os Registros -->
                     <button class="btn btn-danger" id="clear-all-processes">🗑️ Limpar Todos os Registros</button>
-                    <!-- NOVO BOTÃO: Limpar Processos Incompletos -->
                     <button class="btn btn-info" id="clear-incomplete-processes">🗑️ Limpar Processos Incompletos</button>
                 </div>
                 
@@ -1389,7 +1382,6 @@
                 </div>
             </section>
             
-            <!-- Seção de Base de Dados -->
             <section id="database-section" class="section">
                 <h1>Gerenciamento da Base de Dados</h1>
                 
@@ -1438,7 +1430,6 @@
                 <div style="margin-top: 30px;">
                     <h2>Motoristas no Sistema</h2>
                     
-                    <!-- Botões de controle -->
                     <div class="dashboard-controls">
                         <button class="btn btn-success" id="force-sync-btn-2">🔄 Sincronizar Agora</button>
                         <button class="btn btn-warning" id="reset-drivers-btn">Limpar Todos os Filtros</button>
@@ -1446,7 +1437,6 @@
                         <button class="btn btn-primary hidden-controls" id="force-refresh-btn">🔄 Atualizar Interface</button>
                     </div>
                     
-                    <!-- Container de Filtros Modernos -->
                     <div class="filtros-container">
                         <div class="filtro-grupo filtro-senha">
                             <label class="filtro-label" for="filter-ticket">Filtrar Senha</label>
@@ -1479,7 +1469,6 @@
                         </div>
                     </div>
                     
-                    <!-- Informações dos resultados -->
                     <div class="results-info" id="results-info" style="
                         margin: 15px 0;
                         padding: 10px 15px;
@@ -1491,7 +1480,6 @@
                         Mostrando todos os registros
                     </div>
                     
-                    <!-- Tabela de motoristas -->
                     <div id="drivers-table-container" style="overflow-x: scroll; overflow-y: auto; max-height: 600px; white-space: nowrap;">
                         <table class="data-table" id="drivers-table" style="min-width: 100%;">
                             <thead>
@@ -1507,7 +1495,6 @@
                                 </tr>
                             </thead>
                             <tbody id="drivers-table-body">
-                                <!-- Dados serão inseridos aqui via JavaScript -->
                             </tbody>
                         </table>
                     </div>
@@ -1522,10 +1509,8 @@
         </div>
     </footer>
 
-    <!-- Notificação discreta -->
     <div id="notification-discreet" class="notification-discreet"></div>
 
-    <!-- Modal para senha de segurança -->
     <div id="password-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 class="modal-title">🔒 Confirmação de Segurança</h3>
@@ -1543,7 +1528,6 @@
         const SUPABASE_URL = 'https://nuebpjbozdcawkkgnqfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51ZWJwamJvemRjYXdra2ducWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1ODczOTYsImV4cCI6MjA3NzE2MzM5Nn0.2hpn6WyYJovBeoY50EeRcx3_qcgCgI6QKGKkkNi3AlI';
 
-        // Inicializar Supabase
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Estado da aplicação
@@ -1645,7 +1629,6 @@
             if (savedFilters) {
                 const filterValues = JSON.parse(savedFilters);
                 
-                // ✅ CORREÇÃO: Verificar se elementos existem antes de acessar
                 const elements = {
                     ticket: document.getElementById('filter-ticket'),
                     driver: document.getElementById('filter-driver'),
@@ -1655,7 +1638,6 @@
                     arrival: document.getElementById('filter-arrival')
                 };
                 
-                // Restaurar valores nos inputs
                 if (elements.ticket) elements.ticket.value = filterValues.ticket || '';
                 if (elements.driver) elements.driver.value = filterValues.driver || '';
                 if (elements.supplier) elements.supplier.value = filterValues.supplier || '';
@@ -1663,7 +1645,6 @@
                 if (elements.plate) elements.plate.value = filterValues.plate || '';
                 if (elements.arrival) elements.arrival.value = filterValues.arrival || '';
                 
-                // ✅ CORREÇÃO: Garantir que valores vazios sejam tratados corretamente
                 activeFilters = {
                     ticket: filterValues.ticket ? filterValues.ticket.toString().toLowerCase() : '',
                     driver: filterValues.driver ? filterValues.driver.toString().toLowerCase() : '',
@@ -1683,10 +1664,8 @@
             const resultsInfo = document.getElementById('results-info');
             const totalCount = driversData.length;
             
-            // ✅ CORREÇÃO: Verificar se o elemento existe
             if (!resultsInfo) return;
             
-            // ✅ CORREÇÃO: Melhorar mensagem quando não há registros
             if (totalCount === 0) {
                 resultsInfo.textContent = 'Nenhum registro encontrado na base de dados';
             } else if (filteredCount === 0) {
@@ -1718,16 +1697,10 @@
             
             if (!modal || !passwordInput) return;
             
-            // Limpar campo de senha
             passwordInput.value = '';
-            
-            // Definir ação pendente
             pendingAction = actionType;
-            
-            // Mostrar modal
             modal.classList.add('active');
             
-            // Focar no campo de senha
             setTimeout(() => {
                 passwordInput.focus();
             }, 300);
@@ -1773,23 +1746,19 @@
             pendingAction = null;
         }
 
-        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDO ========== //
-
-        // 1. INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
+        // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
         async function startRealtimeSync() {
             try {
-                // Parar subscription anterior se existir
                 if (realtimeSubscription) {
                     realtimeSubscription.unsubscribe();
                 }
 
-                // Configurar subscription para escutar mudanças em tempo real
                 realtimeSubscription = supabase
                     .channel('drivers-changes')
                     .on(
                         'postgres_changes',
                         {
-                            event: '*', // INSERT, UPDATE, DELETE
+                            event: '*',
                             schema: 'public',
                             table: 'drivers'
                         },
@@ -1817,11 +1786,9 @@
             }
         }
 
-        // 2. PROCESSAR ATUALIZAÇÕES EM TEMPO REAL - CORRIGIDA
         function handleRealtimeUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
-            // Ignorar atualizações que não tenham ticket
             if (newRecord && !newRecord.ticket) return;
 
             switch (eventType) {
@@ -1834,14 +1801,10 @@
                     break;
             }
 
-            // ✅ CORREÇÃO: ATUALIZAR INTERFACE COMPLETA
             updateInterface();
-            
-            // Apenas log discreto
             console.log('🔄 Dados atualizados em tempo real');
         }
 
-        // 3. PROCESSAR ATUALIZAÇÃO/INSERÇÃO DE MOTORISTA - CORRIGIDA
         function handleDriverUpdate(updatedDriver) {
             if (!updatedDriver || !updatedDriver.ticket) return;
 
@@ -1851,15 +1814,12 @@
             );
 
             if (existingIndex !== -1) {
-                // ✅ CORREÇÃO: ATUALIZAR APENAS OS CAMPOS ESSENCIAIS
                 const existingDriver = driversData[existingIndex];
                 
-                // Atualizar campos essenciais - IMPORTANTE: considerar valores null como '-'
                 existingDriver.contatoFeito = updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-';
                 existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-';
                 existingDriver.encostouDoca = updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-';
                 
-                // Atualizar outros campos essenciais se disponíveis
                 if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
                     existingDriver.driverName = updatedDriver.driver_name;
                 }
@@ -1872,7 +1832,6 @@
 
                 console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
             } else {
-                // Adicionar novo motorista apenas se tiver dados básicos
                 if (updatedDriver.driver_name || updatedDriver.supplier) {
                     driversData.push({
                         ticket: updatedDriver.ticket,
@@ -1892,7 +1851,6 @@
                 }
             }
 
-            // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
             if (currentDriver && currentDriver.ticket === ticketKey) {
                 const updatedCurrentDriver = driversData.find(d => 
                     d.ticket && d.ticket.toString().trim() === ticketKey
@@ -1902,37 +1860,31 @@
                 }
             }
 
-            // Destacar linha atualizada
             highlightUpdatedRow(ticketKey);
         }
 
-        // 4. PROCESSAR EXCLUSÃO DE MOTORISTA - CORRIGIDA
         function handleDriverDelete(deletedDriver) {
             if (!deletedDriver || !deletedDriver.ticket) return;
 
             const ticketKey = deletedDriver.ticket.toString().trim();
             
-            // ✅ CORREÇÃO: Resetar processos do motorista
             const driver = driversData.find(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
             );
             
             if (driver) {
-                // Resetar apenas os campos de processo
                 driver.contatoFeito = '-';
                 driver.liberacaoEntregue = '-';
                 driver.encostouDoca = '-';
                 
                 console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
                 
-                // ✅ CORREÇÃO: ATUALIZAR CURRENT DRIVER SE FOR O MESMO TICKET
                 if (currentDriver && currentDriver.ticket === ticketKey) {
                     currentDriver = driver;
                 }
             }
         }
 
-        // 5. DESTACAR LINHA ATUALIZADA
         function highlightUpdatedRow(ticket) {
             const rows = document.querySelectorAll('tr');
             rows.forEach(row => {
@@ -1946,9 +1898,7 @@
             });
         }
 
-        // 6. SINCRONIZAR BASE COMPLETA PERIODICAMENTE
         function startPeriodicSync() {
-            // Sincronizar a cada 10 segundos como fallback
             setInterval(async () => {
                 if (isOnline) {
                     console.log('🔄 Sincronização periódica iniciada...');
@@ -1958,7 +1908,6 @@
             }, 60000);
         }
 
-        // 7. FUNÇÃO PARA FORÇAR SINCRONIZAÇÃO MANUAL
         async function forceSync() {
             updateSyncStatus(true, 'Sincronizando...');
             showDiscreetNotification('Sincronizando...', 1000);
@@ -1980,7 +1929,6 @@
             }
         }
 
-        // 8. ATUALIZAR STATUS DA SINCRONIZAÇÃO
         function updateSyncStatus(online, message = '') {
             isOnline = online;
             const syncElement = document.getElementById('sync-status-discreet');
@@ -2012,7 +1960,7 @@
             }
         }
 
-        // ========== SISTEMA DE BACKUP INTELIGENTE ========== //
+        // ========== SISTEMA DE BACKUP INTELIGENTE - CORRIGIDO ========== //
 
         // 1. CARREGAR BACKUP DE PROCESSOS
         function loadProcessBackup() {
@@ -2029,13 +1977,11 @@
             return false;
         }
 
-        // 2. SALVAR BACKUP DE PROCESSOS (INTELIGENTE)
+        // 2. SALVAR BACKUP DE PROCESSOS (INTELIGENTE) - CORRIGIDO
         function saveProcessBackup() {
             try {
-                // Criar um novo backup vazio
                 const newBackup = {};
                 
-                // Preencher apenas com drivers que têm dados de processo
                 driversData.forEach(driver => {
                     if (driver.ticket) {
                         const ticketKey = driver.ticket.toString().trim();
@@ -2044,10 +1990,24 @@
                                              (driver.encostouDoca && driver.encostouDoca !== '-');
                         
                         if (hasProcessData) {
+                            // ✅ CORREÇÃO: SALVAR TODOS OS DADOS IMPORTANTES DO MOTORISTA
                             newBackup[ticketKey] = {
+                                // Dados de processo
                                 contatoFeito: driver.contatoFeito || '-',
                                 liberacaoEntregue: driver.liberacaoEntregue || '-',
                                 encostouDoca: driver.encostouDoca || '-',
+                                
+                                // Dados básicos do motorista
+                                ticket: driver.ticket,
+                                driverName: driver.driverName || '-',
+                                supplier: driver.supplier || '-',
+                                cd: driver.cd || '-',
+                                status: driver.status || '-',
+                                arrivalDateTime: driver.arrivalDateTime || '-',
+                                scheduleDateTime: driver.scheduleDateTime || '-',
+                                truckPlate: driver.truckPlate || '-',
+                                load: driver.load || '-',
+                                
                                 lastUpdated: new Date().toISOString()
                             };
                         }
@@ -2064,45 +2024,43 @@
             }
         }
 
-        // 3. RESTAURAR PROCESSOS DO BACKUP (APENAS SE NECESSÁRIO)
+        // 3. RESTAURAR PROCESSOS DO BACKUP (APENAS SE NECESSÁRIO) - CORRIGIDO
         function restoreProcessBackup() {
             try {
                 let restoredCount = 0;
                 let skippedCount = 0;
                 let errorCount = 0;
                 
-                driversData.forEach(driver => {
+                // ✅ CORREÇÃO: PRIMEIRO ADICIONAR PROCESSOS DO BACKUP QUE NÃO ESTÃO NA BASE ATUAL
+                Object.keys(processBackupData).forEach(ticketKey => {
                     try {
-                        if (driver && driver.ticket) {
-                            const ticketKey = driver.ticket.toString().trim();
-                            const backup = processBackupData[ticketKey];
+                        const backup = processBackupData[ticketKey];
+                        
+                        if (backup && backup.ticket) {
+                            const existingDriver = driversData.find(d => 
+                                d.ticket && d.ticket.toString().trim() === ticketKey.toString().trim()
+                            );
                             
-                            if (backup) {
-                                // Verificar se o driver atual já tem dados de processo
-                                const currentHasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
-                                                            (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                                                            (driver.encostouDoca && driver.encostouDoca !== '-');
-                                
-                                // Só restaurar se o driver atual NÃO tem dados de processo
-                                if (!currentHasProcessData) {
-                                    // Restaurar processos do backup
-                                    if (backup.contatoFeito && backup.contatoFeito !== '-') {
-                                        driver.contatoFeito = backup.contatoFeito;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.liberacaoEntregue && backup.liberacaoEntregue !== '-') {
-                                        driver.liberacaoEntregue = backup.liberacaoEntregue;
-                                        restoredCount++;
-                                    }
-                                    
-                                    if (backup.encostouDoca && backup.encostouDoca !== '-') {
-                                        driver.encostouDoca = backup.encostouDoca;
-                                        restoredCount++;
-                                    }
-                                } else {
-                                    skippedCount++;
-                                }
+                            if (!existingDriver) {
+                                // ✅ CORREÇÃO: ADICIONAR MOTORISTA COMPLETO DO BACKUP
+                                driversData.push({
+                                    ticket: backup.ticket,
+                                    driverName: backup.driverName || '-',
+                                    supplier: backup.supplier || '-',
+                                    cd: backup.cd || '-',
+                                    status: backup.status || '-',
+                                    arrivalDateTime: backup.arrivalDateTime || '-',
+                                    scheduleDateTime: backup.scheduleDateTime || '-',
+                                    truckPlate: backup.truckPlate || '-',
+                                    load: backup.load || '-',
+                                    contatoFeito: backup.contatoFeito || '-',
+                                    liberacaoEntregue: backup.liberacaoEntregue || '-',
+                                    encostouDoca: backup.encostouDoca || '-'
+                                });
+                                restoredCount++;
+                                console.log(`✅ Motorista ${ticketKey} restaurado do backup`);
+                            } else {
+                                skippedCount++;
                             }
                         }
                     } catch (driverError) {
@@ -2124,22 +2082,18 @@
 
         // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA ========== //
 
-        // 1. INICIALIZAR SISTEMA DE PERSISTÊNCIA
         function initializePersistenceSystem() {
             console.log('🔄 Iniciando sistema de persistência automática...');
             
-            // Configurar salvamento automático a cada 5 segundos
             autoSaveInterval = setInterval(() => {
                 if (dataChangeDetected) {
                     autoSaveData();
                 }
             }, 5000);
             
-            // Monitorar mudanças nos dados
             setupDataChangeMonitoring();
         }
 
-        // 2. MONITORAR MUDANÇAS NOS DADOS
         function setupDataChangeMonitoring() {
             let lastDataState = JSON.stringify(driversData);
             
@@ -2148,27 +2102,21 @@
                 if (currentDataState !== lastDataState) {
                     dataChangeDetected = true;
                     lastDataState = currentDataState;
-                    // Apenas log discreto, sem indicador visual
                     console.log('📝 Mudança detectada nos dados');
                 }
             }, 1000);
         }
 
-        // 3. SALVAMENTO AUTOMÁTICO - OTIMIZADO
         async function autoSaveData() {
             if (!dataChangeDetected) return;
             
             try {
-                // Apenas um log discreto no console
                 console.log('💾 Salvando dados automaticamente...');
                 
-                // ✅ SALVAR NO LOCALSTORAGE PRIMEIRO (MAIS RÁPIDO)
                 saveToLocalStorage();
                 saveProcessBackup();
                 
-                // ✅ SALVAR NO SUPABASE EM SEGUNDO PLANO (SE ONLINE) - APENAS CAMPOS ESSENCIAIS
                 if (isOnline) {
-                    // Não esperar pelo Supabase para não travar a interface
                     saveProcessesToSupabase().then(success => {
                         if (success) {
                             console.log('✅ Processos salvos no Supabase (background)');
@@ -2182,17 +2130,15 @@
                 
             } catch (error) {
                 console.error('❌ Erro no salvamento automático:', error);
-                // Em caso de erro, garantir que pelo menos localStorage foi salvo
                 saveToLocalStorage();
                 saveProcessBackup();
             }
         }
 
-        // ========== FUNÇÕES DO PROCESSO - CORRIGIDAS ========== //
+        // ========== FUNÇÕES DO PROCESSO ========== //
         async function registerProcessStep(ticket, stepField) {
             console.log(`Registrando etapa ${stepField} para senha ${ticket}`);
             
-            // Buscar o motorista na base de dados
             let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (!driver) {
@@ -2200,40 +2146,30 @@
                 return;
             }
             
-            // Garantir que os campos de processo existam
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
             
-            // Registrar o horário atual
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
             
-            // Atualizar a etapa específica
             driver[stepField] = formattedDateTime;
             
-            // ✅ SALVAR APENAS O PROCESSO NO SUPABASE - CAMPOS ESSENCIAIS
             await saveProcessToSupabase(driver);
             
-            // Atualizar currentDriver se for o mesmo ticket
             if (currentDriver && currentDriver.ticket === ticket) {
                 currentDriver = driver;
             }
             
-            // Marcar mudança nos dados para salvamento automático
             dataChangeDetected = true;
-            
-            // Atualizar a interface
             updateInterface();
             
-            // Mostrar confirmação discreta
             const stepName = getStepName(stepField);
             showDiscreetNotification(`✓ ${stepName} registrado`, 1500);
             
             console.log('Etapa registrada com sucesso:', driver);
         }
 
-        // ========== FUNÇÃO DESFAZER ETAPA - CORRIGIDA ========== //
         async function undoProcessStep(ticket, stepField) {
             console.log(`Desfazendo etapa ${stepField} para senha ${ticket}`);
             
@@ -2253,30 +2189,22 @@
             }
             
             if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
-                // Limpar o campo da etapa
                 driver[stepField] = '-';
                 
-                // ✅ CORREÇÃO CRÍTICA: SALVAR IMEDIATAMENTE NO SUPABASE PARA SINCRONIZAR COM TODOS OS USUÁRIOS
                 const success = await saveProcessToSupabase(driver);
                 
                 if (success) {
-                    // Atualizar currentDriver se for o mesmo ticket
                     if (currentDriver && currentDriver.ticket === ticket) {
                         currentDriver = driver;
                     }
                     
-                    // Marcar mudança nos dados
                     dataChangeDetected = true;
-                    
-                    // Atualizar a interface IMEDIATAMENTE
                     updateInterface();
                     
-                    // ✅ CORREÇÃO CRÍTICA: ATUALIZAR RELATÓRIO IMEDIATAMENTE
                     if (document.getElementById('report-section')?.classList.contains('active')) {
                         generateReport();
                     }
                     
-                    // Mostrar confirmação discreta
                     showDiscreetNotification(`↩️ ${stepName} desfeito`, 1500);
                     
                     console.log('Etapa desfeita com sucesso:', driver);
@@ -2286,7 +2214,6 @@
             }
         }
 
-        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSO NO SUPABASE - CORRIGIDA (APENAS CAMPOS ESSENCIAIS)
         async function saveProcessToSupabase(driver) {
             try {
                 const driverToSave = {
@@ -2316,26 +2243,18 @@
             }
         }
 
-        // ✅ FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE - OTIMIZADA (APENAS CAMPOS ESSENCIAIS)
         async function saveProcessesToSupabase() {
-            // ✅ SALVAR APENAS DRIVERS QUE TENHAM PROCESSOS E QUE FORAM MODIFICADOS
             const driversWithProcesses = driversData.filter(driver => {
                 const hasProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
                                   (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
                                   (driver.encostouDoca && driver.encostouDoca !== '-');
-                
-                // ✅ VERIFICAR SE HOUVE MUDANÇA RECENTE (últimos 5 minutos)
-                if (!hasProcess) return false;
-                
-                // Para simplificar, salvar todos os que têm processos
-                return true;
+                return hasProcess;
             });
 
             if (driversWithProcesses.length === 0) {
                 return true;
             }
 
-            // ✅ LIMITAR O NÚMERO DE REGISTROS POR LOTE
             const batchSize = 50;
             const batches = [];
             
@@ -2343,7 +2262,6 @@
                 batches.push(driversWithProcesses.slice(i, i + batchSize));
             }
 
-            // ✅ SALVAR EM LOTES PARALELOS - APENAS CAMPOS ESSENCIAIS
             const savePromises = batches.map(batch => {
                 const driversToSave = batch.map(driver => ({
                     ticket: driver.ticket,
@@ -2367,7 +2285,6 @@
             try {
                 const results = await Promise.all(savePromises);
                 
-                // ✅ VERIFICAR SE HOUVE ERROS EM ALGUM LOTE
                 const hasErrors = results.some(result => result.error);
                 if (hasErrors) {
                     throw new Error('Erro em um ou mais lotes de salvamento');
@@ -2388,14 +2305,12 @@
 
         async function clearAllProcessesConfirmed() {
             try {
-                // Resetar localmente
                 driversData.forEach(driver => {
                     driver.contatoFeito = '-';
                     driver.liberacaoEntregue = '-';
                     driver.encostouDoca = '-';
                 });
 
-                // Atualizar no Supabase (definir como null) - APENAS CAMPOS ESSENCIAIS
                 const updates = driversData.map(driver => ({
                     ticket: driver.ticket,
                     contato_feito: null,
@@ -2404,7 +2319,6 @@
                     updated_at: new Date().toISOString()
                 }));
 
-                // Fazer um lote de atualizações no Supabase
                 const { error } = await supabase
                     .from('drivers')
                     .upsert(updates, {
@@ -2413,7 +2327,6 @@
 
                 if (error) throw error;
 
-                // Atualizar a interface
                 updateInterface();
                 showDiscreetNotification('✅ Todos os registros de processo foram limpos!', 2000);
 
@@ -2433,23 +2346,18 @@
                 let clearedCount = 0;
                 const updates = [];
 
-                // Identificar e limpar processos incompletos
                 driversData.forEach(driver => {
                     const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-';
                     
-                    // Se NÃO tem "Encostou em Doca", é um processo incompleto
                     if (!hasEncostouDoca) {
-                        // Verificar se tem algum processo registrado
                         const hasAnyProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
                                             (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-');
                         
                         if (hasAnyProcess) {
-                            // Limpar os campos de processo
                             driver.contatoFeito = '-';
                             driver.liberacaoEntregue = '-';
                             clearedCount++;
                             
-                            // Preparar atualização para Supabase - APENAS CAMPOS ESSENCIAIS
                             updates.push({
                                 ticket: driver.ticket,
                                 contato_feito: null,
@@ -2462,7 +2370,6 @@
                 });
 
                 if (updates.length > 0) {
-                    // Fazer um lote de atualizações no Supabase
                     const { error } = await supabase
                         .from('drivers')
                         .upsert(updates, {
@@ -2472,7 +2379,6 @@
                     if (error) throw error;
                 }
 
-                // Atualizar a interface
                 updateInterface();
                 showDiscreetNotification(`✅ ${clearedCount} processos incompletos foram limpos!`, 2000);
 
@@ -2552,7 +2458,6 @@
                     }
                 }).length;
                 
-                // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
                 const totalDriversEl = document.getElementById('total-drivers');
                 const totalSuppliersEl = document.getElementById('total-suppliers');
                 const activeProcessesEl = document.getElementById('active-processes');
@@ -2565,7 +2470,6 @@
                 
             } catch (error) {
                 console.error('Erro ao atualizar estatísticas:', error);
-                // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
                 const totalDriversEl = document.getElementById('total-drivers');
                 const totalSuppliersEl = document.getElementById('total-suppliers');
                 const activeProcessesEl = document.getElementById('active-processes');
@@ -2627,7 +2531,6 @@
         }
 
         function displayDriverInfo(driver) {
-            // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
             const elements = {
                 'driver-ticket': driver.ticket || '-',
                 'driver-name': driver.driverName || '-',
@@ -2666,7 +2569,6 @@
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
-            // Garantir que os campos de processo existam
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -2710,7 +2612,6 @@
                 return;
             }
             
-            // ✅ CORREÇÃO: GARANTIR QUE OS CAMPOS DE PROCESSO EXISTAM
             if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
             if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
             if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
@@ -2811,7 +2712,6 @@
             
             timelineHTML += `</div>`;
             
-            // Adicionar estatísticas do processo
             const completedSteps = steps.filter(step => step.completed).length;
             const totalSteps = steps.length;
             
@@ -2838,7 +2738,6 @@
             
             processContent.innerHTML = timelineHTML;
             
-            // Adicionar event listeners aos botões
             document.querySelectorAll('.register-step').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const stepField = this.getAttribute('data-step');
@@ -2856,25 +2755,21 @@
             });
         }
 
-        // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS PARA PRESERVAR SCROLL ========== //
+        // ========== FUNÇÕES DA ENCOSTA ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
             
-            // ✅ CORREÇÃO: Filtrar apenas veículos com status AGENDADO
             let filteredDrivers = driversData.filter(driver => {
                 if (!driver.status) return false;
-                
                 const status = driver.status.toString().trim().toUpperCase();
-                // Manter apenas veículos com status AGENDADO na encosta
                 return status === 'AGENDADO';
             });
             
-            // Ordenar por horário de chegada (mais tempo esperando primeiro)
             filteredDrivers.sort((a, b) => {
                 const timeA = calculateWaitTimeValue(a.arrivalDateTime);
                 const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeB - timeA; // Ordem decrescente (mais tempo esperando primeiro)
+                return timeB - timeA;
             });
 
             const cargasGeradasCount = filteredDrivers.filter(driver => 
@@ -2983,7 +2878,6 @@
             
             encostaHTML += `</tbody></table></div>`;
             
-            // ✅ CORREÇÃO CRÍTICA: PRESERVAR POSIÇÃO DO SCROLL DURANTE ATUALIZAÇÃO
             const tableContainer = document.querySelector('.encosta-table-container');
             if (tableContainer) {
                 encostaScrollPosition = tableContainer.scrollLeft;
@@ -2991,7 +2885,6 @@
             
             encostaContent.innerHTML = encostaHTML;
             
-            // ✅ CORREÇÃO: RESTAURAR POSIÇÃO DO SCROLL APÓS ATUALIZAÇÃO
             if (tableContainer) {
                 tableContainer.scrollLeft = encostaScrollPosition;
             }
@@ -3009,7 +2902,6 @@
             console.log('🔄 Gerando relatório com dados do Supabase...');
             
             try {
-                // ✅ CORREÇÃO CRÍTICA: BUSCAR DIRETAMENTE DO SUPABASE SEM FILTRO DE TEMPO - APENAS CAMPOS ESSENCIAIS
                 const { data, error } = await supabase
                     .from('drivers')
                     .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
@@ -3031,9 +2923,7 @@
 
                 console.log(`✅ ${data.length} registros carregados do Supabase para o relatório`);
 
-                // Converter dados do Supabase para o formato interno
                 const reportData = data.map(item => {
-                    // Buscar dados base locais se existirem
                     const localDriver = driversData.find(d => d.ticket && d.ticket.toString().trim() === item.ticket.toString().trim());
                     
                     return {
@@ -3045,7 +2935,6 @@
                         contatoFeito: item.contato_feito || '-',
                         liberacaoEntregue: item.liberacao_entregue || '-',
                         encostouDoca: item.encostou_doca || '-',
-                        // Manter dados base locais se disponíveis
                         arrivalDateTime: localDriver ? localDriver.arrivalDateTime : '-',
                         scheduleDateTime: localDriver ? localDriver.scheduleDateTime : '-',
                         truckPlate: localDriver ? localDriver.truckPlate : '-',
@@ -3053,7 +2942,6 @@
                     };
                 });
 
-                // Aplicar filtros de data se existirem
                 const startDate = document.getElementById('report-start-date')?.value;
                 const endDate = document.getElementById('report-end-date')?.value;
                 
@@ -3063,7 +2951,6 @@
                     filteredData = reportData.filter(driver => {
                         let driverDate = null;
                         
-                        // Tentar encontrar a data mais recente do processo
                         if (driver.encostouDoca !== '-') {
                             driverDate = extractDateFromProcessDateTime(driver.encostouDoca);
                         } else if (driver.liberacaoEntregue !== '-') {
@@ -3089,7 +2976,6 @@
                 console.error('❌ Erro ao gerar relatório:', error);
                 showNotification('❌ Erro ao gerar relatório', 'error');
                 
-                // Fallback: usar dados locais em caso de erro
                 const startDate = document.getElementById('report-start-date')?.value;
                 const endDate = document.getElementById('report-end-date')?.value;
                 
@@ -3148,7 +3034,6 @@
                 d.contatoFeito === '-' && d.liberacaoEntregue === '-' && d.encostouDoca === '-'
             ).length;
 
-            // ✅ CORREÇÃO: Verificar se elementos existem antes de atualizar
             const totalProcessesEl = document.getElementById('total-processes');
             const completedProcessesEl = document.getElementById('completed-processes');
             const inProgressProcessesEl = document.getElementById('in-progress-processes');
@@ -3260,18 +3145,15 @@
             generateReport();
         }
 
-        // ========== FUNÇÕES DA BASE DE DADOS - CORRIGIDAS PARA PRESERVAR SCROLL ========== //
+        // ========== FUNÇÕES DA BASE DE DADOS - CORRIGIDAS ========== //
         function renderDriversTable(filteredData = null) {
-            // ✅ PRESERVAR VALORES DOS FILTROS ANTES DE RENDERIZAR
             saveFilterValues();
             
             const dataToShow = filteredData || driversData;
             const tableBody = document.getElementById('drivers-table-body');
             
-            // ✅ CORREÇÃO: Verificar se o elemento existe
             if (!tableBody) return;
             
-            // ✅ CORREÇÃO: PRESERVAR POSIÇÃO DO SCROLL ANTES DE ATUALIZAR
             const tableContainer = document.getElementById('drivers-table-container');
             if (tableContainer) {
                 driversTableScrollPosition = tableContainer.scrollLeft;
@@ -3286,9 +3168,7 @@
                 return;
             }
             
-            // ✅ CORREÇÃO: Remover limite para mostrar todos os dados filtrados
             dataToShow.forEach(driver => {
-                // ✅ CORREÇÃO: Verificar se o driver existe
                 if (!driver) return;
                 
                 const row = document.createElement('tr');
@@ -3308,12 +3188,10 @@
                 tableBody.appendChild(row);
             });
             
-            // ✅ CORREÇÃO: RESTAURAR POSIÇÃO DO SCROLL APÓS ATUALIZAÇÃO
             if (tableContainer) {
                 tableContainer.scrollLeft = driversTableScrollPosition;
             }
             
-            // ✅ CORREÇÃO: Adicionar event listeners com verificação de segurança
             setTimeout(() => {
                 document.querySelectorAll('.view-driver').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -3337,7 +3215,6 @@
         }
 
         function setupFilterListeners() {
-            // ✅ CORREÇÃO: Adicionar debounce para melhor performance
             let filterTimeout;
             
             function debouncedApplyFilters() {
@@ -3347,7 +3224,6 @@
                 }, 300);
             }
             
-            // ✅ CORREÇÃO: Verificar se elementos existem antes de adicionar listeners
             const filterTicket = document.getElementById('filter-ticket');
             const filterDriver = document.getElementById('filter-driver');
             const filterSupplier = document.getElementById('filter-supplier');
@@ -3397,7 +3273,6 @@
                 });
             }
             
-            // ✅ CORREÇÃO: Adicionar evento de tecla Enter para aplicar filtros imediatamente
             const filterInputs = document.querySelectorAll('.filtro-input');
             filterInputs.forEach(input => {
                 input.addEventListener('keypress', function(e) {
@@ -3410,10 +3285,8 @@
 
         function applyFilters() {
             let filteredData = driversData.filter(driver => {
-                // ✅ CORREÇÃO: Verificar se o driver existe antes de acessar propriedades
                 if (!driver) return false;
                 
-                // ✅ CORREÇÃO: Usar valores padrão para evitar erros
                 const driverTicket = driver.ticket ? driver.ticket.toString().toLowerCase() : '';
                 const driverName = driver.driverName ? driver.driverName.toString().toLowerCase() : '';
                 const driverSupplier = driver.supplier ? driver.supplier.toString().toLowerCase() : '';
@@ -3421,7 +3294,6 @@
                 const driverTruckPlate = driver.truckPlate ? driver.truckPlate.toString().toLowerCase() : '';
                 const driverArrival = driver.arrivalDateTime ? driver.arrivalDateTime.toString().toLowerCase() : '';
                 
-                // ✅ CORREÇÃO: Aplicar filtros apenas se houver valor no filtro
                 if (activeFilters.ticket && !driverTicket.includes(activeFilters.ticket)) {
                     return false;
                 }
@@ -3449,12 +3321,8 @@
                 return true;
             });
             
-            // ✅ SALVAR FILTROS NO LOCALSTORAGE
             saveFilterValues();
-            
             renderDriversTable(filteredData);
-            
-            // ✅ ATUALIZAR INFORMAÇÃO DE RESULTADOS
             updateResultsInfo(filteredData.length);
         }
 
@@ -3476,7 +3344,7 @@
         function clearDatabase() {
             if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
                 
-                // SALVAR TODOS OS REGISTROS DE PROCESSO ANTES DE LIMPAR
+                // ✅ CORREÇÃO: PRESERVAR APENAS PROCESSOS COM ETAPAS REGISTRADAS
                 const processosPreservados = [];
                 
                 driversData.forEach(driver => {
@@ -3491,7 +3359,13 @@
                             liberacaoEntregue: driver.liberacaoEntregue || '-',
                             encostouDoca: driver.encostouDoca || '-',
                             driverName: driver.driverName || 'Motorista Não Cadastrado',
-                            supplier: driver.supplier || '-'
+                            supplier: driver.supplier || '-',
+                            cd: driver.cd || '-',
+                            status: 'AGENDADO',
+                            arrivalDateTime: driver.arrivalDateTime || '-',
+                            scheduleDateTime: driver.scheduleDateTime || '-',
+                            truckPlate: driver.truckPlate || '-',
+                            load: driver.load || '-'
                         });
                     }
                 });
@@ -3501,24 +3375,11 @@
                 suppliersList = [];
                 cdList = [];
                 
-                // RESTAURAR OS PROCESSOS PRESERVADOS
+                // ✅ CORREÇÃO: RESTAURAR APENAS OS PROCESSOS PRESERVADOS
                 processosPreservados.forEach(processo => {
                     const driverExistente = driversData.find(d => d.ticket === processo.ticket);
                     if (!driverExistente) {
-                        driversData.push({
-                            ticket: processo.ticket,
-                            driverName: processo.driverName,
-                            supplier: processo.supplier,
-                            cd: '-',
-                            status: 'AGENDADO',
-                            arrivalDateTime: '-',
-                            scheduleDateTime: '-',
-                            contatoFeito: processo.contatoFeito,
-                            liberacaoEntregue: processo.liberacaoEntregue,
-                            encostouDoca: processo.encostouDoca,
-                            load: '-',
-                            truckPlate: '-'
-                        });
+                        driversData.push(processo);
                     }
                 });
                 
@@ -3556,12 +3417,11 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // ========== FUNÇÃO PARA CONVERTER DATAS - CORRIGIDA ========== //
+        // ========== FUNÇÃO PARA CONVERTER DATAS ========== //
         function convertToDisplayFormat(dateTimeValue, columnHeader = '') {
             if (!dateTimeValue || dateTimeValue === '-' || dateTimeValue === '' || dateTimeValue === ' ') return '-';
             
             try {
-                // Se já está no formato dd/mm/aaaa, retorna como está
                 if (typeof dateTimeValue === 'string' && dateTimeValue.match(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)) {
                     return dateTimeValue;
                 }
@@ -3569,32 +3429,25 @@
                 let date;
                 
                 if (typeof dateTimeValue === 'number') {
-                    // CORREÇÃO: Converter número serial do Excel para data SEM subtrair 1 dia
-                    // e ADICIONAR 6 minutos
                     const excelEpoch = new Date(1899, 11, 30);
                     date = new Date(excelEpoch.getTime() + dateTimeValue * 86400 * 1000);
                     
-                    // ADICIONAR 6 minutos (6 * 60 * 1000 milissegundos)
                     date = new Date(date.getTime() - (6 * 60 * 1000));
                     
-                    // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
                     if (columnHeader === 'DATA/HORA AGENDA') {
                         date = new Date(date.getTime() + 50);
                     }
                 } else if (dateTimeValue instanceof Date) {
                     date = dateTimeValue;
                     
-                    // ADICIONAR 50 milissegundos APENAS para DATA/HORA AGENDA
                     if (columnHeader === 'DATA/HORA AGENDA') {
                         date = new Date(date.getTime() + 50);
                     }
                 } else {
-                    // Tentar parse como string
                     const parts = dateTimeValue.toString().split(' ');
                     const datePart = parts[0];
                     const timePart = parts[1] || '00:00';
                     
-                    // Verificar se está no formato brasileiro dd/mm/aaaa
                     if (datePart && datePart.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
                         const [day, month, year] = datePart.split('/');
                         const [hours, minutes] = timePart.split(':');
@@ -3607,7 +3460,6 @@
                             parseInt(minutes) || 0
                         );
                     } else {
-                        // Tentar parse padrão
                         date = new Date(dateTimeValue);
                     }
                 }
@@ -3625,10 +3477,10 @@
                 console.log('Erro na conversão de data:', error, dateTimeValue);
             }
             
-            // Se não conseguiu converter, retorna o valor original
             return dateTimeValue;
         }
 
+        // ========== FUNÇÃO PRINCIPAL DE PROCESSAMENTO DE DADOS - CORRIGIDA ========== //
         function processAndSaveData(data) {
             const headers = data[0];
             const rows = data.slice(1);
@@ -3637,10 +3489,17 @@
             const newSuppliers = new Set();
             const newCDs = new Set();
             
-            const existingDriversMap = new Map();
+            // ✅ CORREÇÃO: CRIAR MAPA DE PROCESSOS EXISTENTES (APENAS OS QUE TÊM ETAPAS REGISTRADAS)
+            const existingProcessesMap = new Map();
             driversData.forEach(driver => {
                 if (driver.ticket) {
-                    existingDriversMap.set(driver.ticket.toString().trim(), driver);
+                    const hasProcessData = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                                         (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
+                                         (driver.encostouDoca && driver.encostouDoca !== '-');
+                    
+                    if (hasProcessData) {
+                        existingProcessesMap.set(driver.ticket.toString().trim(), driver);
+                    }
                 }
             });
             
@@ -3654,19 +3513,17 @@
                     if (header && columnMapping[header]) {
                         let value = row[colIndex];
                         
-                        // Converter valores undefined/null para string vazia
                         if (value === null || value === undefined) {
                             value = '';
                         }
                         
-                        // ✅ APLICAR CONVERSÃO APENAS NAS COLUNAS DE DATA/HORA
                         const colunasParaConverter = [
-                            'DATA/HORA AGENDA',    // Coluna B
-                            'DATA/HORA CHEG',      // Coluna G  
-                            'ACIONADO',            // Coluna I
-                            'FIM CONF',            // Coluna P
-                            'INICIO CRIT',         // Coluna Q
-                            'FIM CRIT'             // Coluna R
+                            'DATA/HORA AGENDA',
+                            'DATA/HORA CHEG',  
+                            'ACIONADO',
+                            'FIM CONF',
+                            'INICIO CRIT',
+                            'FIM CRIT'
                         ];
                         
                         if (colunasParaConverter.includes(header) && value !== '') {
@@ -3680,13 +3537,14 @@
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
                     
-                    if (existingDriversMap.has(ticketKey)) {
-                        const existingDriver = existingDriversMap.get(ticketKey);
+                    // ✅ CORREÇÃO: VERIFICAR SE EXISTE PROCESSO PARA ESTA SENHA
+                    if (existingProcessesMap.has(ticketKey)) {
+                        const existingProcess = existingProcessesMap.get(ticketKey);
                         
-                        // ✅ CORREÇÃO CRÍTICA: PRESERVAR APENAS OS DADOS DE PROCESSO DO EXISTENTE
-                        driver.contatoFeito = existingDriver.contatoFeito || '-';
-                        driver.liberacaoEntregue = existingDriver.liberacaoEntregue || '-';
-                        driver.encostouDoca = existingDriver.encostouDoca || '-';
+                        // ✅ CORREÇÃO: PRESERVAR APENAS OS DADOS DE PROCESSO DO EXISTENTE
+                        driver.contatoFeito = existingProcess.contatoFeito || '-';
+                        driver.liberacaoEntregue = existingProcess.liberacaoEntregue || '-';
+                        driver.encostouDoca = existingProcess.encostouDoca || '-';
                         
                         preservedCount++;
                     } else {
@@ -3705,13 +3563,27 @@
                 }
             });
             
+            // ✅ CORREÇÃO: ADICIONAR PROCESSOS PRESERVADOS QUE NÃO ESTÃO NO NOVO ARQUIVO
+            existingProcessesMap.forEach((existingProcess, ticketKey) => {
+                const existsInNewData = newDrivers.some(driver => 
+                    driver.ticket && driver.ticket.toString().trim() === ticketKey
+                );
+                
+                if (!existsInNewData) {
+                    // ✅ CORREÇÃO: ADICIONAR PROCESSO COMPLETO AO RELATÓRIO
+                    newDrivers.push(existingProcess);
+                    preservedCount++;
+                    console.log(`✅ Processo ${ticketKey} preservado no relatório`);
+                }
+            });
+            
             driversData = newDrivers;
             suppliersList = Array.from(newSuppliers);
             cdList = Array.from(newCDs);
             
-            const restoredCount = restoreProcessBackup();
+            // ✅ CORREÇÃO: ATUALIZAR BACKUP COM OS NOVOS DADOS
+            saveProcessBackup();
             
-            // ✅ CORREÇÃO CRÍTICA: SALVAR APENAS LOCALMENTE, NÃO NO SUPABASE
             saveToLocalStorage();
             
             updateDatabaseStats();
@@ -3730,11 +3602,9 @@
                 let arrival;
                 
                 if (typeof arrivalDateTime === 'number') {
-                    // Converter serial date do Excel
                     const excelEpoch = new Date(1899, 11, 30);
                     arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
                 } else {
-                    // Usar a função de conversão existente
                     const converted = convertToDisplayFormat(arrivalDateTime);
                     if (converted && converted !== '-') {
                         const parts = converted.split(' ');
@@ -3812,15 +3682,14 @@
             }
         }
 
-        // ========== FUNÇÕES SUPABASE - CORRIGIDAS ========== //
+        // ========== FUNÇÕES SUPABASE ========== //
         let supabaseCache = {
             lastSync: null,
             data: [],
-            cacheDuration: 30000 // 30 segundos de cache
+            cacheDuration: 30000
         };
 
         async function loadFromSupabase() {
-            // ✅ VERIFICAR CACHE PRIMEIRO
             const now = Date.now();
             if (supabaseCache.lastSync && (now - supabaseCache.lastSync) < supabaseCache.cacheDuration) {
                 console.log('📦 Usando cache do Supabase');
@@ -3828,7 +3697,6 @@
             }
 
             try {
-                // ✅ CORREÇÃO: BUSCAR APENAS DADOS DE PROCESSO DO SUPABASE - APENAS CAMPOS ESSENCIAIS
                 const { data, error } = await supabase
                     .from('drivers')
                     .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
@@ -3841,20 +3709,17 @@
                 }
 
                 if (data && data.length > 0) {
-                    // ✅ CORREÇÃO: ATUALIZAR APENAS OS DADOS ESSENCIAIS NOS DRIVERS LOCAIS
                     let updatedCount = 0;
 
                     data.forEach(item => {
                         const ticketKey = item.ticket?.toString().trim();
                         if (!ticketKey) return;
 
-                        // Buscar o driver local correspondente
                         const localDriver = driversData.find(d => 
                             d.ticket && d.ticket.toString().trim() === ticketKey
                         );
                         
                         if (localDriver) {
-                            // ✅ ATUALIZAR APENAS CAMPOS ESSENCIAIS
                             if (item.contato_feito !== null && item.contato_feito !== undefined) {
                                 localDriver.contatoFeito = item.contato_feito;
                                 updatedCount++;
@@ -3868,7 +3733,6 @@
                                 updatedCount++;
                             }
                             
-                            // Atualizar outros campos essenciais se disponíveis
                             if (item.driver_name !== null && item.driver_name !== undefined) {
                                 localDriver.driverName = item.driver_name;
                             }
@@ -3879,10 +3743,8 @@
                                 localDriver.status = item.status;
                             }
                         }
-                        // ❌ NÃO adicionar motoristas que não existem localmente
                     });
 
-                    // ✅ ATUALIZAR CACHE
                     supabaseCache = {
                         lastSync: now,
                         data: data,
@@ -3908,7 +3770,6 @@
         // ========== SISTEMA DE CARGA ========== //
         async function saveCargaData() {
             try {
-                // Salvar apenas localmente - CORREÇÃO: Removido tentativa de salvar no Supabase
                 const cargaArray = Array.from(cargaData);
                 localStorage.setItem('cargaData', JSON.stringify(cargaArray));
                 return true;
@@ -3919,7 +3780,6 @@
         }
 
         async function loadCargaFromSupabase() {
-            // CORREÇÃO: Removida tentativa de carregar do Supabase, carregar apenas do localStorage
             return loadCargaData();
         }
 
@@ -3991,7 +3851,6 @@
                 
                 renderEncostaList();
                 
-                // Mostrar mensagem de sucesso discreta
                 showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
                 
             } catch (error) {
@@ -4011,9 +3870,8 @@
             alert(`🔍 Debug Carga:\nSenha: ${ticket}\nCarga: ${driver.load || 'N/A'}\nStatus: ${hasCarga ? 'Gerado' : 'Pendente'}\n\nCargas no sistema: ${cargaData.size}`);
         }
 
-        // ========== FUNÇÃO DE NOTIFICAÇÃO MINIMALISTA ========== //
+        // ========== FUNÇÃO DE NOTIFICAÇÃO ========== //
         function showNotification(message, type = 'info', duration = 800) {
-            // Notificações de sucesso e erro ainda são mostradas, mas por menos tempo
             if (type === 'success' || type === 'error') {
                 const notification = document.createElement('div');
                 notification.className = `notification-minimal ${type}`;
@@ -4024,11 +3882,9 @@
                     if (notification.parentNode) {
                         notification.parentNode.removeChild(notification);
                     }
-                }, type === 'error' ? 3000 : 1500); // Erros ficam mais tempo
+                }, type === 'error' ? 3000 : 1500);
             }
-            // Notificações 'info' são completamente discretas (apenas no console)
             else if (type === 'info') {
-                // Mostrar apenas no console para não perturbar o usuário
                 console.log(`ℹ️ ${message}`);
             }
         }
@@ -4064,12 +3920,11 @@
             return false;
         }
 
-        // ========== ATUALIZAÇÃO DA INTERFACE - CORRIGIDA ========== //
+        // ========== ATUALIZAÇÃO DA INTERFACE ========== //
         function updateInterface() {
             updateDatabaseStats();
             renderDriversTable();
             
-            // ✅ CORREÇÃO: ATUALIZAR TODAS AS SEÇÕES VISÍVEIS
             document.querySelectorAll('.section.active').forEach(section => {
                 const sectionId = section.id;
                 
@@ -4091,15 +3946,13 @@
         }
 
         function setupAutoRefresh() {
-            // Atualizar a interface a cada 1 Minuto
             setInterval(() => {
                 updateInterface();
             }, 600000);
         }
 
-        // ========== INICIALIZAÇÃO - CORRIGIDA ========== //
+        // ========== INICIALIZAÇÃO ========== //
         async function initializeData() {
-            // ✅ CORREÇÃO: Primeiro carregar dados base do localStorage
             console.log('📁 Carregando dados base do localStorage...');
             const hasLocalData = loadFromLocalStorage();
             
@@ -4110,46 +3963,35 @@
                 createSampleData();
             }
 
-            // Testar conexão Supabase
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
                 console.log('🔄 Sincronizando processos do Supabase...');
-                // Carregar backup de processos primeiro
                 loadProcessBackup();
                 
-                // ✅ CORREÇÃO: Sincronizar apenas processos do Supabase (sem substituir dados base)
                 await loadFromSupabase();
                 
-                // ✅ INICIAR SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDA
                 await startRealtimeSync();
                 startPeriodicSync();
                 
             } else {
                 console.log('📁 Supabase offline, usando dados locais...');
-                // Apenas carregar backup local
                 loadProcessBackup();
             }
 
-            // Restaurar processos do backup automaticamente
             restoreProcessBackup();
 
-            // Carregar dados de carga do localStorage
             loadCargaData();
 
-            // Iniciar sistema de persistência automática
             initializePersistenceSystem();
             
-            // Configurar atualização automática
             setupAutoRefresh();
             
-            // Atualizar interface
             updateInterface();
             setupEventListeners();
             
             console.log('✅ Sistema inicializado com sincronização em tempo real');
 
-            // Debug temporário para verificar conexão
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
@@ -4160,7 +4002,7 @@
             }, 2000);
         }
 
-        // ========== CONFIGURAÇÃO DE EVENT LISTENERS - ATUALIZADA ========== //
+        // ========== CONFIGURAÇÃO DE EVENT LISTENERS ========== //
         function setupEventListeners() {
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
@@ -4203,22 +4045,18 @@
             const reportClearBtn = document.getElementById('report-clear-filters');
             if (reportClearBtn) reportClearBtn.addEventListener('click', clearReportFilters);
             
-            // ✅ ADICIONAR EVENT LISTENERS PARA SINCRONIZAÇÃO
             const forceSyncBtn1 = document.getElementById('force-sync-btn');
             const forceSyncBtn2 = document.getElementById('force-sync-btn-2');
             
             if (forceSyncBtn1) forceSyncBtn1.addEventListener('click', forceSync);
             if (forceSyncBtn2) forceSyncBtn2.addEventListener('click', forceSync);
             
-            // ✅ ADICIONAR EVENT LISTENER PARA LIMPAR TODOS OS PROCESSOS
             const clearAllProcessesBtn = document.getElementById('clear-all-processes');
             if (clearAllProcessesBtn) clearAllProcessesBtn.addEventListener('click', clearAllProcesses);
             
-            // ✅ ADICIONAR EVENT LISTENER PARA LIMPAR PROCESSOS INCOMPLETOS
             const clearIncompleteProcessesBtn = document.getElementById('clear-incomplete-processes');
             if (clearIncompleteProcessesBtn) clearIncompleteProcessesBtn.addEventListener('click', clearIncompleteProcesses);
             
-            // ✅ ADICIONAR EVENT LISTENERS PARA MODAL DE SENHA
             const confirmPasswordBtn = document.getElementById('confirm-password');
             const cancelPasswordBtn = document.getElementById('cancel-password');
             const passwordInput = document.getElementById('password-input');
@@ -4311,21 +4149,16 @@
             const resetDriversBtn = document.getElementById('reset-drivers-btn');
             if (resetDriversBtn) {
                 resetDriversBtn.addEventListener('click', function() {
-                    // Limpar inputs
                     document.querySelectorAll('.filtro-input').forEach(input => input.value = '');
                     
-                    // Limpar activeFilters
                     activeFilters = {
                         ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
                     };
                     
-                    // Limpar localStorage dos filtros
                     localStorage.removeItem('activeFilters');
                     
-                    // Renderizar tabela completa
                     renderDriversTable();
                     
-                    // Atualizar informação de resultados
                     updateResultsInfo(driversData.length);
                 });
             }
@@ -4335,10 +4168,8 @@
             
             setupFilterListeners();
             
-            // ✅ CARREGAR FILTROS SALVOS AO INICIAR
             setTimeout(() => {
                 if (loadFilterValues()) {
-                    // Se havia filtros salvos, aplicar eles
                     applyFilters();
                 }
             }, 100);
@@ -4348,7 +4179,6 @@
             initializeData();
         });
 
-        // Limpar intervalos ao sair da página
         window.addEventListener('beforeunload', () => {
             if (autoSaveInterval) {
                 clearInterval(autoSaveInterval);
