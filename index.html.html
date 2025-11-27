@@ -1019,6 +1019,92 @@
         .encosta-table th {
             z-index: 4; /* Garantir que os cabeçalhos fiquem acima das células */
         }
+
+        /* ========== MODAL DE SENHA ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal-title {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn.confirm {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background-color: #c0392b;
+        }
+
+        .modal-btn.cancel {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .modal-btn.cancel:hover {
+            background-color: #5a6268;
+        }
     </style>
 </head>
 <body>
@@ -1439,6 +1525,19 @@
     <!-- Notificação discreta -->
     <div id="notification-discreet" class="notification-discreet"></div>
 
+    <!-- Modal para senha de segurança -->
+    <div id="password-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title">🔒 Confirmação de Segurança</h3>
+            <p style="margin-bottom: 20px; color: #666;">Digite a senha "Assai" para confirmar esta ação:</p>
+            <input type="password" id="password-input" class="modal-input" placeholder="Digite a senha...">
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" id="cancel-password">Cancelar</button>
+                <button class="modal-btn confirm" id="confirm-password">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ========== CONFIGURAÇÃO SUPABASE ========== //
         const SUPABASE_URL = 'https://nuebpjbozdcawkkgnqfe.supabase.co';
@@ -1472,6 +1571,10 @@
         // ========== SISTEMA DE PRESERVAÇÃO DE SCROLL ========== //
         let encostaScrollPosition = 0;
         let driversTableScrollPosition = 0;
+
+        // ========== SISTEMA DE SENHA DE SEGURANÇA ========== //
+        const SECURITY_PASSWORD = "Assai";
+        let pendingAction = null;
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -1606,6 +1709,68 @@
             setTimeout(() => {
                 notification.classList.remove('show');
             }, duration);
+        }
+
+        // ========== SISTEMA DE SENHA DE SEGURANÇA ========== //
+        function showPasswordModal(actionType) {
+            const modal = document.getElementById('password-modal');
+            const passwordInput = document.getElementById('password-input');
+            
+            if (!modal || !passwordInput) return;
+            
+            // Limpar campo de senha
+            passwordInput.value = '';
+            
+            // Definir ação pendente
+            pendingAction = actionType;
+            
+            // Mostrar modal
+            modal.classList.add('active');
+            
+            // Focar no campo de senha
+            setTimeout(() => {
+                passwordInput.focus();
+            }, 300);
+        }
+
+        function hidePasswordModal() {
+            const modal = document.getElementById('password-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+            pendingAction = null;
+        }
+
+        function verifyPassword() {
+            const passwordInput = document.getElementById('password-input');
+            if (!passwordInput) return false;
+            
+            const enteredPassword = passwordInput.value.trim();
+            
+            if (enteredPassword === SECURITY_PASSWORD) {
+                hidePasswordModal();
+                return true;
+            } else {
+                showNotification('❌ Senha incorreta!', 'error');
+                passwordInput.value = '';
+                passwordInput.focus();
+                return false;
+            }
+        }
+
+        function executePendingAction() {
+            if (!pendingAction) return;
+            
+            switch(pendingAction) {
+                case 'clearAllProcesses':
+                    clearAllProcessesConfirmed();
+                    break;
+                case 'clearIncompleteProcesses':
+                    clearIncompleteProcessesConfirmed();
+                    break;
+            }
+            
+            pendingAction = null;
         }
 
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL - CORRIGIDO ========== //
@@ -2217,11 +2382,11 @@
         }
 
         // ========== NOVA FUNÇÃO: LIMPAR TODOS OS REGISTROS DE PROCESSO ========== //
-        async function clearAllProcesses() {
-            if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar TODOS os registros de processo?\n\nIsso irá remover:\n• Todos os Contatos Feitos\n• Todas as Liberações Entregues\n• Todos os Encostou em Doca\n\nEsta ação não pode ser desfeita e afetará todos os usuários conectados.')) {
-                return;
-            }
+        function clearAllProcesses() {
+            showPasswordModal('clearAllProcesses');
+        }
 
+        async function clearAllProcessesConfirmed() {
             try {
                 // Resetar localmente
                 driversData.forEach(driver => {
@@ -2259,11 +2424,11 @@
         }
 
         // ========== NOVA FUNÇÃO: LIMPAR PROCESSOS INCOMPLETOS ========== //
-        async function clearIncompleteProcesses() {
-            if (!confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar APENAS os processos INCOMPLETOS?\n\nIsso irá remover:\n• Processos em andamento (Contato Feito e/ou Liberação Entregue)\n• Processos pendentes (sem nenhuma etapa registrada)\n• Processos concluídos (Encostou em Doca) NÃO serão afetados\n\nEsta ação não pode ser desfeita e afetará todos os usuários conectados.')) {
-                return;
-            }
+        function clearIncompleteProcesses() {
+            showPasswordModal('clearIncompleteProcesses');
+        }
 
+        async function clearIncompleteProcessesConfirmed() {
             try {
                 let clearedCount = 0;
                 const updates = [];
@@ -4052,6 +4217,33 @@
             // ✅ ADICIONAR EVENT LISTENER PARA LIMPAR PROCESSOS INCOMPLETOS
             const clearIncompleteProcessesBtn = document.getElementById('clear-incomplete-processes');
             if (clearIncompleteProcessesBtn) clearIncompleteProcessesBtn.addEventListener('click', clearIncompleteProcesses);
+            
+            // ✅ ADICIONAR EVENT LISTENERS PARA MODAL DE SENHA
+            const confirmPasswordBtn = document.getElementById('confirm-password');
+            const cancelPasswordBtn = document.getElementById('cancel-password');
+            const passwordInput = document.getElementById('password-input');
+            
+            if (confirmPasswordBtn) {
+                confirmPasswordBtn.addEventListener('click', function() {
+                    if (verifyPassword()) {
+                        executePendingAction();
+                    }
+                });
+            }
+            
+            if (cancelPasswordBtn) {
+                cancelPasswordBtn.addEventListener('click', hidePasswordModal);
+            }
+            
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        if (verifyPassword()) {
+                            executePendingAction();
+                        }
+                    }
+                });
+            }
             
             const uploadBtn = document.getElementById('upload-btn');
             const fileInput = document.getElementById('file-input');
