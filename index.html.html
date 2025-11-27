@@ -1287,6 +1287,7 @@
                 <div class="carga-info">
                     <strong>📋 Status de Carga:</strong> O sistema verifica automaticamente se a carga está gerada no arquivo TXT.
                     <br><strong>🔄 Atualização:</strong> Carregue um novo arquivo TXT para atualizar os status.
+                    <br><strong>🔍 Filtro:</strong> Agora exibindo apenas veículos AGENDADOS com placa e carga preenchidos.
                 </div>
                 
                 <div class="carga-controls">
@@ -1301,6 +1302,7 @@
                 
                 <div class="alert alert-info">
                     <strong>Ranking baseado no horário de chegada (coluna G):</strong> Veículos são ordenados pelos que chegaram mais cedo.
+                    <br><strong>Filtro aplicado:</strong> Apenas veículos com status AGENDADO, placa e carga preenchidos.
                 </div>
                 
                 <div id="encosta-content">
@@ -2755,21 +2757,37 @@
             });
         }
 
-        // ========== FUNÇÕES DA ENCOSTA ========== //
+        // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
             
+            // ✅ CORREÇÃO: FILTRAR APENAS VEÍCULOS AGENDADOS COM PLACA E CARGA PREENCHIDOS
             let filteredDrivers = driversData.filter(driver => {
                 if (!driver.status) return false;
+                
+                // Verificar se o status é AGENDADO
                 const status = driver.status.toString().trim().toUpperCase();
-                return status === 'AGENDADO';
+                if (status !== 'AGENDADO') return false;
+                
+                // ✅ CORREÇÃO: VERIFICAR SE PLACA E CARGA ESTÃO PREENCHIDOS
+                const hasPlaca = driver.truckPlate && 
+                               driver.truckPlate.toString().trim() !== '' && 
+                               driver.truckPlate.toString().trim() !== '-';
+                
+                const hasCarga = driver.load && 
+                               driver.load.toString().trim() !== '' && 
+                               driver.load.toString().trim() !== '-';
+                
+                // ✅ CORREÇÃO: RETORNAR APENAS SE TIVER PLACA E CARGA PREENCHIDOS
+                return hasPlaca && hasCarga;
             });
             
+            // Ordenar por horário de chegada (mais antigo primeiro)
             filteredDrivers.sort((a, b) => {
                 const timeA = calculateWaitTimeValue(a.arrivalDateTime);
                 const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeB - timeA;
+                return timeB - timeA; // Ordem decrescente para mostrar quem espera mais tempo primeiro
             });
 
             const cargasGeradasCount = filteredDrivers.filter(driver => 
@@ -2781,6 +2799,7 @@
                     <div class="empty-state">
                         <div>📋</div>
                         <p>Nenhum veículo com status AGENDADO encontrado para exibir na encosta.</p>
+                        <p><strong>Filtro aplicado:</strong> Apenas veículos com placa e carga preenchidos.</p>
                         <small>Total de veículos na base: ${driversData.length}</small>
                     </div>
                 `;
