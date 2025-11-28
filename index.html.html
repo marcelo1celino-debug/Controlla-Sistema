@@ -961,63 +961,71 @@
             position: relative;
         }
 
+        /* ========== NOVO LAYOUT OTIMIZADO PARA ENCOSTA ========== */
         .encosta-table {
-            min-width: 1200px;
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+            table-layout: fixed;
         }
 
         .encosta-table th {
             background-color: var(--primary-color);
             color: white;
-            padding: 12px 15px;
+            padding: 10px 8px;
             text-align: left;
             position: sticky;
             top: 0;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .encosta-table td {
-            padding: 10px 15px;
+            padding: 8px;
             border-bottom: 1px solid #e0e0e0;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .encosta-table tr:hover {
             background-color: rgba(1, 58, 99, 0.05);
         }
 
-        /* ========== ESTILOS PARA COLUNA CONGELADA DO MOTORISTA ========== */
-        .encosta-table th:nth-child(3),
-        .encosta-table td:nth-child(3) {
-            position: sticky;
-            left: 150px;
-            background-color: white;
-            z-index: 2;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        /* LARGURAS OTIMIZADAS DAS COLUNAS */
+        .encosta-table th:nth-child(1), .encosta-table td:nth-child(1) { width: 60px; }  /* Posição */
+        .encosta-table th:nth-child(2), .encosta-table td:nth-child(2) { width: 80px; }  /* Senha */
+        .encosta-table th:nth-child(3), .encosta-table td:nth-child(3) { width: 120px; } /* Motorista */
+        .encosta-table th:nth-child(4), .encosta-table td:nth-child(4) { width: 120px; } /* Fornecedor */
+        .encosta-table th:nth-child(5), .encosta-table td:nth-child(5) { width: 100px; } /* Placa */
+        .encosta-table th:nth-child(6), .encosta-table td:nth-child(6) { width: 80px; }  /* Carga */
+        .encosta-table th:nth-child(7), .encosta-table td:nth-child(7) { width: 120px; } /* Chegada */
+        .encosta-table th:nth-child(8), .encosta-table td:nth-child(8) { width: 80px; }  /* Espera */
+        .encosta-table th:nth-child(9), .encosta-table td:nth-child(9) { width: 90px; }  /* Carga Status */
+        .encosta-table th:nth-child(10), .encosta-table td:nth-child(10) { width: 120px; } /* Processo Status */
+        .encosta-table th:nth-child(11), .encosta-table td:nth-child(11) { width: 80px; }  /* Ações */
+
+        /* RESPONSIVIDADE PARA ENCOSTA */
+        @media (max-width: 1400px) {
+            .encosta-table {
+                font-size: 0.75rem;
+            }
+            
+            .encosta-table th, .encosta-table td {
+                padding: 6px 4px;
+            }
+            
+            .encosta-table th:nth-child(3), .encosta-table td:nth-child(3) { width: 100px; } /* Motorista */
+            .encosta-table th:nth-child(4), .encosta-table td:nth-child(4) { width: 100px; } /* Fornecedor */
+            .encosta-table th:nth-child(7), .encosta-table td:nth-child(7) { width: 100px; } /* Chegada */
+            .encosta-table th:nth-child(10), .encosta-table td:nth-child(10) { width: 100px; } /* Processo Status */
         }
 
-        .encosta-table th:nth-child(1),
-        .encosta-table td:nth-child(1) {
-            position: sticky;
-            left: 0;
-            background-color: white;
-            z-index: 3;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-        }
-
-        .encosta-table th:nth-child(2),
-        .encosta-table td:nth-child(2) {
-            position: sticky;
-            left: 60px;
-            background-color: white;
-            z-index: 3;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-        }
-
-        .encosta-table th {
-            z-index: 4;
+        @media (max-width: 1200px) {
+            .encosta-table {
+                min-width: 1000px;
+            }
         }
 
         /* ========== MODAL DE SENHA ========== */
@@ -1104,6 +1112,100 @@
 
         .modal-btn.cancel:hover {
             background-color: #5a6268;
+        }
+
+        /* ========== NOVO ESTILO PARA CARDS COMPACTOS ========== */
+        .encosta-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .encosta-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            box-shadow: var(--card-shadow);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .encosta-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .encosta-card-position {
+            background: var(--primary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .encosta-card-ticket {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+
+        .encosta-card-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+
+        .encosta-card-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .encosta-card-label {
+            font-size: 0.7rem;
+            color: #666;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .encosta-card-value {
+            font-size: 0.8rem;
+            font-weight: 400;
+        }
+
+        .encosta-card-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* Alternar entre tabela e cards */
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: flex-end;
+        }
+
+        .view-toggle-btn {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+
+        .view-toggle-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
     </style>
 </head>
@@ -1301,8 +1403,14 @@
                 </div>
                 
                 <div class="alert alert-info">
-                    <strong>Ranking baseado no horário de chegada (coluna G):</strong> Veículos são ordenados pelos que chegaram mais cedo.
+                    <strong>Ranking baseado no horário de chegada:</strong> Veículos são ordenados pelos que chegaram mais cedo.
                     <br><strong>Filtro aplicado:</strong> Apenas veículos com status AGENDADO, placa e carga preenchidos.
+                </div>
+                
+                <!-- Botões de alternar visualização -->
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" id="view-table-btn">📊 Visualização em Tabela</button>
+                    <button class="view-toggle-btn" id="view-cards-btn">🃏 Visualização em Cards</button>
                 </div>
                 
                 <div id="encosta-content">
@@ -1516,7 +1624,7 @@
     <div id="password-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 class="modal-title">🔒 Confirmação de Segurança</h3>
-            <p style="margin-bottom: 20px; color: #666;">Digite a senha para confirmar esta ação:</p>
+            <p style="margin-bottom: 20px; color: #666;">Digite a senha "Assai" para confirmar esta ação:</p>
             <input type="password" id="password-input" class="modal-input" placeholder="Digite a senha...">
             <div class="modal-buttons">
                 <button class="modal-btn cancel" id="cancel-password">Cancelar</button>
@@ -1561,6 +1669,9 @@
         // ========== SISTEMA DE SENHA DE SEGURANÇA ========== //
         const SECURITY_PASSWORD = "Assai";
         let pendingAction = null;
+
+        // ========== SISTEMA DE VISUALIZAÇÃO DA ENCOSTA ========== //
+        let encostaViewMode = 'table'; // 'table' ou 'cards'
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -2757,7 +2868,7 @@
             });
         }
 
-        // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS ========== //
+        // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS E OTIMIZADAS ========== //
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
@@ -2806,6 +2917,16 @@
                 return;
             }
             
+            if (encostaViewMode === 'table') {
+                renderEncostaTableView(filteredDrivers, cargasGeradasCount);
+            } else {
+                renderEncostaCardsView(filteredDrivers, cargasGeradasCount);
+            }
+        }
+
+        function renderEncostaTableView(filteredDrivers, cargasGeradasCount) {
+            const encostaContent = document.getElementById('encosta-content');
+            
             let encostaHTML = `
                 <div class="database-stats">
                     <div class="stat-card">
@@ -2835,14 +2956,12 @@
                                 <th>Senha</th>
                                 <th>Motorista</th>
                                 <th>Fornecedor</th>
-                                <th>Placa Cavalo</th>
-                                <th>Placa Carreta</th>
+                                <th>Placa</th>
                                 <th>Carga</th>
-                                <th>Horário Chegada</th>
-                                <th>Status</th>
-                                <th>Tempo de Espera</th>
-                                <th>Status Carga</th>
-                                <th>Status Processo</th>
+                                <th>Chegada</th>
+                                <th>Espera</th>
+                                <th>Carga</th>
+                                <th>Processo</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -2878,18 +2997,16 @@
                     <tr>
                         <td><strong>${index + 1}º</strong></td>
                         <td>${driver.ticket || '-'}</td>
-                        <td>${driver.driverName || '-'}</td>
-                        <td>${driver.supplier || '-'}</td>
+                        <td title="${driver.driverName || '-'}">${truncateText(driver.driverName || '-', 15)}</td>
+                        <td title="${driver.supplier || '-'}">${truncateText(driver.supplier || '-', 15)}</td>
                         <td>${driver.truckPlate || '-'}</td>
-                        <td>${driver.trailerPlate || '-'}</td>
                         <td>${driver.load || '-'}</td>
-                        <td>${driver.arrivalDateTime || '-'}</td>
-                        <td>${driver.status || '-'}</td>	
+                        <td title="${driver.arrivalDateTime || '-'}">${truncateText(driver.arrivalDateTime || '-', 12)}</td>
                         <td>${waitTime}</td>
                         <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
-                        <td><span class="${statusClass}">${statusText}</span></td>
+                        <td><span class="${statusClass}">${truncateText(statusText, 12)}</span></td>
                         <td>
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}" title="Abrir processo">Processo</button>
                         </td>
                     </tr>
                 `;
@@ -2914,6 +3031,122 @@
                     goToProcessFromEncosta(ticket);
                 });
             });
+        }
+
+        function renderEncostaCardsView(filteredDrivers, cargasGeradasCount) {
+            const encostaContent = document.getElementById('encosta-content');
+            
+            let encostaHTML = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${driversData.length}</div>
+                        <div class="stat-label">Total na Base</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
+                <div class="encosta-cards">
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                const cargaStatus = getCargaStatus(driver.ticket);
+                const processoStatus = getProcessStatus(driver);
+                
+                let statusClass = 'status-processo ';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass += 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass += 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass += 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass += 'status-doca';
+                        break;
+                    default:
+                        statusClass += 'status-aguardando';
+                }
+                
+                encostaHTML += `
+                    <div class="encosta-card">
+                        <div class="encosta-card-header">
+                            <div class="encosta-card-position">${index + 1}º</div>
+                            <div class="encosta-card-ticket">${driver.ticket || '-'}</div>
+                        </div>
+                        <div class="encosta-card-body">
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Motorista</span>
+                                <span class="encosta-card-value">${driver.driverName || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Fornecedor</span>
+                                <span class="encosta-card-value">${driver.supplier || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Placa</span>
+                                <span class="encosta-card-value">${driver.truckPlate || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Carga</span>
+                                <span class="encosta-card-value">${driver.load || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Chegada</span>
+                                <span class="encosta-card-value">${driver.arrivalDateTime || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Espera</span>
+                                <span class="encosta-card-value">${waitTime}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Carga</span>
+                                <span class="encosta-card-value"><span class="${cargaStatus.class}">${cargaStatus.status}</span></span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Processo</span>
+                                <span class="encosta-card-value"><span class="${statusClass}">${statusText}</span></span>
+                            </div>
+                        </div>
+                        <div class="encosta-card-actions">
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            encostaHTML += `</div>`;
+            
+            encostaContent.innerHTML = encostaHTML;
+            
+            document.querySelectorAll('.processo-encosta').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const ticket = this.getAttribute('data-ticket');
+                    goToProcessFromEncosta(ticket);
+                });
+            });
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
         }
 
         // ========== FUNÇÕES DO RELATÓRIO ========== //
@@ -4184,6 +4417,28 @@
             
             const clearDatabaseBtn = document.getElementById('clear-database-btn');
             if (clearDatabaseBtn) clearDatabaseBtn.addEventListener('click', clearDatabase);
+            
+            // ========== NOVOS EVENT LISTENERS PARA VISUALIZAÇÃO DA ENCOSTA ========== //
+            const viewTableBtn = document.getElementById('view-table-btn');
+            const viewCardsBtn = document.getElementById('view-cards-btn');
+            
+            if (viewTableBtn) {
+                viewTableBtn.addEventListener('click', function() {
+                    encostaViewMode = 'table';
+                    viewTableBtn.classList.add('active');
+                    viewCardsBtn.classList.remove('active');
+                    renderEncostaList();
+                });
+            }
+            
+            if (viewCardsBtn) {
+                viewCardsBtn.addEventListener('click', function() {
+                    encostaViewMode = 'cards';
+                    viewCardsBtn.classList.add('active');
+                    viewTableBtn.classList.remove('active');
+                    renderEncostaList();
+                });
+            }
             
             setupFilterListeners();
             
