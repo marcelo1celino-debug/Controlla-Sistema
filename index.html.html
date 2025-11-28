@@ -843,7 +843,7 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
-        /* ========== NOVO ESTILO PARA STATUS DO PROCESSO ========== */
+        /* ========== NOVO ESTILO PARA STATUS DO PROCESSO - CORRIGIDO ========== */
         .status-processo {
             padding: 4px 8px;
             border-radius: 12px;
@@ -3308,24 +3308,25 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                let statusClass = 'status-processo ';
+                // ✅ CORREÇÃO: MANTENDO A ESCALA DE CORES ORIGINAL DOS STATUS
+                let statusClass = '';
                 let statusText = processoStatus;
                 
                 switch(processoStatus) {
                     case 'Aguardando Contato':
-                        statusClass += 'status-aguardando';
+                        statusClass = 'status-aguardando';
                         break;
                     case 'Contato Feito':
-                        statusClass += 'status-contato';
+                        statusClass = 'status-contato';
                         break;
                     case 'Liberação Entregue':
-                        statusClass += 'status-liberacao';
+                        statusClass = 'status-liberacao';
                         break;
                     case 'Encostou em Doca':
-                        statusClass += 'status-doca';
+                        statusClass = 'status-doca';
                         break;
                     default:
-                        statusClass += 'status-aguardando';
+                        statusClass = 'status-aguardando';
                 }
                 
                 encostaHTML += `
@@ -3403,24 +3404,25 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                let statusClass = 'status-processo ';
+                // ✅ CORREÇÃO: MANTENDO A ESCALA DE CORES ORIGINAL DOS STATUS
+                let statusClass = '';
                 let statusText = processoStatus;
                 
                 switch(processoStatus) {
                     case 'Aguardando Contato':
-                        statusClass += 'status-aguardando';
+                        statusClass = 'status-aguardando';
                         break;
                     case 'Contato Feito':
-                        statusClass += 'status-contato';
+                        statusClass = 'status-contato';
                         break;
                     case 'Liberação Entregue':
-                        statusClass += 'status-liberacao';
+                        statusClass = 'status-liberacao';
                         break;
                     case 'Encostou em Doca':
-                        statusClass += 'status-doca';
+                        statusClass = 'status-doca';
                         break;
                     default:
-                        statusClass += 'status-aguardando';
+                        statusClass = 'status-aguardando';
                 }
                 
                 encostaHTML += `
