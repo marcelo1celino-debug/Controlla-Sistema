@@ -36,6 +36,7 @@
             background-color: var(--light-bg);
             color: var(--dark-text);
             line-height: 1.6;
+            transition: all 0.3s ease;
         }
         
         .container {
@@ -49,6 +50,7 @@
             color: var(--light-text);
             padding: 15px 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
         
         .header-content {
@@ -119,6 +121,7 @@
             box-shadow: var(--card-shadow);
             padding: 25px;
             margin-bottom: 30px;
+            transition: all 0.3s ease;
         }
         
         .section.active {
@@ -1207,6 +1210,142 @@
             color: white;
             border-color: var(--primary-color);
         }
+
+        /* ========== SISTEMA DE TEMAS DE CORES ========== */
+        .theme-selector {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .theme-toggle-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-panel {
+            position: absolute;
+            bottom: 60px;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .theme-panel.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .theme-panel h4 {
+            margin: 0 0 15px 0;
+            color: var(--dark-text);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .theme-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .theme-option:hover {
+            transform: scale(1.1);
+            border-color: var(--primary-color);
+        }
+
+        .theme-option.active {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .theme-option.active::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Cores dos temas */
+        .theme-blue { background: linear-gradient(135deg, #013A63, #2ECC71); }
+        .theme-green { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+        .theme-purple { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+        .theme-orange { background: linear-gradient(135deg, #e67e22, #f39c12); }
+        .theme-red { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+        .theme-dark { background: linear-gradient(135deg, #2c3e50, #34495e); }
+        .theme-teal { background: linear-gradient(135deg, #16a085, #1abc9c); }
+        .theme-pink { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .theme-indigo { background: linear-gradient(135deg, #3742fa, #5352ed); }
+
+        /* Responsividade para temas */
+        @media (max-width: 768px) {
+            .theme-selector {
+                bottom: 15px;
+                right: 15px;
+            }
+            
+            .theme-toggle-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+            
+            .theme-panel {
+                min-width: 180px;
+                padding: 15px;
+            }
+            
+            .theme-options {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+            
+            .theme-option {
+                width: 35px;
+                height: 35px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1389,7 +1528,7 @@
                 <div class="carga-info">
                     <strong>📋 Status de Carga:</strong> O sistema verifica automaticamente se a carga está gerada no arquivo TXT.
                     <br><strong>🔄 Atualização:</strong> Carregue um novo arquivo TXT para atualizar os status.
-                    <br><strong>🔍 Filtro:</strong> Agora exibindo apenas veículos AGENDADOS com placa e carga preenchidos.
+                    <br><strong>🔍 Filtro:</strong> Agora exibindo apenas veículos AGENDADOS do arquivo atual com placa e carga preenchidos.
                 </div>
                 
                 <div class="carga-controls">
@@ -1404,7 +1543,7 @@
                 
                 <div class="alert alert-info">
                     <strong>Ranking baseado no horário de chegada:</strong> Veículos são ordenados pelos que chegaram mais cedo.
-                    <br><strong>Filtro aplicado:</strong> Apenas veículos com status AGENDADO, placa e carga preenchidos.
+                    <br><strong>Filtro aplicado:</strong> Apenas veículos AGENDADOS do arquivo atual com placa e carga preenchidos.
                 </div>
                 
                 <!-- Botões de alternar visualização -->
@@ -1574,7 +1713,7 @@
                         </div>
                         
                         <div class="filtro-grupo filtro-chegada">
-                            <label class="filtro-label" para="filter-arrival">Filtrar Chegada</label>
+                            <label class="filtro-label" for="filter-arrival">Filtrar Chegada</label>
                             <input type="text" id="filter-arrival" class="filtro-input" placeholder="Digite a data/hora...">
                         </div>
                     </div>
@@ -1619,6 +1758,27 @@
         </div>
     </footer>
 
+    <!-- ========== SISTEMA DE TEMAS ========== -->
+    <div class="theme-selector">
+        <button class="theme-toggle-btn" id="theme-toggle">
+            🎨
+        </button>
+        <div class="theme-panel" id="theme-panel">
+            <h4>Escolha um Tema</h4>
+            <div class="theme-options">
+                <div class="theme-option theme-blue active" data-theme="blue" title="Azul Original"></div>
+                <div class="theme-option theme-green" data-theme="green" title="Verde Natureza"></div>
+                <div class="theme-option theme-purple" data-theme="purple" title="Roxo Elegante"></div>
+                <div class="theme-option theme-orange" data-theme="orange" title="Laranja Energético"></div>
+                <div class="theme-option theme-red" data-theme="red" title="Vermelho Intenso"></div>
+                <div class="theme-option theme-dark" data-theme="dark" title="Escuro Profissional"></div>
+                <div class="theme-option theme-teal" data-theme="teal" title="Verde Água"></div>
+                <div class="theme-option theme-pink" data-theme="pink" title="Rosa Moderno"></div>
+                <div class="theme-option theme-indigo" data-theme="indigo" title="Índigo Corporativo"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="notification-discreet" class="notification-discreet"></div>
 
     <div id="password-modal" class="modal-overlay">
@@ -1638,7 +1798,37 @@
         const SUPABASE_URL = 'https://nuebpjbozdcawkkgnqfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51ZWJwamJvemRjYXdra2ducWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1ODczOTYsImV4cCI6MjA3NzE2MzM5Nn0.2hpn6WyYJovBeoY50EeRcx3_qcgCgI6QKGKkkNi3AlI';
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ✅ CORREÇÃO: VERIFICAR SE SUPABASE EXISTE ANTES DE CRIAR CLIENTE
+        let supabase;
+        try {
+            if (window.supabase && window.supabase.createClient) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } else {
+                console.warn('Supabase não carregado, usando modo offline');
+                supabase = {
+                    from: () => ({ 
+                        select: () => Promise.resolve({ data: [], error: null }),
+                        upsert: () => Promise.resolve({ error: null }),
+                        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
+                    }),
+                    channel: () => ({ 
+                        on: () => ({ subscribe: () => 'SUBSCRIBED' }) 
+                    })
+                };
+            }
+        } catch (error) {
+            console.error('Erro ao inicializar Supabase:', error);
+            supabase = {
+                from: () => ({ 
+                    select: () => Promise.resolve({ data: [], error: null }),
+                    upsert: () => Promise.resolve({ error: null }),
+                    on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
+                }),
+                channel: () => ({ 
+                    on: () => ({ subscribe: () => 'SUBSCRIBED' }) 
+                })
+            };
+        }
 
         // Estado da aplicação
         let currentDriver = null;
@@ -1647,6 +1837,9 @@
         let cdList = [];
         let isOnline = true;
         let lastUpdateTime = null;
+        
+        // ========== NOVO: DADOS DO ARQUIVO ATUAL ========== //
+        let currentFileData = []; // Armazena apenas os dados do arquivo atual
         
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
         let realtimeSubscription = null;
@@ -1672,6 +1865,9 @@
 
         // ========== SISTEMA DE VISUALIZAÇÃO DA ENCOSTA ========== //
         let encostaViewMode = 'table'; // 'table' ou 'cards'
+
+        // ========== SISTEMA DE TEMAS ========== //
+        let currentTheme = 'blue';
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -1713,6 +1909,127 @@
             'PEDIDOS C5': 'c5Orders',
             'DIVERGÊNCIA DOS PEDIDOS': 'orderDivergence'
         };
+
+        // ========== SISTEMA DE TEMAS ========== //
+        const themes = {
+            blue: {
+                primary: '#013A63',
+                secondary: '#2ECC71',
+                warning: '#F1C40F',
+                danger: '#E74C3C',
+                info: '#3498DB'
+            },
+            green: {
+                primary: '#27ae60',
+                secondary: '#2ecc71',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            purple: {
+                primary: '#8e44ad',
+                secondary: '#9b59b6',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            orange: {
+                primary: '#e67e22',
+                secondary: '#f39c12',
+                warning: '#f1c40f',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            red: {
+                primary: '#c0392b',
+                secondary: '#e74c3c',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            dark: {
+                primary: '#2c3e50',
+                secondary: '#34495e',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            teal: {
+                primary: '#16a085',
+                secondary: '#1abc9c',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            pink: {
+                primary: '#e84393',
+                secondary: '#fd79a8',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            },
+            indigo: {
+                primary: '#3742fa',
+                secondary: '#5352ed',
+                warning: '#f39c12',
+                danger: '#e74c3c',
+                info: '#3498DB'
+            }
+        };
+
+        // ========== FUNÇÕES DO SISTEMA DE TEMAS ========== //
+        function applyTheme(themeName) {
+            const theme = themes[themeName];
+            if (!theme) return;
+            
+            currentTheme = themeName;
+            
+            // Aplicar cores CSS
+            document.documentElement.style.setProperty('--primary-color', theme.primary);
+            document.documentElement.style.setProperty('--secondary-color', theme.secondary);
+            document.documentElement.style.setProperty('--warning-color', theme.warning);
+            document.documentElement.style.setProperty('--danger-color', theme.danger);
+            document.documentElement.style.setProperty('--info-color', theme.info);
+            
+            // Atualizar botão ativo
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            const activeOption = document.querySelector(`.theme-option[data-theme="${themeName}"]`);
+            if (activeOption) activeOption.classList.add('active');
+            
+            // Salvar preferência
+            localStorage.setItem('selectedTheme', themeName);
+            
+            showDiscreetNotification(`🎨 Tema ${getThemeName(themeName)} aplicado!`, 1500);
+        }
+
+        function getThemeName(themeKey) {
+            const themeNames = {
+                blue: 'Azul Original',
+                green: 'Verde Natureza',
+                purple: 'Roxo Elegante',
+                orange: 'Laranja Energético',
+                red: 'Vermelho Intenso',
+                dark: 'Escuro Profissional',
+                teal: 'Verde Água',
+                pink: 'Rosa Moderno',
+                indigo: 'Índigo Corporativo'
+            };
+            return themeNames[themeKey] || themeKey;
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('selectedTheme');
+            if (savedTheme && themes[savedTheme]) {
+                applyTheme(savedTheme);
+            }
+        }
+
+        function toggleThemePanel() {
+            const panel = document.getElementById('theme-panel');
+            if (panel) panel.classList.toggle('active');
+        }
 
         // ========== SISTEMA DE FILTROS PERSISTENTES ========== //
         let activeFilters = {
@@ -2599,8 +2916,12 @@
         function showSection(sectionId) {
             document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-            document.getElementById(sectionId)?.classList.add('active');
-            document.querySelector(`[data-target="${sectionId}"]`)?.classList.add('active');
+            
+            const targetSection = document.getElementById(sectionId);
+            const targetLink = document.querySelector(`[data-target="${sectionId}"]`);
+            
+            if (targetSection) targetSection.classList.add('active');
+            if (targetLink) targetLink.classList.add('active');
             
             if (sectionId === 'report-section') generateReport();
             else if (sectionId === 'encosta-section') renderEncostaList();
@@ -2609,8 +2930,12 @@
         function showTab(tabId) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
-            document.getElementById(tabId)?.classList.add('active');
+            
+            const targetTab = document.querySelector(`[data-tab="${tabId}"]`);
+            const targetContent = document.getElementById(tabId);
+            
+            if (targetTab) targetTab.classList.add('active');
+            if (targetContent) targetContent.classList.add('active');
         }
 
         function goToProcessFromEncosta(ticket) {
@@ -2618,10 +2943,13 @@
             
             if (driver) {
                 currentDriver = driver;
-                document.getElementById('ticket-input').value = ticket;
+                const ticketInput = document.getElementById('ticket-input');
+                if (ticketInput) ticketInput.value = ticket;
                 displayDriverInfo(driver);
-                document.getElementById('driver-result').style.display = 'block';
-                document.getElementById('driver-not-found').style.display = 'none';
+                const driverResult = document.getElementById('driver-result');
+                if (driverResult) driverResult.style.display = 'block';
+                const driverNotFound = document.getElementById('driver-not-found');
+                if (driverNotFound) driverNotFound.style.display = 'none';
                 showSection('process-section');
                 renderProcessTimeline();
             } else {
@@ -2635,11 +2963,15 @@
             if (driver) {
                 currentDriver = driver;
                 displayDriverInfo(driver);
-                document.getElementById('driver-result').style.display = 'block';
-                document.getElementById('driver-not-found').style.display = 'none';
+                const driverResult = document.getElementById('driver-result');
+                const driverNotFound = document.getElementById('driver-not-found');
+                if (driverResult) driverResult.style.display = 'block';
+                if (driverNotFound) driverNotFound.style.display = 'none';
             } else {
-                document.getElementById('driver-result').style.display = 'none';
-                document.getElementById('driver-not-found').style.display = 'block';
+                const driverResult = document.getElementById('driver-result');
+                const driverNotFound = document.getElementById('driver-not-found');
+                if (driverResult) driverResult.style.display = 'none';
+                if (driverNotFound) driverNotFound.style.display = 'block';
             }
         }
 
@@ -2851,21 +3183,24 @@
             
             processContent.innerHTML = timelineHTML;
             
-            document.querySelectorAll('.register-step').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const stepField = this.getAttribute('data-step');
-                    const ticket = this.getAttribute('data-ticket');
-                    registerProcessStep(ticket, stepField);
+            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            setTimeout(() => {
+                document.querySelectorAll('.register-step').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const stepField = this.getAttribute('data-step');
+                        const ticket = this.getAttribute('data-ticket');
+                        registerProcessStep(ticket, stepField);
+                    });
                 });
-            });
-            
-            document.querySelectorAll('.undo-step').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const stepField = this.getAttribute('data-step');
-                    const ticket = this.getAttribute('data-ticket');
-                    undoProcessStep(ticket, stepField);
+                
+                document.querySelectorAll('.undo-step').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const stepField = this.getAttribute('data-step');
+                        const ticket = this.getAttribute('data-ticket');
+                        undoProcessStep(ticket, stepField);
+                    });
                 });
-            });
+            }, 100);
         }
 
         // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS E OTIMIZADAS ========== //
@@ -2873,8 +3208,8 @@
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
             
-            // ✅ CORREÇÃO: FILTRAR APENAS VEÍCULOS AGENDADOS COM PLACA E CARGA PREENCHIDOS
-            let filteredDrivers = driversData.filter(driver => {
+            // ✅ CORREÇÃO: USAR APENAS OS DADOS DO ARQUIVO ATUAL PARA A ENCOSTA
+            let filteredDrivers = currentFileData.filter(driver => {
                 if (!driver.status) return false;
                 
                 // Verificar se o status é AGENDADO
@@ -2909,9 +3244,9 @@
                 encostaContent.innerHTML = `
                     <div class="empty-state">
                         <div>📋</div>
-                        <p>Nenhum veículo com status AGENDADO encontrado para exibir na encosta.</p>
-                        <p><strong>Filtro aplicado:</strong> Apenas veículos com placa e carga preenchidos.</p>
-                        <small>Total de veículos na base: ${driversData.length}</small>
+                        <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
+                        <p><strong>Filtro aplicado:</strong> Apenas veículos do arquivo atual com placa e carga preenchidos.</p>
+                        <small>Total de veículos no arquivo: ${currentFileData.length}</small>
                     </div>
                 `;
                 return;
@@ -2942,8 +3277,8 @@
                         <div class="stat-label">Cargas Pendentes</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${driversData.length}</div>
-                        <div class="stat-label">Total na Base</div>
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
                     </div>
                 </div>
                 
@@ -3025,12 +3360,15 @@
                 tableContainer.scrollLeft = encostaScrollPosition;
             }
             
-            document.querySelectorAll('.processo-encosta').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const ticket = this.getAttribute('data-ticket');
-                    goToProcessFromEncosta(ticket);
+            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            setTimeout(() => {
+                document.querySelectorAll('.processo-encosta').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const ticket = this.getAttribute('data-ticket');
+                        goToProcessFromEncosta(ticket);
+                    });
                 });
-            });
+            }, 100);
         }
 
         function renderEncostaCardsView(filteredDrivers, cargasGeradasCount) {
@@ -3051,8 +3389,8 @@
                         <div class="stat-label">Cargas Pendentes</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${driversData.length}</div>
-                        <div class="stat-label">Total na Base</div>
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
                     </div>
                 </div>
                 
@@ -3136,15 +3474,19 @@
             
             encostaContent.innerHTML = encostaHTML;
             
-            document.querySelectorAll('.processo-encosta').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const ticket = this.getAttribute('data-ticket');
-                    goToProcessFromEncosta(ticket);
+            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            setTimeout(() => {
+                document.querySelectorAll('.processo-encosta').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const ticket = this.getAttribute('data-ticket');
+                        goToProcessFromEncosta(ticket);
+                    });
                 });
-            });
+            }, 100);
         }
 
         function truncateText(text, maxLength) {
+            if (!text) return '';
             if (text.length <= maxLength) return text;
             return text.substring(0, maxLength) + '...';
         }
@@ -3444,6 +3786,7 @@
                 tableContainer.scrollLeft = driversTableScrollPosition;
             }
             
+            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
             setTimeout(() => {
                 document.querySelectorAll('.view-driver').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -3463,7 +3806,7 @@
                         }
                     });
                 });
-            }, 0);
+            }, 100);
         }
 
         function setupFilterListeners() {
@@ -3587,7 +3930,8 @@
                 
                 if (currentDriver && currentDriver.ticket === ticket) {
                     currentDriver = null;
-                    document.getElementById('driver-result').style.display = 'none';
+                    const driverResult = document.getElementById('driver-result');
+                    if (driverResult) driverResult.style.display = 'none';
                 }
             }
         }
@@ -3641,7 +3985,8 @@
                 
                 if (currentDriver) {
                     currentDriver = null;
-                    document.getElementById('driver-result').style.display = 'none';
+                    const driverResult = document.getElementById('driver-result');
+                    if (driverResult) driverResult.style.display = 'none';
                 }
                 
                 showDiscreetNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados`, 800);
@@ -3734,6 +4079,11 @@
 
         // ========== FUNÇÃO PRINCIPAL DE PROCESSAMENTO DE DADOS - CORRIGIDA ========== //
         function processAndSaveData(data) {
+            if (!data || data.length === 0) {
+                showNotification('❌ Arquivo vazio ou inválido', 'error');
+                return;
+            }
+
             const headers = data[0];
             const rows = data.slice(1);
             
@@ -3757,6 +4107,9 @@
             
             let preservedCount = 0;
             let newCount = 0;
+            
+            // ✅ NOVO: LIMPAR DADOS DO ARQUIVO ATUAL
+            currentFileData = [];
             
             rows.forEach((row) => {
                 const driver = {};
@@ -3788,6 +4141,9 @@
                 
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
+                    
+                    // ✅ NOVO: ADICIONAR AO ARQUIVO ATUAL
+                    currentFileData.push({...driver});
                     
                     // ✅ CORREÇÃO: VERIFICAR SE EXISTE PROCESSO PARA ESTA SENHA
                     if (existingProcessesMap.has(ticketKey)) {
@@ -3841,9 +4197,15 @@
             updateDatabaseStats();
             renderDriversTable();
             
-            document.getElementById('file-input').value = '';
+            const fileInput = document.getElementById('file-input');
+            if (fileInput) fileInput.value = '';
             
             showDiscreetNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 1500);
+            
+            // ✅ NOVO: ATUALIZAR A ENCOSTA COM OS DADOS DO ARQUIVO ATUAL
+            if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                renderEncostaList();
+            }
         }
 
         // ========== FUNÇÕES DE CÁLCULO DE TEMPO ========== //
@@ -4127,6 +4489,18 @@
             if (type === 'success' || type === 'error') {
                 const notification = document.createElement('div');
                 notification.className = `notification-minimal ${type}`;
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    ${type === 'success' ? 'background: #2ECC71;' : 'background: #E74C3C;'}
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
                 notification.textContent = message;
                 document.body.appendChild(notification);
                 
@@ -4166,8 +4540,14 @@
         function loadFromLocalStorage() {
             const savedData = localStorage.getItem('driversData');
             if (savedData) {
-                driversData = JSON.parse(savedData);
-                return true;
+                try {
+                    driversData = JSON.parse(savedData);
+                    return true;
+                } catch (e) {
+                    console.error('Erro ao carregar dados do localStorage:', e);
+                    driversData = [];
+                    return false;
+                }
             }
             return false;
         }
@@ -4426,7 +4806,7 @@
                 viewTableBtn.addEventListener('click', function() {
                     encostaViewMode = 'table';
                     viewTableBtn.classList.add('active');
-                    viewCardsBtn.classList.remove('active');
+                    if (viewCardsBtn) viewCardsBtn.classList.remove('active');
                     renderEncostaList();
                 });
             }
@@ -4435,10 +4815,34 @@
                 viewCardsBtn.addEventListener('click', function() {
                     encostaViewMode = 'cards';
                     viewCardsBtn.classList.add('active');
-                    viewTableBtn.classList.remove('active');
+                    if (viewTableBtn) viewTableBtn.classList.remove('active');
                     renderEncostaList();
                 });
             }
+            
+            // ========== EVENT LISTENERS PARA SISTEMA DE TEMAS ========== //
+            const themeToggle = document.getElementById('theme-toggle');
+            const themePanel = document.getElementById('theme-panel');
+            const themeOptions = document.querySelectorAll('.theme-option');
+            
+            if (themeToggle) {
+                themeToggle.addEventListener('click', toggleThemePanel);
+            }
+            
+            themeOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const themeName = this.getAttribute('data-theme');
+                    applyTheme(themeName);
+                    toggleThemePanel();
+                });
+            });
+            
+            // Fechar painel de temas ao clicar fora
+            document.addEventListener('click', function(e) {
+                if (themeToggle && !themeToggle.contains(e.target) && themePanel && !themePanel.contains(e.target)) {
+                    themePanel.classList.remove('active');
+                }
+            });
             
             setupFilterListeners();
             
@@ -4451,6 +4855,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
+            loadTheme(); // Carregar tema salvo
         });
 
         window.addEventListener('beforeunload', () => {
