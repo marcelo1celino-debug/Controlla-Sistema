@@ -2585,6 +2585,12 @@
             
             driver[stepField] = formattedDateTime;
             
+            // ✅ CORREÇÃO CRÍTICA: ATUALIZAR currentFileData TAMBÉM
+            const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (currentFileDriverIndex !== -1) {
+                currentFileData[currentFileDriverIndex][stepField] = formattedDateTime;
+            }
+            
             await saveProcessToSupabase(driver);
             
             if (currentDriver && currentDriver.ticket === ticket) {
@@ -2592,12 +2598,25 @@
             }
             
             dataChangeDetected = true;
+            
+            // ✅ CORREÇÃO CRÍTICA: ATUALIZAR IMEDIATAMENTE A ENCOSTA
+            updateEncostaImmediately();
+            
             updateInterface();
             
             const stepName = getStepName(stepField);
             showDiscreetNotification(`✓ ${stepName} registrado`, 1500);
             
             console.log('Etapa registrada com sucesso:', driver);
+        }
+
+        // ✅ NOVA FUNÇÃO: ATUALIZAÇÃO IMEDIATA DA ENCOSTA
+        function updateEncostaImmediately() {
+            const encostaSection = document.getElementById('encosta-section');
+            if (encostaSection && encostaSection.classList.contains('active')) {
+                renderEncostaList();
+                console.log('🔄 Encosta atualizada imediatamente');
+            }
         }
 
         async function undoProcessStep(ticket, stepField) {
@@ -2621,6 +2640,12 @@
             if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
                 driver[stepField] = '-';
                 
+                // ✅ CORREÇÃO CRÍTICA: ATUALIZAR currentFileData TAMBÉM
+                const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+                if (currentFileDriverIndex !== -1) {
+                    currentFileData[currentFileDriverIndex][stepField] = '-';
+                }
+                
                 const success = await saveProcessToSupabase(driver);
                 
                 if (success) {
@@ -2629,6 +2654,10 @@
                     }
                     
                     dataChangeDetected = true;
+                    
+                    // ✅ CORREÇÃO CRÍTICA: ATUALIZAR IMEDIATAMENTE A ENCOSTA
+                    updateEncostaImmediately();
+                    
                     updateInterface();
                     
                     if (document.getElementById('report-section')?.classList.contains('active')) {
@@ -2741,6 +2770,13 @@
                     driver.encostouDoca = '-';
                 });
 
+                // ✅ CORREÇÃO: ATUALIZAR currentFileData TAMBÉM
+                currentFileData.forEach(driver => {
+                    driver.contatoFeito = '-';
+                    driver.liberacaoEntregue = '-';
+                    driver.encostouDoca = '-';
+                });
+
                 const updates = driversData.map(driver => ({
                     ticket: driver.ticket,
                     contato_feito: null,
@@ -2757,6 +2793,9 @@
 
                 if (error) throw error;
 
+                // ✅ CORREÇÃO: ATUALIZAR ENCOSTA IMEDIATAMENTE
+                updateEncostaImmediately();
+                
                 updateInterface();
                 showDiscreetNotification('✅ Todos os registros de processo foram limpos!', 2000);
 
@@ -2788,6 +2827,13 @@
                             driver.liberacaoEntregue = '-';
                             clearedCount++;
                             
+                            // ✅ CORREÇÃO: ATUALIZAR currentFileData TAMBÉM
+                            const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === driver.ticket.toString().trim());
+                            if (currentFileDriverIndex !== -1) {
+                                currentFileData[currentFileDriverIndex].contatoFeito = '-';
+                                currentFileData[currentFileDriverIndex].liberacaoEntregue = '-';
+                            }
+                            
                             updates.push({
                                 ticket: driver.ticket,
                                 contato_feito: null,
@@ -2809,6 +2855,9 @@
                     if (error) throw error;
                 }
 
+                // ✅ CORREÇÃO: ATUALIZAR ENCOSTA IMEDIATAMENTE
+                updateEncostaImmediately();
+                
                 updateInterface();
                 showDiscreetNotification(`✅ ${clearedCount} processos incompletos foram limpos!`, 2000);
 
@@ -3011,20 +3060,27 @@
             });
         }
 
+        // ✅ CORREÇÃO CRÍTICA: FUNÇÃO getProcessStatus MELHORADA
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
+            // Garantir que temos os campos
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
             
-            if (driver.encostouDoca && driver.encostouDoca !== '-') {
+            // ✅ CORREÇÃO: VERIFICAR SE OS CAMPOS EXISTEM E NÃO SÃO VAZIOS
+            const hasContatoFeito = driver.contatoFeito && driver.contatoFeito !== '-' && driver.contatoFeito !== '';
+            const hasLiberacaoEntregue = driver.liberacaoEntregue && driver.liberacaoEntregue !== '-' && driver.liberacaoEntregue !== '';
+            const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-' && driver.encostouDoca !== '';
+            
+            if (hasEncostouDoca) {
                 return 'Encostou em Doca';
             }
-            if (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') {
+            if (hasLiberacaoEntregue) {
                 return 'Liberação Entregue';
             }
-            if (driver.contatoFeito && driver.contatoFeito !== '-') {
+            if (hasContatoFeito) {
                 return 'Contato Feito';
             }
             return 'Aguardando Contato';
@@ -3308,7 +3364,7 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                // ✅ CORREÇÃO: MANTENDO A ESCALA DE CORES ORIGINAL DOS STATUS
+                // ✅ CORREÇÃO: AGORA USANDO A FUNÇÃO getProcessStatus CORRIGIDA
                 let statusClass = '';
                 let statusText = processoStatus;
                 
@@ -3404,7 +3460,7 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                // ✅ CORREÇÃO: MANTENDO A ESCALA DE CORES ORIGINAL DOS STATUS
+                // ✅ CORREÇÃO: AGORA USANDO A FUNÇÃO getProcessStatus CORRIGIDA
                 let statusClass = '';
                 let statusText = processoStatus;
                 
