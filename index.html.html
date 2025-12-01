@@ -1838,13 +1838,14 @@
         let isOnline = true;
         let lastUpdateTime = null;
         
-        // ========== NOVO: DADOS DO ARQUIVO ATUAL ========== //
-        let currentFileData = []; // Armazena apenas os dados do arquivo atual
+        // ========== DADOS DO ARQUIVO ATUAL COM PERSISTÊNCIA ========== //
+        let currentFileData = [];
+        let currentFileName = '';
         
         // ========== SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ========== //
         let realtimeSubscription = null;
 
-        // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA ========== //
+        // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA OTIMIZADA ========== //
         let autoSaveInterval;
         let dataChangeDetected = false;
 
@@ -1868,6 +1869,12 @@
 
         // ========== SISTEMA DE TEMAS ========== //
         let currentTheme = 'blue';
+
+        // ========== CACHE PARA PERFORMANCE ========== //
+        let renderCache = {
+            encosta: { data: null, timestamp: 0, ttl: 30000 }, // 30 segundos
+            drivers: { data: null, timestamp: 0, ttl: 30000 }
+        };
 
         // Mapeamento de colunas
         const columnMapping = {
@@ -2246,24 +2253,40 @@
             if (existingIndex !== -1) {
                 const existingDriver = driversData[existingIndex];
                 
-                existingDriver.contatoFeito = updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-';
-                existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-';
-                existingDriver.encostouDoca = updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-';
+                // Atualizar apenas se houver dados novos
+                if (updatedDriver.contato_feito !== undefined) {
+                    existingDriver.contatoFeito = updatedDriver.contato_feito !== null ? updatedDriver.contato_feito : '-';
+                }
+                if (updatedDriver.liberacao_entregue !== undefined) {
+                    existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null ? updatedDriver.liberacao_entregue : '-';
+                }
+                if (updatedDriver.encostou_doca !== undefined) {
+                    existingDriver.encostouDoca = updatedDriver.encostou_doca !== null ? updatedDriver.encostou_doca : '-';
+                }
                 
-                if (updatedDriver.driver_name !== undefined && updatedDriver.driver_name !== null) {
-                    existingDriver.driverName = updatedDriver.driver_name;
-                }
-                if (updatedDriver.supplier !== undefined && updatedDriver.supplier !== null) {
-                    existingDriver.supplier = updatedDriver.supplier;
-                }
-                if (updatedDriver.status !== undefined && updatedDriver.status !== null) {
-                    existingDriver.status = updatedDriver.status;
+                // Atualizar também no currentFileData
+                const fileDataIndex = currentFileData.findIndex(d => 
+                    d.ticket && d.ticket.toString().trim() === ticketKey
+                );
+                if (fileDataIndex !== -1) {
+                    if (updatedDriver.contato_feito !== undefined) {
+                        currentFileData[fileDataIndex].contatoFeito = updatedDriver.contato_feito !== null ? updatedDriver.contato_feito : '-';
+                    }
+                    if (updatedDriver.liberacao_entregue !== undefined) {
+                        currentFileData[fileDataIndex].liberacaoEntregue = updatedDriver.liberacao_entregue !== null ? updatedDriver.liberacao_entregue : '-';
+                    }
+                    if (updatedDriver.encostou_doca !== undefined) {
+                        currentFileData[fileDataIndex].encostouDoca = updatedDriver.encostou_doca !== null ? updatedDriver.encostou_doca : '-';
+                    }
+                    
+                    // Salvar alterações no localStorage
+                    saveCurrentFileData();
                 }
 
                 console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
             } else {
                 if (updatedDriver.driver_name || updatedDriver.supplier) {
-                    driversData.push({
+                    const newDriver = {
                         ticket: updatedDriver.ticket,
                         driverName: updatedDriver.driver_name || '-',
                         supplier: updatedDriver.supplier || '-',
@@ -2276,7 +2299,16 @@
                         liberacaoEntregue: updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-',
                         encostouDoca: updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-',
                         load: '-'
-                    });
+                    };
+                    
+                    driversData.push(newDriver);
+                    
+                    // Adicionar também ao currentFileData se não existir
+                    if (!currentFileData.some(d => d.ticket && d.ticket.toString().trim() === ticketKey)) {
+                        currentFileData.push(newDriver);
+                        saveCurrentFileData();
+                    }
+                    
                     console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
                 }
             }
@@ -2306,6 +2338,17 @@
                 driver.contatoFeito = '-';
                 driver.liberacaoEntregue = '-';
                 driver.encostouDoca = '-';
+                
+                // Atualizar também no currentFileData
+                const fileDataIndex = currentFileData.findIndex(d => 
+                    d.ticket && d.ticket.toString().trim() === ticketKey
+                );
+                if (fileDataIndex !== -1) {
+                    currentFileData[fileDataIndex].contatoFeito = '-';
+                    currentFileData[fileDataIndex].liberacaoEntregue = '-';
+                    currentFileData[fileDataIndex].encostouDoca = '-';
+                    saveCurrentFileData();
+                }
                 
                 console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
                 
@@ -2390,9 +2433,49 @@
             }
         }
 
-        // ========== SISTEMA DE BACKUP INTELIGENTE - CORRIGIDO ========== //
+        // ========== PERSISTÊNCIA DOS DADOS DA ENCOSTA ========== //
+        function saveCurrentFileData() {
+            try {
+                const dataToSave = {
+                    data: currentFileData,
+                    fileName: currentFileName,
+                    lastUpdated: new Date().toISOString()
+                };
+                localStorage.setItem('currentFileData', JSON.stringify(dataToSave));
+                console.log('✅ Dados da encosta salvos no localStorage');
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao salvar dados da encosta:', error);
+                return false;
+            }
+        }
 
-        // 1. CARREGAR BACKUP DE PROCESSOS
+        function loadCurrentFileData() {
+            try {
+                const savedData = localStorage.getItem('currentFileData');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    currentFileData = parsedData.data || [];
+                    currentFileName = parsedData.fileName || '';
+                    
+                    // Atualizar info do arquivo
+                    const cargaFileInfo = document.getElementById('carga-file-info');
+                    if (cargaFileInfo && currentFileName) {
+                        cargaFileInfo.textContent = `Arquivo: ${currentFileName} | ${currentFileData.length} registros`;
+                    }
+                    
+                    console.log(`✅ Dados da encosta carregados: ${currentFileData.length} registros`);
+                    return true;
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar dados da encosta:', error);
+                currentFileData = [];
+                currentFileName = '';
+            }
+            return false;
+        }
+
+        // ========== SISTEMA DE BACKUP INTELIGENTE - CORRIGIDO ========== //
         function loadProcessBackup() {
             try {
                 const savedBackup = localStorage.getItem('processBackupData');
@@ -2407,7 +2490,6 @@
             return false;
         }
 
-        // 2. SALVAR BACKUP DE PROCESSOS (INTELIGENTE) - CORRIGIDO
         function saveProcessBackup() {
             try {
                 const newBackup = {};
@@ -2420,14 +2502,10 @@
                                              (driver.encostouDoca && driver.encostouDoca !== '-');
                         
                         if (hasProcessData) {
-                            // ✅ CORREÇÃO: SALVAR TODOS OS DADOS IMPORTANTES DO MOTORISTA
                             newBackup[ticketKey] = {
-                                // Dados de processo
                                 contatoFeito: driver.contatoFeito || '-',
                                 liberacaoEntregue: driver.liberacaoEntregue || '-',
                                 encostouDoca: driver.encostouDoca || '-',
-                                
-                                // Dados básicos do motorista
                                 ticket: driver.ticket,
                                 driverName: driver.driverName || '-',
                                 supplier: driver.supplier || '-',
@@ -2437,7 +2515,6 @@
                                 scheduleDateTime: driver.scheduleDateTime || '-',
                                 truckPlate: driver.truckPlate || '-',
                                 load: driver.load || '-',
-                                
                                 lastUpdated: new Date().toISOString()
                             };
                         }
@@ -2454,14 +2531,10 @@
             }
         }
 
-        // 3. RESTAURAR PROCESSOS DO BACKUP (APENAS SE NECESSÁRIO) - CORRIGIDO
         function restoreProcessBackup() {
             try {
                 let restoredCount = 0;
-                let skippedCount = 0;
-                let errorCount = 0;
                 
-                // ✅ CORREÇÃO: PRIMEIRO ADICIONAR PROCESSOS DO BACKUP QUE NÃO ESTÃO NA BASE ATUAL
                 Object.keys(processBackupData).forEach(ticketKey => {
                     try {
                         const backup = processBackupData[ticketKey];
@@ -2471,36 +2544,20 @@
                                 d.ticket && d.ticket.toString().trim() === ticketKey.toString().trim()
                             );
                             
-                            if (!existingDriver) {
-                                // ✅ CORREÇÃO: ADICIONAR MOTORISTA COMPLETO DO BACKUP
-                                driversData.push({
-                                    ticket: backup.ticket,
-                                    driverName: backup.driverName || '-',
-                                    supplier: backup.supplier || '-',
-                                    cd: backup.cd || '-',
-                                    status: backup.status || '-',
-                                    arrivalDateTime: backup.arrivalDateTime || '-',
-                                    scheduleDateTime: backup.scheduleDateTime || '-',
-                                    truckPlate: backup.truckPlate || '-',
-                                    load: backup.load || '-',
-                                    contatoFeito: backup.contatoFeito || '-',
-                                    liberacaoEntregue: backup.liberacaoEntregue || '-',
-                                    encostouDoca: backup.encostouDoca || '-'
-                                });
+                            if (existingDriver) {
+                                existingDriver.contatoFeito = backup.contatoFeito || '-';
+                                existingDriver.liberacaoEntregue = backup.liberacaoEntregue || '-';
+                                existingDriver.encostouDoca = backup.encostouDoca || '-';
                                 restoredCount++;
-                                console.log(`✅ Motorista ${ticketKey} restaurado do backup`);
-                            } else {
-                                skippedCount++;
                             }
                         }
                     } catch (driverError) {
                         console.error('Erro ao restaurar driver do backup:', driverError);
-                        errorCount++;
                     }
                 });
                 
-                if (restoredCount > 0 || errorCount > 0) {
-                    console.log(`✅ ${restoredCount} processos restaurados do backup (${skippedCount} pulados, ${errorCount} erros)`);
+                if (restoredCount > 0) {
+                    console.log(`✅ ${restoredCount} processos restaurados do backup`);
                 }
                 
                 return restoredCount;
@@ -2510,10 +2567,9 @@
             }
         }
 
-        // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA ========== //
-
+        // ========== SISTEMA DE PERSISTÊNCIA AUTOMÁTICA OTIMIZADA ========== //
         function initializePersistenceSystem() {
-            console.log('🔄 Iniciando sistema de persistência automática...');
+            console.log('🔄 Iniciando sistema de persistência automática otimizada...');
             
             autoSaveInterval = setInterval(() => {
                 if (dataChangeDetected) {
@@ -2532,21 +2588,25 @@
                 if (currentDataState !== lastDataState) {
                     dataChangeDetected = true;
                     lastDataState = currentDataState;
-                    console.log('📝 Mudança detectada nos dados');
                 }
-            }, 1000);
+            }, 2000);
         }
 
         async function autoSaveData() {
             if (!dataChangeDetected) return;
             
             try {
-                console.log('💾 Salvando dados automaticamente...');
+                console.log('💾 Salvando dados automaticamente (otimizado)...');
                 
-                saveToLocalStorage();
-                saveProcessBackup();
+                // Salvar em paralelo para melhor performance
+                await Promise.all([
+                    saveToLocalStorage(),
+                    saveProcessBackup(),
+                    saveCurrentFileData()
+                ]);
                 
                 if (isOnline) {
+                    // Salvar no Supabase em background sem bloquear
                     saveProcessesToSupabase().then(success => {
                         if (success) {
                             console.log('✅ Processos salvos no Supabase (background)');
@@ -2557,15 +2617,18 @@
                 }
                 
                 dataChangeDetected = false;
+                console.log('✅ Dados salvos automaticamente');
                 
             } catch (error) {
                 console.error('❌ Erro no salvamento automático:', error);
+                // Fallback: salvar apenas localmente
                 saveToLocalStorage();
                 saveProcessBackup();
+                saveCurrentFileData();
             }
         }
 
-        // ========== FUNÇÕES DO PROCESSO ========== //
+        // ========== FUNÇÕES DO PROCESSO OTIMIZADAS ========== //
         async function registerProcessStep(ticket, stepField) {
             console.log(`Registrando etapa ${stepField} para senha ${ticket}`);
             
@@ -2576,6 +2639,7 @@
                 return;
             }
             
+            // Garantir propriedades
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -2585,24 +2649,32 @@
             
             driver[stepField] = formattedDateTime;
             
-            // ✅ CORREÇÃO CRÍTICA: ATUALIZAR currentFileData TAMBÉM
+            // ✅ ATUALIZAR currentFileData TAMBÉM
             const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (currentFileDriverIndex !== -1) {
                 currentFileData[currentFileDriverIndex][stepField] = formattedDateTime;
             }
             
-            await saveProcessToSupabase(driver);
+            // Salvar alterações
+            dataChangeDetected = true;
             
+            // Atualizar interface imediatamente
             if (currentDriver && currentDriver.ticket === ticket) {
                 currentDriver = driver;
             }
             
-            dataChangeDetected = true;
-            
-            // ✅ CORREÇÃO CRÍTICA: ATUALIZAR IMEDIATAMENTE A ENCOSTA
+            // Atualizar a encosta imediatamente se estiver visível
             updateEncostaImmediately();
             
-            updateInterface();
+            // Salvar no Supabase em background
+            saveProcessToSupabase(driver).then(success => {
+                if (success) {
+                    console.log(`✅ Processo ${stepField} salvo no Supabase para senha ${ticket}`);
+                }
+            });
+            
+            // Atualizar interface
+            updateInterfacePartial();
             
             const stepName = getStepName(stepField);
             showDiscreetNotification(`✓ ${stepName} registrado`, 1500);
@@ -2610,13 +2682,44 @@
             console.log('Etapa registrada com sucesso:', driver);
         }
 
-        // ✅ NOVA FUNÇÃO: ATUALIZAÇÃO IMEDIATA DA ENCOSTA
-        function updateEncostaImmediately() {
-            const encostaSection = document.getElementById('encosta-section');
-            if (encostaSection && encostaSection.classList.contains('active')) {
-                renderEncostaList();
-                console.log('🔄 Encosta atualizada imediatamente');
+        // ✅ FUNÇÃO OTIMIZADA PARA ATUALIZAÇÃO PARCIAL DA INTERFACE
+        function updateInterfacePartial() {
+            const activeSection = document.querySelector('.section.active');
+            if (!activeSection) return;
+            
+            const sectionId = activeSection.id;
+            
+            switch(sectionId) {
+                case 'encosta-section':
+                    if (shouldRenderEncosta()) {
+                        renderEncostaList();
+                    }
+                    break;
+                case 'report-section':
+                    generateReport();
+                    break;
+                case 'process-section':
+                    if (currentDriver) renderProcessTimeline();
+                    break;
+                case 'search-section':
+                    if (currentDriver) displayDriverInfo(currentDriver);
+                    break;
+                case 'database-section':
+                    updateDatabaseStats();
+                    renderDriversTable();
+                    break;
             }
+        }
+
+        // ✅ FUNÇÃO PARA VERIFICAR SE DEVE RENDERIZAR A ENCOSTA (CACHE)
+        function shouldRenderEncosta() {
+            const now = Date.now();
+            const cache = renderCache.encosta;
+            
+            if (!cache.data || (now - cache.timestamp) > cache.ttl) {
+                return true;
+            }
+            return false;
         }
 
         async function undoProcessStep(ticket, stepField) {
@@ -2640,12 +2743,16 @@
             if (confirm(`Tem certeza que deseja desfazer a etapa "${stepName}" para a senha ${ticket}?\n\nHorário registrado: ${currentValue}`)) {
                 driver[stepField] = '-';
                 
-                // ✅ CORREÇÃO CRÍTICA: ATUALIZAR currentFileData TAMBÉM
+                // ✅ ATUALIZAR currentFileData TAMBÉM
                 const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
                 if (currentFileDriverIndex !== -1) {
                     currentFileData[currentFileDriverIndex][stepField] = '-';
                 }
                 
+                // Marcar alteração
+                dataChangeDetected = true;
+                
+                // Salvar no Supabase em background
                 const success = await saveProcessToSupabase(driver);
                 
                 if (success) {
@@ -2653,12 +2760,9 @@
                         currentDriver = driver;
                     }
                     
-                    dataChangeDetected = true;
-                    
-                    // ✅ CORREÇÃO CRÍTICA: ATUALIZAR IMEDIATAMENTE A ENCOSTA
+                    // Atualizar interface
                     updateEncostaImmediately();
-                    
-                    updateInterface();
+                    updateInterfacePartial();
                     
                     if (document.getElementById('report-section')?.classList.contains('active')) {
                         generateReport();
@@ -2714,39 +2818,38 @@
                 return true;
             }
 
-            const batchSize = 50;
+            // Processar em lotes menores para melhor performance
+            const batchSize = 30;
             const batches = [];
             
             for (let i = 0; i < driversWithProcesses.length; i += batchSize) {
                 batches.push(driversWithProcesses.slice(i, i + batchSize));
             }
 
-            const savePromises = batches.map(batch => {
-                const driversToSave = batch.map(driver => ({
-                    ticket: driver.ticket,
-                    driver_name: driver.driverName,
-                    supplier: driver.supplier,
-                    status: driver.status,
-                    contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
-                    liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
-                    encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
-                    updated_at: new Date().toISOString()
-                }));
-                
-                return supabase
-                    .from('drivers')
-                    .upsert(driversToSave, {
-                        onConflict: 'ticket',
-                        ignoreDuplicates: false
-                    });
-            });
-
             try {
-                const results = await Promise.all(savePromises);
-                
-                const hasErrors = results.some(result => result.error);
-                if (hasErrors) {
-                    throw new Error('Erro em um ou mais lotes de salvamento');
+                for (const batch of batches) {
+                    const driversToSave = batch.map(driver => ({
+                        ticket: driver.ticket,
+                        driver_name: driver.driverName,
+                        supplier: driver.supplier,
+                        status: driver.status,
+                        contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
+                        liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
+                        encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+                        updated_at: new Date().toISOString()
+                    }));
+                    
+                    const { error } = await supabase
+                        .from('drivers')
+                        .upsert(driversToSave, {
+                            onConflict: 'ticket',
+                            ignoreDuplicates: false
+                        });
+                    
+                    if (error) throw error;
+                    
+                    // Pequena pausa entre lotes para não sobrecarregar
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
                 
                 console.log(`✅ ${driversWithProcesses.length} processos salvos em ${batches.length} lotes`);
@@ -2764,19 +2867,25 @@
 
         async function clearAllProcessesConfirmed() {
             try {
+                // Limpar em driversData
                 driversData.forEach(driver => {
                     driver.contatoFeito = '-';
                     driver.liberacaoEntregue = '-';
                     driver.encostouDoca = '-';
                 });
 
-                // ✅ CORREÇÃO: ATUALIZAR currentFileData TAMBÉM
+                // ✅ LIMPAR TAMBÉM NO currentFileData
                 currentFileData.forEach(driver => {
                     driver.contatoFeito = '-';
                     driver.liberacaoEntregue = '-';
                     driver.encostouDoca = '-';
                 });
 
+                // Salvar alterações
+                saveCurrentFileData();
+                dataChangeDetected = true;
+
+                // Enviar para Supabase em background
                 const updates = driversData.map(driver => ({
                     ticket: driver.ticket,
                     contato_feito: null,
@@ -2785,15 +2894,20 @@
                     updated_at: new Date().toISOString()
                 }));
 
-                const { error } = await supabase
-                    .from('drivers')
-                    .upsert(updates, {
-                        onConflict: 'ticket'
-                    });
+                // Processar em lotes menores
+                const batchSize = 30;
+                for (let i = 0; i < updates.length; i += batchSize) {
+                    const batch = updates.slice(i, i + batchSize);
+                    await supabase
+                        .from('drivers')
+                        .upsert(batch, {
+                            onConflict: 'ticket'
+                        });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
 
-                if (error) throw error;
-
-                // ✅ CORREÇÃO: ATUALIZAR ENCOSTA IMEDIATAMENTE
+                // ✅ ATUALIZAR ENCOSTA IMEDIATAMENTE
                 updateEncostaImmediately();
                 
                 updateInterface();
@@ -2813,7 +2927,6 @@
         async function clearIncompleteProcessesConfirmed() {
             try {
                 let clearedCount = 0;
-                const updates = [];
 
                 driversData.forEach(driver => {
                     const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-';
@@ -2827,43 +2940,33 @@
                             driver.liberacaoEntregue = '-';
                             clearedCount++;
                             
-                            // ✅ CORREÇÃO: ATUALIZAR currentFileData TAMBÉM
+                            // ✅ ATUALIZAR currentFileData TAMBÉM
                             const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === driver.ticket.toString().trim());
                             if (currentFileDriverIndex !== -1) {
                                 currentFileData[currentFileDriverIndex].contatoFeito = '-';
                                 currentFileData[currentFileDriverIndex].liberacaoEntregue = '-';
                             }
-                            
-                            updates.push({
-                                ticket: driver.ticket,
-                                contato_feito: null,
-                                liberacao_entregue: null,
-                                encostou_doca: null,
-                                updated_at: new Date().toISOString()
-                            });
                         }
                     }
                 });
 
-                if (updates.length > 0) {
-                    const { error } = await supabase
-                        .from('drivers')
-                        .upsert(updates, {
-                            onConflict: 'ticket'
-                        });
-
-                    if (error) throw error;
+                // Salvar alterações
+                if (clearedCount > 0) {
+                    saveCurrentFileData();
+                    dataChangeDetected = true;
+                    
+                    // ✅ ATUALIZAR ENCOSTA IMEDIATAMENTE
+                    updateEncostaImmediately();
+                    
+                    updateInterface();
+                    showDiscreetNotification(`✅ ${clearedCount} processos incompletos foram limpos!`, 2000);
+                } else {
+                    showDiscreetNotification('ℹ️ Nenhum processo incompleto encontrado', 1500);
                 }
-
-                // ✅ CORREÇÃO: ATUALIZAR ENCOSTA IMEDIATAMENTE
-                updateEncostaImmediately();
-                
-                updateInterface();
-                showDiscreetNotification(`✅ ${clearedCount} processos incompletos foram limpos!`, 2000);
 
             } catch (error) {
                 console.error('Erro ao limpar processos incompletos:', error);
-                showNotification('❌ Erro ao limpar processos incompletos no Supabase', 'error');
+                showNotification('❌ Erro ao limpar processos incompletos', 'error');
             }
         }
 
@@ -3060,7 +3163,7 @@
             });
         }
 
-        // ✅ CORREÇÃO CRÍTICA: FUNÇÃO getProcessStatus MELHORADA
+        // ✅ FUNÇÃO getProcessStatus MELHORADA
         function getProcessStatus(driver) {
             if (!driver) return 'Não definido';
             
@@ -3069,7 +3172,6 @@
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
             
-            // ✅ CORREÇÃO: VERIFICAR SE OS CAMPOS EXISTEM E NÃO SÃO VAZIOS
             const hasContatoFeito = driver.contatoFeito && driver.contatoFeito !== '-' && driver.contatoFeito !== '';
             const hasLiberacaoEntregue = driver.liberacaoEntregue && driver.liberacaoEntregue !== '-' && driver.liberacaoEntregue !== '';
             const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-' && driver.encostouDoca !== '';
@@ -3239,7 +3341,7 @@
             
             processContent.innerHTML = timelineHTML;
             
-            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
             setTimeout(() => {
                 document.querySelectorAll('.register-step').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -3260,11 +3362,32 @@
         }
 
         // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS E OTIMIZADAS ========== //
+        function updateEncostaImmediately() {
+            const encostaSection = document.getElementById('encosta-section');
+            if (encostaSection && encostaSection.classList.contains('active')) {
+                // Invalidar cache
+                renderCache.encosta.data = null;
+                renderCache.encosta.timestamp = 0;
+                renderEncostaList();
+                console.log('🔄 Encosta atualizada imediata e preservada');
+            }
+        }
+
         function renderEncostaList() {
             const encostaContent = document.getElementById('encosta-content');
             if (!encostaContent) return;
             
-            // ✅ CORREÇÃO: USAR APENAS OS DADOS DO ARQUIVO ATUAL PARA A ENCOSTA
+            // Verificar cache
+            const now = Date.now();
+            const cache = renderCache.encosta;
+            
+            if (cache.data && (now - cache.timestamp) < cache.ttl) {
+                console.log('📦 Usando cache da encosta');
+                encostaContent.innerHTML = cache.data;
+                return;
+            }
+            
+            // ✅ USAR OS DADOS DO ARQUIVO ATUAL (QUE AGORA SÃO PERSISTENTES)
             let filteredDrivers = currentFileData.filter(driver => {
                 if (!driver.status) return false;
                 
@@ -3272,7 +3395,7 @@
                 const status = driver.status.toString().trim().toUpperCase();
                 if (status !== 'AGENDADO') return false;
                 
-                // ✅ CORREÇÃO: VERIFICAR SE PLACA E CARGA ESTÃO PREENCHIDOS
+                // ✅ VERIFICAR SE PLACA E CARGA ESTÃO PREENCHIDOS
                 const hasPlaca = driver.truckPlate && 
                                driver.truckPlate.toString().trim() !== '' && 
                                driver.truckPlate.toString().trim() !== '-';
@@ -3281,7 +3404,7 @@
                                driver.load.toString().trim() !== '' && 
                                driver.load.toString().trim() !== '-';
                 
-                // ✅ CORREÇÃO: RETORNAR APENAS SE TIVER PLACA E CARGA PREENCHIDOS
+                // ✅ RETORNAR APENAS SE TIVER PLACA E CARGA PREENCHIDOS
                 return hasPlaca && hasCarga;
             });
             
@@ -3297,7 +3420,7 @@
             ).length;
             
             if (filteredDrivers.length === 0) {
-                encostaContent.innerHTML = `
+                const html = `
                     <div class="empty-state">
                         <div>📋</div>
                         <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
@@ -3305,18 +3428,41 @@
                         <small>Total de veículos no arquivo: ${currentFileData.length}</small>
                     </div>
                 `;
+                encostaContent.innerHTML = html;
+                renderCache.encosta.data = html;
+                renderCache.encosta.timestamp = now;
                 return;
             }
             
+            let html;
             if (encostaViewMode === 'table') {
-                renderEncostaTableView(filteredDrivers, cargasGeradasCount);
+                html = renderEncostaTableView(filteredDrivers, cargasGeradasCount);
             } else {
-                renderEncostaCardsView(filteredDrivers, cargasGeradasCount);
+                html = renderEncostaCardsView(filteredDrivers, cargasGeradasCount);
             }
+            
+            encostaContent.innerHTML = html;
+            
+            // Salvar no cache
+            renderCache.encosta.data = html;
+            renderCache.encosta.timestamp = now;
+            
+            // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            setTimeout(() => {
+                document.querySelectorAll('.processo-encosta').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const ticket = this.getAttribute('data-ticket');
+                        goToProcessFromEncosta(ticket);
+                    });
+                });
+            }, 100);
         }
 
         function renderEncostaTableView(filteredDrivers, cargasGeradasCount) {
-            const encostaContent = document.getElementById('encosta-content');
+            const tableContainer = document.querySelector('.encosta-table-container');
+            if (tableContainer) {
+                encostaScrollPosition = tableContainer.scrollLeft;
+            }
             
             let encostaHTML = `
                 <div class="database-stats">
@@ -3364,7 +3510,6 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                // ✅ CORREÇÃO: AGORA USANDO A FUNÇÃO getProcessStatus CORRIGIDA
                 let statusClass = '';
                 let statusText = processoStatus;
                 
@@ -3406,31 +3551,10 @@
             
             encostaHTML += `</tbody></table></div>`;
             
-            const tableContainer = document.querySelector('.encosta-table-container');
-            if (tableContainer) {
-                encostaScrollPosition = tableContainer.scrollLeft;
-            }
-            
-            encostaContent.innerHTML = encostaHTML;
-            
-            if (tableContainer) {
-                tableContainer.scrollLeft = encostaScrollPosition;
-            }
-            
-            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
-            setTimeout(() => {
-                document.querySelectorAll('.processo-encosta').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const ticket = this.getAttribute('data-ticket');
-                        goToProcessFromEncosta(ticket);
-                    });
-                });
-            }, 100);
+            return encostaHTML;
         }
 
         function renderEncostaCardsView(filteredDrivers, cargasGeradasCount) {
-            const encostaContent = document.getElementById('encosta-content');
-            
             let encostaHTML = `
                 <div class="database-stats">
                     <div class="stat-card">
@@ -3460,7 +3584,6 @@
                 const cargaStatus = getCargaStatus(driver.ticket);
                 const processoStatus = getProcessStatus(driver);
                 
-                // ✅ CORREÇÃO: AGORA USANDO A FUNÇÃO getProcessStatus CORRIGIDA
                 let statusClass = '';
                 let statusText = processoStatus;
                 
@@ -3530,17 +3653,7 @@
             
             encostaHTML += `</div>`;
             
-            encostaContent.innerHTML = encostaHTML;
-            
-            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
-            setTimeout(() => {
-                document.querySelectorAll('.processo-encosta').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const ticket = this.getAttribute('data-ticket');
-                        goToProcessFromEncosta(ticket);
-                    });
-                });
-            }, 100);
+            return encostaHTML;
         }
 
         function truncateText(text, maxLength) {
@@ -3844,7 +3957,7 @@
                 tableContainer.scrollLeft = driversTableScrollPosition;
             }
             
-            // ✅ CORREÇÃO: ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
+            // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
             setTimeout(() => {
                 document.querySelectorAll('.view-driver').forEach(btn => {
                     btn.addEventListener('click', function() {
@@ -3998,7 +4111,7 @@
         function clearDatabase() {
             if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
                 
-                // ✅ CORREÇÃO: PRESERVAR APENAS PROCESSOS COM ETAPAS REGISTRADAS
+                // ✅ PRESERVAR APENAS PROCESSOS COM ETAPAS REGISTRADAS
                 const processosPreservados = [];
                 
                 driversData.forEach(driver => {
@@ -4029,7 +4142,7 @@
                 suppliersList = [];
                 cdList = [];
                 
-                // ✅ CORREÇÃO: RESTAURAR APENAS OS PROCESSOS PRESERVADOS
+                // ✅ RESTAURAR APENAS OS PROCESSOS PRESERVADOS
                 processosPreservados.forEach(processo => {
                     const driverExistente = driversData.find(d => d.ticket === processo.ticket);
                     if (!driverExistente) {
@@ -4066,7 +4179,7 @@
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                 
-                if (jsonData.length > 0) processAndSaveData(jsonData);
+                if (jsonData.length > 0) processAndSaveData(jsonData, file.name);
             };
             
             reader.readAsArrayBuffer(file);
@@ -4136,7 +4249,7 @@
         }
 
         // ========== FUNÇÃO PRINCIPAL DE PROCESSAMENTO DE DADOS - CORRIGIDA ========== //
-        function processAndSaveData(data) {
+        function processAndSaveData(data, fileName) {
             if (!data || data.length === 0) {
                 showNotification('❌ Arquivo vazio ou inválido', 'error');
                 return;
@@ -4149,7 +4262,7 @@
             const newSuppliers = new Set();
             const newCDs = new Set();
             
-            // ✅ CORREÇÃO: CRIAR MAPA DE PROCESSOS EXISTENTES (APENAS OS QUE TÊM ETAPAS REGISTRADAS)
+            // ✅ CORREÇÃO: CRIAR MAPA DE PROCESSOS EXISTENTES
             const existingProcessesMap = new Map();
             driversData.forEach(driver => {
                 if (driver.ticket) {
@@ -4166,8 +4279,9 @@
             let preservedCount = 0;
             let newCount = 0;
             
-            // ✅ NOVO: LIMPAR DADOS DO ARQUIVO ATUAL
+            // ✅ NOVO: ATUALIZAR currentFileData COM NOVOS DADOS
             currentFileData = [];
+            currentFileName = fileName;
             
             rows.forEach((row) => {
                 const driver = {};
@@ -4200,21 +4314,21 @@
                 if (driver.ticket) {
                     const ticketKey = driver.ticket.toString().trim();
                     
-                    // ✅ NOVO: ADICIONAR AO ARQUIVO ATUAL
+                    // ✅ ADICIONAR AO currentFileData (PARA ENCOSTA)
                     currentFileData.push({...driver});
                     
-                    // ✅ CORREÇÃO: VERIFICAR SE EXISTE PROCESSO PARA ESTA SENHA
+                    // ✅ VERIFICAR SE EXISTE PROCESSO PARA ESTA SENHA
                     if (existingProcessesMap.has(ticketKey)) {
                         const existingProcess = existingProcessesMap.get(ticketKey);
                         
-                        // ✅ CORREÇÃO: PRESERVAR APENAS OS DADOS DE PROCESSO DO EXISTENTE
+                        // ✅ PRESERVAR DADOS DE PROCESSO DO EXISTENTE
                         driver.contatoFeito = existingProcess.contatoFeito || '-';
                         driver.liberacaoEntregue = existingProcess.liberacaoEntregue || '-';
                         driver.encostouDoca = existingProcess.encostouDoca || '-';
                         
                         preservedCount++;
                     } else {
-                        // ✅ CORREÇÃO: NOVOS REGISTROS COMEÇAM SEM DADOS DE PROCESSO
+                        // ✅ NOVOS REGISTROS COMEÇAM SEM DADOS DE PROCESSO
                         if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
                         if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
                         if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
@@ -4229,17 +4343,17 @@
                 }
             });
             
-            // ✅ CORREÇÃO: ADICIONAR PROCESSOS PRESERVADOS QUE NÃO ESTÃO NO NOVO ARQUIVO
+            // ✅ ADICIONAR PROCESSOS PRESERVADOS QUE NÃO ESTÃO NO NOVO ARQUIVO
             existingProcessesMap.forEach((existingProcess, ticketKey) => {
                 const existsInNewData = newDrivers.some(driver => 
                     driver.ticket && driver.ticket.toString().trim() === ticketKey
                 );
                 
                 if (!existsInNewData) {
-                    // ✅ CORREÇÃO: ADICIONAR PROCESSO COMPLETO AO RELATÓRIO
+                    // ✅ ADICIONAR PROCESSO COMPLETO
                     newDrivers.push(existingProcess);
                     preservedCount++;
-                    console.log(`✅ Processo ${ticketKey} preservado no relatório`);
+                    console.log(`✅ Processo ${ticketKey} preservado`);
                 }
             });
             
@@ -4247,9 +4361,11 @@
             suppliersList = Array.from(newSuppliers);
             cdList = Array.from(newCDs);
             
-            // ✅ CORREÇÃO: ATUALIZAR BACKUP COM OS NOVOS DADOS
-            saveProcessBackup();
+            // ✅ SALVAR DADOS DA ENCOSTA (currentFileData)
+            saveCurrentFileData();
             
+            // ✅ SALVAR BACKUP E DADOS GERAIS
+            saveProcessBackup();
             saveToLocalStorage();
             
             updateDatabaseStats();
@@ -4258,10 +4374,19 @@
             const fileInput = document.getElementById('file-input');
             if (fileInput) fileInput.value = '';
             
+            // ✅ ATUALIZAR INFO DO ARQUIVO
+            const cargaFileInfo = document.getElementById('carga-file-info');
+            if (cargaFileInfo) {
+                cargaFileInfo.textContent = `Arquivo: ${fileName} | ${currentFileData.length} registros`;
+            }
+            
             showDiscreetNotification(`✅ Base atualizada! ${newCount} novos registros, ${preservedCount} processos preservados`, 1500);
             
-            // ✅ NOVO: ATUALIZAR A ENCOSTA COM OS DADOS DO ARQUIVO ATUAL
+            // ✅ ATUALIZAR A ENCOSTA COM OS DADOS DO ARQUIVO ATUAL
             if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                // Invalidar cache
+                renderCache.encosta.data = null;
+                renderCache.encosta.timestamp = 0;
                 renderEncostaList();
             }
         }
@@ -4405,17 +4530,28 @@
                                 updatedCount++;
                             }
                             
-                            if (item.driver_name !== null && item.driver_name !== undefined) {
-                                localDriver.driverName = item.driver_name;
-                            }
-                            if (item.supplier !== null && item.supplier !== undefined) {
-                                localDriver.supplier = item.supplier;
-                            }
-                            if (item.status !== null && item.status !== undefined) {
-                                localDriver.status = item.status;
+                            // Atualizar também no currentFileData
+                            const fileDataIndex = currentFileData.findIndex(d => 
+                                d.ticket && d.ticket.toString().trim() === ticketKey
+                            );
+                            if (fileDataIndex !== -1) {
+                                if (item.contato_feito !== null && item.contato_feito !== undefined) {
+                                    currentFileData[fileDataIndex].contatoFeito = item.contato_feito;
+                                }
+                                if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
+                                    currentFileData[fileDataIndex].liberacaoEntregue = item.liberacao_entregue;
+                                }
+                                if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
+                                    currentFileData[fileDataIndex].encostouDoca = item.encostou_doca;
+                                }
                             }
                         }
                     });
+
+                    // Salvar alterações no currentFileData
+                    if (updatedCount > 0) {
+                        saveCurrentFileData();
+                    }
 
                     supabaseCache = {
                         lastSync: now,
@@ -4449,10 +4585,6 @@
                 console.error('Erro ao salvar carga:', error);
                 return false;
             }
-        }
-
-        async function loadCargaFromSupabase() {
-            return loadCargaData();
         }
 
         function loadCargaData() {
@@ -4521,6 +4653,9 @@
                         `Arquivo: ${fileName} | ${cargaData.size} cargas geradas identificadas`;
                 }
                 
+                // Invalidar cache da encosta
+                renderCache.encosta.data = null;
+                renderCache.encosta.timestamp = 0;
                 renderEncostaList();
                 
                 showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
@@ -4610,7 +4745,7 @@
             return false;
         }
 
-        // ========== ATUALIZAÇÃO DA INTERFACE ========== //
+        // ========== ATUALIZAÇÃO DA INTERFACE OTIMIZADA ========== //
         function updateInterface() {
             updateDatabaseStats();
             renderDriversTable();
@@ -4620,6 +4755,9 @@
                 
                 switch(sectionId) {
                     case 'encosta-section':
+                        // Invalidar cache para forçar atualização
+                        renderCache.encosta.data = null;
+                        renderCache.encosta.timestamp = 0;
                         renderEncostaList();
                         break;
                     case 'report-section':
@@ -4637,13 +4775,18 @@
 
         function setupAutoRefresh() {
             setInterval(() => {
-                updateInterface();
-            }, 600000);
+                // Atualizar apenas se necessário (dados alterados)
+                if (dataChangeDetected) {
+                    updateInterface();
+                }
+            }, 600000); // 10 minutos
         }
 
-        // ========== INICIALIZAÇÃO ========== //
+        // ========== INICIALIZAÇÃO OTIMIZADA ========== //
         async function initializeData() {
-            console.log('📁 Carregando dados base do localStorage...');
+            console.log('📁 Inicializando sistema otimizado...');
+            
+            // Carregar dados locais primeiro
             const hasLocalData = loadFromLocalStorage();
             
             if (hasLocalData && driversData.length > 0) {
@@ -4652,36 +4795,56 @@
                 console.log('📋 Nenhum dado no localStorage, criando dados de exemplo...');
                 createSampleData();
             }
+            
+            // ✅ CARREGAR DADOS DA ENCOSTA (PERSISTENTES)
+            loadCurrentFileData();
+            console.log(`✅ ${currentFileData.length} registros da encosta carregados`);
 
+            // Carregar dados de carga
+            loadCargaData();
+            console.log(`✅ ${cargaData.size} cargas carregadas`);
+
+            // Carregar backup de processos
+            loadProcessBackup();
+            console.log(`✅ Backup de ${Object.keys(processBackupData).length} processos carregado`);
+
+            // Restaurar processos do backup
+            const restoredCount = restoreProcessBackup();
+            if (restoredCount > 0) {
+                console.log(`✅ ${restoredCount} processos restaurados do backup`);
+            }
+
+            // Testar conexão Supabase
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
-                console.log('🔄 Sincronizando processos do Supabase...');
-                loadProcessBackup();
-                
+                console.log('🔄 Sincronizando com Supabase...');
                 await loadFromSupabase();
                 
+                // Iniciar sincronização em tempo real
                 await startRealtimeSync();
                 startPeriodicSync();
                 
             } else {
                 console.log('📁 Supabase offline, usando dados locais...');
-                loadProcessBackup();
             }
 
-            restoreProcessBackup();
-
-            loadCargaData();
-
+            // Iniciar sistema de persistência
             initializePersistenceSystem();
             
+            // Configurar auto refresh
             setupAutoRefresh();
             
+            // Atualizar interface
             updateInterface();
             setupEventListeners();
             
-            console.log('✅ Sistema inicializado com sincronização em tempo real');
-
+            // Carregar tema
+            loadTheme();
+            
+            console.log('✅ Sistema inicializado com sucesso!');
+            
+            // Mostrar status da conexão
             setTimeout(async () => {
                 const testResult = await testSupabaseConnection();
                 if (testResult) {
@@ -4856,7 +5019,7 @@
             const clearDatabaseBtn = document.getElementById('clear-database-btn');
             if (clearDatabaseBtn) clearDatabaseBtn.addEventListener('click', clearDatabase);
             
-            // ========== NOVOS EVENT LISTENERS PARA VISUALIZAÇÃO DA ENCOSTA ========== //
+            // ========== EVENT LISTENERS PARA VISUALIZAÇÃO DA ENCOSTA ========== //
             const viewTableBtn = document.getElementById('view-table-btn');
             const viewCardsBtn = document.getElementById('view-cards-btn');
             
@@ -4865,6 +5028,9 @@
                     encostaViewMode = 'table';
                     viewTableBtn.classList.add('active');
                     if (viewCardsBtn) viewCardsBtn.classList.remove('active');
+                    // Invalidar cache
+                    renderCache.encosta.data = null;
+                    renderCache.encosta.timestamp = 0;
                     renderEncostaList();
                 });
             }
@@ -4874,6 +5040,9 @@
                     encostaViewMode = 'cards';
                     viewCardsBtn.classList.add('active');
                     if (viewTableBtn) viewTableBtn.classList.remove('active');
+                    // Invalidar cache
+                    renderCache.encosta.data = null;
+                    renderCache.encosta.timestamp = 0;
                     renderEncostaList();
                 });
             }
@@ -4913,7 +5082,6 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initializeData();
-            loadTheme(); // Carregar tema salvo
         });
 
         window.addEventListener('beforeunload', () => {
@@ -4922,6 +5090,12 @@
             }
             if (realtimeSubscription) {
                 realtimeSubscription.unsubscribe();
+            }
+            // Salvar dados finais
+            if (dataChangeDetected) {
+                saveToLocalStorage();
+                saveProcessBackup();
+                saveCurrentFileData();
             }
         });
     </script>
