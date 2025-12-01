@@ -1872,6 +1872,9 @@
             drivers: { data: null, timestamp: 0, ttl: 30000 }
         };
 
+        // ========== OTIMIZAÇÃO: DELEGAÇÃO DE EVENTOS PARA ENCOSTA ========== //
+        let encostaEventDelegationEnabled = false;
+
         // Mapeamento de colunas
         const columnMapping = {
             'SENHA': 'ticket',
@@ -1979,6 +1982,670 @@
                 info: '#3498DB'
             }
         };
+
+        // ========== OTIMIZAÇÃO: DELEGAÇÃO DE EVENTOS PARA ENCOSTA ========== //
+        function setupEncostaEventDelegation() {
+            const encostaContent = document.getElementById('encosta-content');
+            if (!encostaContent || encostaEventDelegationEnabled) return;
+            
+            encostaContent.addEventListener('click', function(e) {
+                const processoBtn = e.target.closest('.processo-encosta');
+                if (processoBtn) {
+                    const originalText = processoBtn.innerHTML;
+                    const originalBgColor = processoBtn.style.backgroundColor;
+                    
+                    // Feedback visual imediato
+                    processoBtn.innerHTML = '⌛ Abrindo...';
+                    processoBtn.style.backgroundColor = '#FFA500';
+                    processoBtn.disabled = true;
+                    
+                    const ticket = processoBtn.getAttribute('data-ticket');
+                    if (ticket) {
+                        // Usar setTimeout para permitir a atualização visual
+                        setTimeout(() => {
+                            goToProcessFromEncostaOptimized(ticket).finally(() => {
+                                // Restaurar o botão após 1 segundo
+                                setTimeout(() => {
+                                    processoBtn.innerHTML = originalText;
+                                    processoBtn.style.backgroundColor = originalBgColor;
+                                    processoBtn.disabled = false;
+                                }, 1000);
+                            });
+                        }, 10);
+                    }
+                }
+            });
+            
+            encostaEventDelegationEnabled = true;
+            console.log('✅ Delegação de eventos da encosta configurada');
+        }
+
+        // ========== FUNÇÃO OTIMIZADA PARA IR PARA PROCESSO DA ENCOSTA ========== //
+        async function goToProcessFromEncostaOptimized(ticket) {
+            // Busca ultra-rápida nos dados locais
+            let driver = currentFileData.find(d => 
+                d.ticket && d.ticket.toString().trim() === ticket.toString().trim()
+            ) || driversData.find(d => 
+                d.ticket && d.ticket.toString().trim() === ticket.toString().trim()
+            );
+            
+            if (driver) {
+                // Atualizar interface imediatamente
+                currentDriver = driver;
+                const ticketInput = document.getElementById('ticket-input');
+                if (ticketInput) ticketInput.value = ticket;
+                
+                // Mostrar seção de processo sem delay
+                showSection('process-section');
+                
+                // Renderizar timeline de forma otimizada
+                renderProcessTimelineOptimized(driver);
+                
+                return true;
+            } else {
+                // Se não encontrou localmente, buscar no Supabase
+                if (isOnline) {
+                    try {
+                        showDiscreetNotification(`Buscando senha ${ticket}...`, 1000);
+                        const { data, error } = await supabase
+                            .from('drivers')
+                            .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca')
+                            .eq('ticket', ticket)
+                            .single();
+
+                        if (!error && data) {
+                            driver = {
+                                ticket: data.ticket,
+                                driverName: data.driver_name,
+                                supplier: data.supplier,
+                                status: data.status,
+                                contatoFeito: data.contato_feito || '-',
+                                liberacaoEntregue: data.liberacao_entregue || '-',
+                                encostouDoca: data.encostou_doca || '-',
+                                cd: '-',
+                                arrivalDateTime: '-',
+                                scheduleDateTime: '-',
+                                truckPlate: '-',
+                                load: '-'
+                            };
+                            
+                            // Adicionar aos dados locais
+                            driversData.push(driver);
+                            currentDriver = driver;
+                            
+                            // Atualizar interface
+                            const ticketInput = document.getElementById('ticket-input');
+                            if (ticketInput) ticketInput.value = ticket;
+                            showSection('process-section');
+                            renderProcessTimelineOptimized(driver);
+                            
+                            return true;
+                        }
+                    } catch (error) {
+                        console.error('Erro ao buscar no Supabase:', error);
+                    }
+                }
+                
+                // Se chegou aqui, não encontrou
+                showDiscreetNotification(`❌ Senha ${ticket} não encontrada`, 2000);
+                return false;
+            }
+        }
+
+        // ========== RENDERIZAÇÃO OTIMIZADA DO PROCESSO ========== //
+        function renderProcessTimelineOptimized(driver) {
+            const processContent = document.getElementById('process-content');
+            if (!processContent) return;
+            
+            // Garantir propriedades
+            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
+            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
+            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+            
+            const steps = [
+                { 
+                    id: 'contato', 
+                    label: 'Contato Feito', 
+                    time: driver.contatoFeito || '-', 
+                    completed: !!driver.contatoFeito && driver.contatoFeito !== '-',
+                    field: 'contatoFeito',
+                    buttonText: '✅ Registrar Contato'
+                },
+                { 
+                    id: 'liberacao', 
+                    label: 'Liberação Entregue', 
+                    time: driver.liberacaoEntregue || '-', 
+                    completed: !!driver.liberacaoEntregue && driver.liberacaoEntregue !== '-',
+                    field: 'liberacaoEntregue',
+                    buttonText: '📄 Registrar Liberação'
+                },
+                { 
+                    id: 'doca', 
+                    label: 'Encostou em Doca', 
+                    time: driver.encostouDoca || '-', 
+                    completed: !!driver.encostouDoca && driver.encostouDoca !== '-',
+                    field: 'encostouDoca',
+                    buttonText: '🚛 Registrar Doca'
+                }
+            ];
+            
+            let nextStepIndex = steps.findIndex(step => !step.completed);
+            if (nextStepIndex === -1) nextStepIndex = steps.length;
+            
+            // Construir HTML de forma otimizada
+            let timelineHTML = `
+                <div class="driver-info">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Senha</span>
+                            <span class="info-value">${driver.ticket || '-'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Motorista</span>
+                            <span class="info-value">${driver.driverName || '-'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Fornecedor</span>
+                            <span class="info-value">${driver.supplier || '-'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Status Atual</span>
+                            <span class="info-value">${getProcessStatus(driver)}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>📋 Etapas do Processo</h3>
+                <div class="timeline">
+            `;
+            
+            steps.forEach((step, index) => {
+                let stepClass = step.completed ? 'completed' : (index === nextStepIndex ? 'current' : '');
+                let stepIcon = step.completed ? '✅' : (index === nextStepIndex ? '🟡' : '⚪');
+                
+                timelineHTML += `
+                    <div class="timeline-step">
+                        <div class="step-icon ${stepClass}">${stepIcon}</div>
+                        <div class="step-label"><strong>${step.label}</strong></div>
+                        <div class="step-time">${step.time !== '-' ? step.time : 'Não registrado'}</div>
+                        <div class="step-actions">
+                `;
+                
+                if (index === nextStepIndex) {
+                    timelineHTML += `
+                            <button class="btn btn-success btn-small register-step-fast" 
+                                    data-step="${step.field}" 
+                                    data-ticket="${driver.ticket}">
+                                ${step.buttonText}
+                            </button>
+                    `;
+                }
+                
+                if (step.completed) {
+                    timelineHTML += `
+                            <button class="btn btn-outline btn-small undo-step-fast" 
+                                    data-step="${step.field}" 
+                                    data-ticket="${driver.ticket}">
+                                ↩️ Desfazer
+                            </button>
+                    `;
+                }
+                
+                timelineHTML += `</div></div>`;
+            });
+            
+            timelineHTML += `</div>`;
+            
+            const completedSteps = steps.filter(step => step.completed).length;
+            const totalSteps = steps.length;
+            
+            timelineHTML += `
+                <div class="database-stats" style="margin-top: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value">${completedSteps}/${totalSteps}</div>
+                        <div class="stat-label">Etapas Concluídas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${getProcessStatus(driver)}</div>
+                        <div class="stat-label">Status do Processo</div>
+                    </div>
+                </div>
+            `;
+            
+            if (nextStepIndex === steps.length) {
+                timelineHTML += `
+                    <div class="alert alert-success" style="margin-top: 20px;">
+                        <strong>🎉 Processo Concluído!</strong> Todas as etapas foram registradas com sucesso.
+                    </div>
+                `;
+            }
+            
+            // Atribuir HTML de uma vez
+            processContent.innerHTML = timelineHTML;
+            
+            // Configurar event listeners otimizados
+            setTimeout(() => {
+                // Event listeners para botões rápidos
+                processContent.querySelectorAll('.register-step-fast').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const stepField = this.getAttribute('data-step');
+                        const ticket = this.getAttribute('data-ticket');
+                        registerProcessStepFast(ticket, stepField, this);
+                    });
+                });
+                
+                processContent.querySelectorAll('.undo-step-fast').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const stepField = this.getAttribute('data-step');
+                        const ticket = this.getAttribute('data-ticket');
+                        undoProcessStepFast(ticket, stepField, this);
+                    });
+                });
+            }, 50);
+        }
+
+        // ========== FUNÇÕES RÁPIDAS DE PROCESSO ========== //
+        async function registerProcessStepFast(ticket, stepField, buttonElement) {
+            // Feedback visual imediato
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '⌛ Registrando...';
+            buttonElement.disabled = true;
+            
+            // Encontrar driver
+            let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (!driver) {
+                driver = currentFileData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            }
+            
+            if (!driver) {
+                showDiscreetNotification('❌ Driver não encontrado', 1500);
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                return;
+            }
+            
+            // Registrar etapa
+            const now = new Date();
+            const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            
+            driver[stepField] = formattedDateTime;
+            
+            // Atualizar currentFileData também
+            const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (currentFileDriverIndex !== -1) {
+                currentFileData[currentFileDriverIndex][stepField] = formattedDateTime;
+            }
+            
+            // Marcar alteração
+            dataChangeDetected = true;
+            
+            // Atualizar currentDriver se for o mesmo
+            if (currentDriver && currentDriver.ticket === ticket) {
+                currentDriver = driver;
+            }
+            
+            // Salvar em background
+            setTimeout(() => {
+                saveProcessToSupabase(driver).catch(console.error);
+                saveCurrentFileData();
+            }, 100);
+            
+            // Atualizar interface da encosta se visível
+            if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                renderEncostaListFast();
+            }
+            
+            // Atualizar timeline localmente
+            setTimeout(() => {
+                renderProcessTimelineOptimized(driver);
+            }, 100);
+            
+            // Feedback
+            showDiscreetNotification(`✓ ${getStepName(stepField)} registrado!`, 1500);
+            
+            // Restaurar botão após 1.5s
+            setTimeout(() => {
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+            }, 1500);
+        }
+
+        async function undoProcessStepFast(ticket, stepField, buttonElement) {
+            if (!confirm(`Desfazer ${getStepName(stepField)}?`)) return;
+            
+            // Feedback visual
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '⌛ Desfazendo...';
+            buttonElement.disabled = true;
+            
+            // Encontrar driver
+            let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            if (!driver) {
+                driver = currentFileData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            }
+            
+            if (!driver) {
+                showDiscreetNotification('❌ Driver não encontrado', 1500);
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+                return;
+            }
+            
+            // Desfazer etapa
+            driver[stepField] = '-';
+            
+            // Atualizar currentFileData também
+            const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            if (currentFileDriverIndex !== -1) {
+                currentFileData[currentFileDriverIndex][stepField] = '-';
+            }
+            
+            // Marcar alteração
+            dataChangeDetected = true;
+            
+            // Atualizar currentDriver se for o mesmo
+            if (currentDriver && currentDriver.ticket === ticket) {
+                currentDriver = driver;
+            }
+            
+            // Salvar em background
+            setTimeout(() => {
+                saveProcessToSupabase(driver).catch(console.error);
+                saveCurrentFileData();
+            }, 100);
+            
+            // Atualizar interface da encosta se visível
+            if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                renderEncostaListFast();
+            }
+            
+            // Atualizar timeline localmente
+            setTimeout(() => {
+                renderProcessTimelineOptimized(driver);
+            }, 100);
+            
+            // Feedback
+            showDiscreetNotification(`↩️ ${getStepName(stepField)} desfeito!`, 1500);
+            
+            // Restaurar botão após 1.5s
+            setTimeout(() => {
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+            }, 1500);
+        }
+
+        // ========== RENDERIZAÇÃO RÁPIDA DA ENCOSTA ========== //
+        function renderEncostaListFast() {
+            const encostaContent = document.getElementById('encosta-content');
+            if (!encostaContent) return;
+            
+            // Verificar cache
+            const now = Date.now();
+            const cache = renderCache.encosta;
+            
+            if (cache.data && (now - cache.timestamp) < cache.ttl) {
+                console.log('📦 Usando cache da encosta (fast)');
+                encostaContent.innerHTML = cache.data;
+                return;
+            }
+            
+            // Usar requestAnimationFrame para renderização não-bloqueante
+            requestAnimationFrame(() => {
+                // Filtrar dados
+                let filteredDrivers = currentFileData.filter(driver => {
+                    if (!driver.status) return false;
+                    
+                    const status = driver.status.toString().trim().toUpperCase();
+                    if (status !== 'AGENDADO') return false;
+                    
+                    const hasPlaca = driver.truckPlate && 
+                                   driver.truckPlate.toString().trim() !== '' && 
+                                   driver.truckPlate.toString().trim() !== '-';
+                    
+                    const hasCarga = driver.load && 
+                                   driver.load.toString().trim() !== '' && 
+                                   driver.load.toString().trim() !== '-';
+                    
+                    return hasPlaca && hasCarga;
+                });
+                
+                // Ordenar por tempo de espera
+                filteredDrivers.sort((a, b) => {
+                    const timeA = calculateWaitTimeValue(a.arrivalDateTime);
+                    const timeB = calculateWaitTimeValue(b.arrivalDateTime);
+                    return timeB - timeA;
+                });
+
+                const cargasGeradasCount = filteredDrivers.filter(driver => 
+                    checkCargaStatus(driver.ticket)
+                ).length;
+                
+                if (filteredDrivers.length === 0) {
+                    const html = `
+                        <div class="empty-state">
+                            <div>📋</div>
+                            <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
+                            <p><strong>Filtro aplicado:</strong> Apenas veículos do arquivo atual com placa e carga preenchidos.</p>
+                            <small>Total de veículos no arquivo: ${currentFileData.length}</small>
+                        </div>
+                    `;
+                    encostaContent.innerHTML = html;
+                    renderCache.encosta.data = html;
+                    renderCache.encosta.timestamp = now;
+                    return;
+                }
+                
+                // Gerar HTML
+                let html;
+                if (encostaViewMode === 'table') {
+                    html = renderEncostaTableViewFast(filteredDrivers, cargasGeradasCount);
+                } else {
+                    html = renderEncostaCardsViewFast(filteredDrivers, cargasGeradasCount);
+                }
+                
+                // Atribuir HTML
+                encostaContent.innerHTML = html;
+                
+                // Salvar no cache
+                renderCache.encosta.data = html;
+                renderCache.encosta.timestamp = Date.now();
+            });
+        }
+
+        function renderEncostaTableViewFast(filteredDrivers, cargasGeradasCount) {
+            let html = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
+                <div class="encosta-table-container">
+                    <table class="encosta-table">
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Senha</th>
+                                <th>Motorista</th>
+                                <th>Fornecedor</th>
+                                <th>Placa</th>
+                                <th>Carga</th>
+                                <th>Chegada</th>
+                                <th>Espera</th>
+                                <th>Carga</th>
+                                <th>Processo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                const cargaStatus = getCargaStatus(driver.ticket);
+                const processoStatus = getProcessStatus(driver);
+                
+                let statusClass = '';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass = 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass = 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass = 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass = 'status-doca';
+                        break;
+                    default:
+                        statusClass = 'status-aguardando';
+                }
+                
+                html += `
+                    <tr>
+                        <td><strong>${index + 1}º</strong></td>
+                        <td>${driver.ticket || '-'}</td>
+                        <td title="${driver.driverName || '-'}">${truncateText(driver.driverName || '-', 15)}</td>
+                        <td title="${driver.supplier || '-'}">${truncateText(driver.supplier || '-', 15)}</td>
+                        <td>${driver.truckPlate || '-'}</td>
+                        <td>${driver.load || '-'}</td>
+                        <td title="${driver.arrivalDateTime || '-'}">${truncateText(driver.arrivalDateTime || '-', 12)}</td>
+                        <td>${waitTime}</td>
+                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
+                        <td><span class="${statusClass}">${truncateText(statusText, 12)}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}" title="Abrir processo">Processo</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table></div>`;
+            
+            return html;
+        }
+
+        function renderEncostaCardsViewFast(filteredDrivers, cargasGeradasCount) {
+            let html = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
+                <div class="encosta-cards">
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const waitTime = calculateWaitTime(driver.arrivalDateTime);
+                const cargaStatus = getCargaStatus(driver.ticket);
+                const processoStatus = getProcessStatus(driver);
+                
+                let statusClass = '';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass = 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass = 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass = 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass = 'status-doca';
+                        break;
+                    default:
+                        statusClass = 'status-aguardando';
+                }
+                
+                html += `
+                    <div class="encosta-card">
+                        <div class="encosta-card-header">
+                            <div class="encosta-card-position">${index + 1}º</div>
+                            <div class="encosta-card-ticket">${driver.ticket || '-'}</div>
+                        </div>
+                        <div class="encosta-card-body">
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Motorista</span>
+                                <span class="encosta-card-value">${driver.driverName || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Fornecedor</span>
+                                <span class="encosta-card-value">${driver.supplier || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Placa</span>
+                                <span class="encosta-card-value">${driver.truckPlate || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Carga</span>
+                                <span class="encosta-card-value">${driver.load || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Chegada</span>
+                                <span class="encosta-card-value">${driver.arrivalDateTime || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Espera</span>
+                                <span class="encosta-card-value">${waitTime}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Carga</span>
+                                <span class="encosta-card-value"><span class="${cargaStatus.class}">${cargaStatus.status}</span></span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Processo</span>
+                                <span class="encosta-card-value"><span class="${statusClass}">${statusText}</span></span>
+                            </div>
+                        </div>
+                        <div class="encosta-card-actions">
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            
+            return html;
+        }
 
         // ========== SISTEMA DE NOTIFICAÇÕES CORRIGIDO ========== //
         function showNotification(message, type = 'info') {
@@ -2733,15 +3400,13 @@
             
             switch(sectionId) {
                 case 'encosta-section':
-                    if (shouldRenderEncosta()) {
-                        renderEncostaList();
-                    }
+                    renderEncostaListFast();
                     break;
                 case 'report-section':
                     generateReport();
                     break;
                 case 'process-section':
-                    if (currentDriver) renderProcessTimeline();
+                    if (currentDriver) renderProcessTimelineOptimized(currentDriver);
                     break;
                 case 'search-section':
                     if (currentDriver) displayDriverInfo(currentDriver);
@@ -2751,17 +3416,6 @@
                     renderDriversTable();
                     break;
             }
-        }
-
-        // ✅ FUNÇÃO PARA VERIFICAR SE DEVE RENDERIZAR A ENCOSTA (CACHE)
-        function shouldRenderEncosta() {
-            const now = Date.now();
-            const cache = renderCache.encosta;
-            
-            if (!cache.data || (now - cache.timestamp) > cache.ttl) {
-                return true;
-            }
-            return false;
         }
 
         async function undoProcessStep(ticket, stepField) {
@@ -3205,7 +3859,7 @@
             if (targetLink) targetLink.classList.add('active');
             
             if (sectionId === 'report-section') generateReport();
-            else if (sectionId === 'encosta-section') renderEncostaList();
+            else if (sectionId === 'encosta-section') renderEncostaListFast();
         }
 
         function showTab(tabId) {
@@ -3220,22 +3874,7 @@
         }
 
         function goToProcessFromEncosta(ticket) {
-            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
-            
-            if (driver) {
-                currentDriver = driver;
-                const ticketInput = document.getElementById('ticket-input');
-                if (ticketInput) ticketInput.value = ticket;
-                displayDriverInfo(driver);
-                const driverResult = document.getElementById('driver-result');
-                if (driverResult) driverResult.style.display = 'block';
-                const driverNotFound = document.getElementById('driver-not-found');
-                if (driverNotFound) driverNotFound.style.display = 'none';
-                showSection('process-section');
-                renderProcessTimeline();
-            } else {
-                alert(`❌ Senha ${ticket} não encontrada na base de dados`);
-            }
+            return goToProcessFromEncostaOptimized(ticket);
         }
 
         // ========== FUNÇÕES DE BUSCA ========== //
@@ -3344,150 +3983,7 @@
                 return;
             }
             
-            if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
-            if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
-            if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
-            
-            const processContent = document.getElementById('process-content');
-            if (!processContent) return;
-            
-            const steps = [
-                { 
-                    id: 'contato', 
-                    label: 'Contato Feito', 
-                    time: currentDriver.contatoFeito || '-', 
-                    completed: !!currentDriver.contatoFeito && currentDriver.contatoFeito !== '-',
-                    field: 'contatoFeito',
-                    buttonText: '✅ Registrar Contato Feito'
-                },
-                { 
-                    id: 'liberacao', 
-                    label: 'Liberação Entregue', 
-                    time: currentDriver.liberacaoEntregue || '-', 
-                    completed: !!currentDriver.liberacaoEntregue && currentDriver.liberacaoEntregue !== '-',
-                    field: 'liberacaoEntregue',
-                    buttonText: '📄 Registrar Liberação Entregue'
-                },
-                { 
-                    id: 'doca', 
-                    label: 'Encostou em Doca', 
-                    time: currentDriver.encostouDoca || '-', 
-                    completed: !!currentDriver.encostouDoca && currentDriver.encostouDoca !== '-',
-                    field: 'encostouDoca',
-                    buttonText: '🚛 Registrar Encostou em Doca'
-                }
-            ];
-            
-            let nextStepIndex = steps.findIndex(step => !step.completed);
-            if (nextStepIndex === -1) nextStepIndex = steps.length;
-            
-            let timelineHTML = `
-                <div class="driver-info">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Senha</span>
-                            <span class="info-value">${currentDriver.ticket || '-'}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Motorista</span>
-                            <span class="info-value">${currentDriver.driverName || '-'}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Fornecedor</span>
-                            <span class="info-value">${currentDriver.supplier || '-'}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Status Atual</span>
-                            <span class="info-value">${getProcessStatus(currentDriver)}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <h3>📋 Etapas do Processo</h3>
-                <div class="timeline">
-            `;
-            
-            steps.forEach((step, index) => {
-                let stepClass = step.completed ? 'completed' : (index === nextStepIndex ? 'current' : '');
-                let stepIcon = step.completed ? '✅' : (index === nextStepIndex ? '🟡' : '⚪');
-                
-                timelineHTML += `
-                    <div class="timeline-step">
-                        <div class="step-icon ${stepClass}">${stepIcon}</div>
-                        <div class="step-label"><strong>${step.label}</strong></div>
-                        <div class="step-time">${step.time !== '-' ? step.time : 'Não registrado'}</div>
-                        <div class="step-actions">
-                `;
-                
-                if (index === nextStepIndex) {
-                    timelineHTML += `
-                            <button class="btn btn-success btn-small register-step" 
-                                    data-step="${step.field}" 
-                                    data-ticket="${currentDriver.ticket}">
-                                ${step.buttonText}
-                            </button>
-                    `;
-                }
-                
-                if (step.completed) {
-                    timelineHTML += `
-                            <button class="btn btn-outline btn-small undo-step" 
-                                    data-step="${step.field}" 
-                                    data-ticket="${currentDriver.ticket}">
-                                ↩️ Desfazer
-                            </button>
-                    `;
-                }
-                
-                timelineHTML += `</div></div>`;
-            });
-            
-            timelineHTML += `</div>`;
-            
-            const completedSteps = steps.filter(step => step.completed).length;
-            const totalSteps = steps.length;
-            
-            timelineHTML += `
-                <div class="database-stats" style="margin-top: 20px;">
-                    <div class="stat-card">
-                        <div class="stat-value">${completedSteps}/${totalSteps}</div>
-                        <div class="stat-label">Etapas Concluídas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${getProcessStatus(currentDriver)}</div>
-                        <div class="stat-label">Status do Processo</div>
-                    </div>
-                </div>
-            `;
-            
-            if (nextStepIndex === steps.length) {
-                timelineHTML += `
-                    <div class="alert alert-success" style="margin-top: 20px;">
-                        <strong>🎉 Processo Concluído!</strong> Todas as etapas foram registradas com sucesso.
-                    </div>
-                `;
-            }
-            
-            processContent.innerHTML = timelineHTML;
-            
-            // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
-            setTimeout(() => {
-                document.querySelectorAll('.register-step').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const stepField = this.getAttribute('data-step');
-                        const ticket = this.getAttribute('data-ticket');
-                        registerProcessStep(ticket, stepField);
-                    });
-                });
-                
-                document.querySelectorAll('.undo-step').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const stepField = this.getAttribute('data-step');
-                        const ticket = this.getAttribute('data-ticket');
-                        undoProcessStep(ticket, stepField);
-                    });
-                });
-            }, 100);
+            renderProcessTimelineOptimized(currentDriver);
         }
 
         // ========== FUNÇÕES DA ENCOSTA - CORRIGIDAS E OTIMIZADAS ========== //
@@ -3497,287 +3993,13 @@
                 // Invalidar cache
                 renderCache.encosta.data = null;
                 renderCache.encosta.timestamp = 0;
-                renderEncostaList();
+                renderEncostaListFast();
                 console.log('🔄 Encosta atualizada imediata');
             }
         }
 
         function renderEncostaList() {
-            const encostaContent = document.getElementById('encosta-content');
-            if (!encostaContent) return;
-            
-            // Verificar cache
-            const now = Date.now();
-            const cache = renderCache.encosta;
-            
-            if (cache.data && (now - cache.timestamp) < cache.ttl) {
-                console.log('📦 Usando cache da encosta');
-                encostaContent.innerHTML = cache.data;
-                return;
-            }
-            
-            // ✅ USAR OS DADOS DO ARQUIVO ATUAL (QUE AGORA SÃO PERSISTENTES)
-            let filteredDrivers = currentFileData.filter(driver => {
-                if (!driver.status) return false;
-                
-                // Verificar se o status é AGENDADO
-                const status = driver.status.toString().trim().toUpperCase();
-                if (status !== 'AGENDADO') return false;
-                
-                // ✅ VERIFICAR SE PLACA E CARGA ESTÃO PREENCHIDOS
-                const hasPlaca = driver.truckPlate && 
-                               driver.truckPlate.toString().trim() !== '' && 
-                               driver.truckPlate.toString().trim() !== '-';
-                
-                const hasCarga = driver.load && 
-                               driver.load.toString().trim() !== '' && 
-                               driver.load.toString().trim() !== '-';
-                
-                // ✅ RETORNAR APENAS SE TIVER PLACA E CARGA PREENCHIDOS
-                return hasPlaca && hasCarga;
-            });
-            
-            // Ordenar por horário de chegada (mais antigo primeiro)
-            filteredDrivers.sort((a, b) => {
-                const timeA = calculateWaitTimeValue(a.arrivalDateTime);
-                const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeB - timeA; // Ordem decrescente para mostrar quem espera mais tempo primeiro
-            });
-
-            const cargasGeradasCount = filteredDrivers.filter(driver => 
-                checkCargaStatus(driver.ticket)
-            ).length;
-            
-            if (filteredDrivers.length === 0) {
-                const html = `
-                    <div class="empty-state">
-                        <div>📋</div>
-                        <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
-                        <p><strong>Filtro aplicado:</strong> Apenas veículos do arquivo atual com placa e carga preenchidos.</p>
-                        <small>Total de veículos no arquivo: ${currentFileData.length}</small>
-                    </div>
-                `;
-                encostaContent.innerHTML = html;
-                renderCache.encosta.data = html;
-                renderCache.encosta.timestamp = now;
-                return;
-            }
-            
-            let html;
-            if (encostaViewMode === 'table') {
-                html = renderEncostaTableView(filteredDrivers, cargasGeradasCount);
-            } else {
-                html = renderEncostaCardsView(filteredDrivers, cargasGeradasCount);
-            }
-            
-            encostaContent.innerHTML = html;
-            
-            // Salvar no cache
-            renderCache.encosta.data = html;
-            renderCache.encosta.timestamp = now;
-            
-            // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
-            setTimeout(() => {
-                document.querySelectorAll('.processo-encosta').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const ticket = this.getAttribute('data-ticket');
-                        goToProcessFromEncosta(ticket);
-                    });
-                });
-            }, 100);
-        }
-
-        function renderEncostaTableView(filteredDrivers, cargasGeradasCount) {
-            let encostaHTML = `
-                <div class="database-stats">
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length}</div>
-                        <div class="stat-label">Veículos na Fila</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Geradas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Pendentes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${currentFileData.length}</div>
-                        <div class="stat-label">Total no Arquivo</div>
-                    </div>
-                </div>
-                
-                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
-                <div class="encosta-table-container">
-                    <table class="encosta-table">
-                        <thead>
-                            <tr>
-                                <th>Posição</th>
-                                <th>Senha</th>
-                                <th>Motorista</th>
-                                <th>Fornecedor</th>
-                                <th>Placa</th>
-                                <th>Carga</th>
-                                <th>Chegada</th>
-                                <th>Espera</th>
-                                <th>Carga</th>
-                                <th>Processo</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            filteredDrivers.forEach((driver, index) => {
-                const waitTime = calculateWaitTime(driver.arrivalDateTime);
-                const cargaStatus = getCargaStatus(driver.ticket);
-                const processoStatus = getProcessStatus(driver);
-                
-                let statusClass = '';
-                let statusText = processoStatus;
-                
-                switch(processoStatus) {
-                    case 'Aguardando Contato':
-                        statusClass = 'status-aguardando';
-                        break;
-                    case 'Contato Feito':
-                        statusClass = 'status-contato';
-                        break;
-                    case 'Liberação Entregue':
-                        statusClass = 'status-liberacao';
-                        break;
-                    case 'Encostou em Doca':
-                        statusClass = 'status-doca';
-                        break;
-                    default:
-                        statusClass = 'status-aguardando';
-                }
-                
-                encostaHTML += `
-                    <tr>
-                        <td><strong>${index + 1}º</strong></td>
-                        <td>${driver.ticket || '-'}</td>
-                        <td title="${driver.driverName || '-'}">${truncateText(driver.driverName || '-', 15)}</td>
-                        <td title="${driver.supplier || '-'}">${truncateText(driver.supplier || '-', 15)}</td>
-                        <td>${driver.truckPlate || '-'}</td>
-                        <td>${driver.load || '-'}</td>
-                        <td title="${driver.arrivalDateTime || '-'}">${truncateText(driver.arrivalDateTime || '-', 12)}</td>
-                        <td>${waitTime}</td>
-                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
-                        <td><span class="${statusClass}">${truncateText(statusText, 12)}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}" title="Abrir processo">Processo</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            encostaHTML += `</tbody></table></div>`;
-            
-            return encostaHTML;
-        }
-
-        function renderEncostaCardsView(filteredDrivers, cargasGeradasCount) {
-            let encostaHTML = `
-                <div class="database-stats">
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length}</div>
-                        <div class="stat-label">Veículos na Fila</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Geradas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Pendentes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${currentFileData.length}</div>
-                        <div class="stat-label">Total no Arquivo</div>
-                    </div>
-                </div>
-                
-                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
-                <div class="encosta-cards">
-            `;
-            
-            filteredDrivers.forEach((driver, index) => {
-                const waitTime = calculateWaitTime(driver.arrivalDateTime);
-                const cargaStatus = getCargaStatus(driver.ticket);
-                const processoStatus = getProcessStatus(driver);
-                
-                let statusClass = '';
-                let statusText = processoStatus;
-                
-                switch(processoStatus) {
-                    case 'Aguardando Contato':
-                        statusClass = 'status-aguardando';
-                        break;
-                    case 'Contato Feito':
-                        statusClass = 'status-contato';
-                        break;
-                    case 'Liberação Entregue':
-                        statusClass = 'status-liberacao';
-                        break;
-                    case 'Encostou em Doca':
-                        statusClass = 'status-doca';
-                        break;
-                    default:
-                        statusClass = 'status-aguardando';
-                }
-                
-                encostaHTML += `
-                    <div class="encosta-card">
-                        <div class="encosta-card-header">
-                            <div class="encosta-card-position">${index + 1}º</div>
-                            <div class="encosta-card-ticket">${driver.ticket || '-'}</div>
-                        </div>
-                        <div class="encosta-card-body">
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Motorista</span>
-                                <span class="encosta-card-value">${driver.driverName || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Fornecedor</span>
-                                <span class="encosta-card-value">${driver.supplier || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Placa</span>
-                                <span class="encosta-card-value">${driver.truckPlate || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Carga</span>
-                                <span class="encosta-card-value">${driver.load || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Chegada</span>
-                                <span class="encosta-card-value">${driver.arrivalDateTime || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Espera</span>
-                                <span class="encosta-card-value">${waitTime}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Status Carga</span>
-                                <span class="encosta-card-value"><span class="${cargaStatus.class}">${cargaStatus.status}</span></span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Status Processo</span>
-                                <span class="encosta-card-value"><span class="${statusClass}">${statusText}</span></span>
-                            </div>
-                        </div>
-                        <div class="encosta-card-actions">
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            encostaHTML += `</div>`;
-            
-            return encostaHTML;
+            renderEncostaListFast();
         }
 
         function truncateText(text, maxLength) {
@@ -4502,7 +4724,7 @@
                 // Invalidar cache
                 renderCache.encosta.data = null;
                 renderCache.encosta.timestamp = 0;
-                renderEncostaList();
+                renderEncostaListFast();
             }
         }
 
@@ -4771,7 +4993,7 @@
                 // Invalidar cache da encosta
                 renderCache.encosta.data = null;
                 renderCache.encosta.timestamp = 0;
-                renderEncostaList();
+                renderEncostaListFast();
                 
                 showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
                 
@@ -4842,13 +5064,13 @@
                         // Invalidar cache para forçar atualização
                         renderCache.encosta.data = null;
                         renderCache.encosta.timestamp = 0;
-                        renderEncostaList();
+                        renderEncostaListFast();
                         break;
                     case 'report-section':
                         generateReport();
                         break;
                     case 'process-section':
-                        if (currentDriver) renderProcessTimeline();
+                        if (currentDriver) renderProcessTimelineOptimized(currentDriver);
                         break;
                     case 'search-section':
                         if (currentDriver) displayDriverInfo(currentDriver);
@@ -5115,7 +5337,7 @@
                     // Invalidar cache
                     renderCache.encosta.data = null;
                     renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    renderEncostaListFast();
                 });
             }
             
@@ -5127,7 +5349,7 @@
                     // Invalidar cache
                     renderCache.encosta.data = null;
                     renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    renderEncostaListFast();
                 });
             }
             
@@ -5156,6 +5378,9 @@
             });
             
             setupFilterListeners();
+            
+            // Configurar delegação de eventos para encosta
+            setupEncostaEventDelegation();
             
             setTimeout(() => {
                 if (loadFilterValues()) {
