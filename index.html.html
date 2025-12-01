@@ -1423,7 +1423,7 @@
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Acionado</span>
-                                    <span class="info-value" id="driver-called">/span>
+                                    <span class="info-value" id="driver-called"></span>
                                 </div>
                             </div>
                         </div>
@@ -1855,10 +1855,6 @@
         // ========== SISTEMA DE CARGA ========== //
         let cargaData = new Set();
         let currentCargaFile = null;
-
-        // ========== SISTEMA DE PRESERVAÇÃO DE SCROLL ========== //
-        let encostaScrollPosition = 0;
-        let driversTableScrollPosition = 0;
 
         // ========== SISTEMA DE SENHA DE SEGURANÇA ========== //
         const SECURITY_PASSWORD = "Assai";
@@ -2709,7 +2705,7 @@
                 currentDriver = driver;
             }
             
-            // Atualizar a encosta imediatamente se estiver visível
+            // Atualizar a encosta imediamente se estiver visível
             updateEncostaImmediately();
             
             // Salvar no Supabase em background
@@ -2906,6 +2902,49 @@
             }
         }
 
+        // ========== FUNÇÃO PARA EXCLUIR PERMANENTEMENTE DO SUPABASE ========== //
+        async function deleteFromSupabasePermanently(tickets) {
+            if (!tickets || tickets.length === 0) return true;
+            
+            try {
+                // Processar em lotes para evitar timeout
+                const batchSize = 20;
+                let deletedCount = 0;
+                
+                for (let i = 0; i < tickets.length; i += batchSize) {
+                    const batch = tickets.slice(i, i + batchSize);
+                    
+                    // Para cada ticket no batch, excluir do Supabase
+                    const deletePromises = batch.map(ticket => 
+                        supabase
+                            .from('drivers')
+                            .delete()
+                            .eq('ticket', ticket)
+                    );
+                    
+                    const results = await Promise.all(deletePromises);
+                    
+                    // Verificar erros
+                    results.forEach((result, index) => {
+                        if (result.error) {
+                            console.error(`❌ Erro ao excluir ticket ${batch[index]} do Supabase:`, result.error);
+                        } else {
+                            deletedCount++;
+                        }
+                    });
+                    
+                    // Pequena pausa entre lotes
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
+                console.log(`✅ ${deletedCount} registros excluídos permanentemente do Supabase`);
+                return deletedCount > 0;
+            } catch (error) {
+                console.error('❌ Erro ao excluir permanentemente do Supabase:', error);
+                return false;
+            }
+        }
+
         // ========== NOVA FUNÇÃO: LIMPAR TODOS OS REGISTROS DE PROCESSO ========== //
         function clearAllProcesses() {
             showPasswordModal('clearAllProcesses');
@@ -2965,54 +3004,98 @@
             }
         }
 
-        // ========== NOVA FUNÇÃO: LIMPAR PROCESSOS INCOMPLETOS ========== //
+        // ========== NOVA FUNÇÃO: LIMPAR PROCESSOS INCOMPLETOS (EM ANDAMENTO) DEFINITIVAMENTE ========== //
         function clearIncompleteProcesses() {
             showPasswordModal('clearIncompleteProcesses');
         }
 
         async function clearIncompleteProcessesConfirmed() {
             try {
-                let clearedCount = 0;
-
+                // Encontrar todos os processos em andamento
+                // Processos em andamento são aqueles que têm alguma etapa preenchida mas NÃO têm "Encostou em Doca"
+                let incompleteProcesses = [];
+                let ticketsToDelete = [];
+                
+                // Identificar processos em andamento
                 driversData.forEach(driver => {
-                    const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-';
+                    if (!driver.ticket) return;
                     
-                    if (!hasEncostouDoca) {
-                        const hasAnyProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                    const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-';
+                    const hasAnyProcessStep = (driver.contatoFeito && driver.contatoFeito !== '-') || 
                                             (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-');
-                        
-                        if (hasAnyProcess) {
-                            driver.contatoFeito = '-';
-                            driver.liberacaoEntregue = '-';
-                            clearedCount++;
-                            
-                            // ✅ ATUALIZAR currentFileData TAMBÉM
-                            const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === driver.ticket.toString().trim());
-                            if (currentFileDriverIndex !== -1) {
-                                currentFileData[currentFileDriverIndex].contatoFeito = '-';
-                                currentFileData[currentFileDriverIndex].liberacaoEntregue = '-';
-                            }
-                        }
+                    
+                    // Se tem alguma etapa mas não tem "Encostou em Doca", é processo em andamento
+                    if (hasAnyProcessStep && !hasEncostouDoca) {
+                        incompleteProcesses.push(driver.ticket);
+                        ticketsToDelete.push(driver.ticket.toString().trim());
                     }
                 });
 
-                // Salvar alterações
-                if (clearedCount > 0) {
-                    saveCurrentFileData();
-                    dataChangeDetected = true;
-                    
-                    // ✅ ATUALIZAR ENCOSTA IMEDIATAMENTE
-                    updateEncostaImmediately();
-                    
-                    updateInterface();
-                    showDiscreetNotification(`✅ ${clearedCount} processos incompletos foram limpos!`, 2000);
-                } else {
-                    showDiscreetNotification('ℹ️ Nenhum processo incompleto encontrado', 1500);
+                if (incompleteProcesses.length === 0) {
+                    showDiscreetNotification('ℹ️ Nenhum processo em andamento encontrado', 1500);
+                    return;
                 }
 
+                // ✅ CONFIRMAÇÃO FINAL
+                if (!confirm(`⚠️ ATENÇÃO: Você está prestes a excluir PERMANENTEMENTE ${incompleteProcesses.length} processo(s) em andamento.\n\nEsta ação:\n1️⃣ Removerá os dados do Supabase permanentemente\n2️⃣ Removerá os dados localmente\n3️⃣ NÃO poderá ser desfeita\n\nDeseja continuar?`)) {
+                    return;
+                }
+
+                console.log(`🗑️ Excluindo ${incompleteProcesses.length} processos em andamento permanentemente...`);
+
+                // 1️⃣ Excluir permanentemente do Supabase
+                const supabaseDeleted = await deleteFromSupabasePermanently(ticketsToDelete);
+                
+                if (!supabaseDeleted) {
+                    showNotification('❌ Erro ao excluir processos do Supabase', 'error');
+                    return;
+                }
+
+                // 2️⃣ Remover dos dados locais
+                // Criar novo array apenas com os processos que NÃO são em andamento
+                const newDriversData = driversData.filter(driver => {
+                    if (!driver.ticket) return true;
+                    return !ticketsToDelete.includes(driver.ticket.toString().trim());
+                });
+
+                // 3️⃣ Atualizar currentFileData também
+                const newCurrentFileData = currentFileData.filter(driver => {
+                    if (!driver.ticket) return true;
+                    return !ticketsToDelete.includes(driver.ticket.toString().trim());
+                });
+
+                // 4️⃣ Atualizar arrays principais
+                driversData = newDriversData;
+                currentFileData = newCurrentFileData;
+
+                // 5️⃣ Remover do backup de processos
+                ticketsToDelete.forEach(ticket => {
+                    if (processBackupData[ticket]) {
+                        delete processBackupData[ticket];
+                    }
+                });
+
+                // 6️⃣ Salvar todas as alterações
+                saveToLocalStorage();
+                saveCurrentFileData();
+                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
+                
+                dataChangeDetected = true;
+
+                // 7️⃣ Atualizar interface
+                updateEncostaImmediately();
+                updateInterface();
+                
+                // 8️⃣ Notificar sucesso
+                const message = `✅ ${incompleteProcesses.length} processo(s) em andamento excluído(s) permanentemente!`;
+                showDiscreetNotification(message, 3000);
+                
+                // 9️⃣ Log para debug
+                console.log(`✅ Processos em andamento excluídos: ${incompleteProcesses.join(', ')}`);
+
             } catch (error) {
-                console.error('Erro ao limpar processos incompletos:', error);
-                showNotification('❌ Erro ao limpar processos incompletos', 'error');
+                console.error('❌ Erro fatal ao limpar processos em andamento:', error);
+                showNotification('❌ Erro crítico ao excluir processos', 'error');
             }
         }
 
@@ -3415,7 +3498,7 @@
                 renderCache.encosta.data = null;
                 renderCache.encosta.timestamp = 0;
                 renderEncostaList();
-                console.log('🔄 Encosta atualizada imediata e preservada');
+                console.log('🔄 Encosta atualizada imediata');
             }
         }
 
@@ -3505,11 +3588,6 @@
         }
 
         function renderEncostaTableView(filteredDrivers, cargasGeradasCount) {
-            const tableContainer = document.querySelector('.encosta-table-container');
-            if (tableContainer) {
-                encostaScrollPosition = tableContainer.scrollLeft;
-            }
-            
             let encostaHTML = `
                 <div class="database-stats">
                     <div class="stat-card">
@@ -3965,11 +4043,6 @@
             
             if (!tableBody) return;
             
-            const tableContainer = document.getElementById('drivers-table-container');
-            if (tableContainer) {
-                driversTableScrollPosition = tableContainer.scrollLeft;
-            }
-            
             tableBody.innerHTML = '';
             
             if (dataToShow.length === 0) {
@@ -3998,10 +4071,6 @@
                 `;
                 tableBody.appendChild(row);
             });
-            
-            if (tableContainer) {
-                tableContainer.scrollLeft = driversTableScrollPosition;
-            }
             
             // ✅ ADICIONAR EVENT LISTENERS APÓS RENDERIZAR
             setTimeout(() => {
