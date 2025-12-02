@@ -1809,10 +1809,11 @@
                     from: () => ({ 
                         select: () => Promise.resolve({ data: [], error: null }),
                         upsert: () => Promise.resolve({ error: null }),
+                        delete: () => Promise.resolve({ error: null }),
                         on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
                     }),
                     channel: () => ({ 
-                        on: () => ({ subscribe: () => 'SUBSCRIBED' }) 
+                        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }) 
                     })
                 };
             }
@@ -1822,10 +1823,11 @@
                 from: () => ({ 
                     select: () => Promise.resolve({ data: [], error: null }),
                     upsert: () => Promise.resolve({ error: null }),
+                    delete: () => Promise.resolve({ error: null }),
                     on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
                 }),
                 channel: () => ({ 
-                    on: () => ({ subscribe: () => 'SUBSCRIBED' }) 
+                    on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }) 
                 })
             };
         }
