@@ -1874,6 +1874,12 @@
             drivers: { data: null, timestamp: 0, ttl: 30000 }
         };
 
+        // ========== CACHE OTIMIZADO PARA ENCOSTA ========== //
+        let processStatusCache = new Map(); // Cache de status de processo por ticket
+        let encostaSortedCache = null; // Cache da lista ordenada da encosta
+        let encostaCacheTimestamp = 0; // Timestamp do cache
+        let encostaCacheTTL = 10000; // 10 segundos de cache
+
         // Mapeamento de colunas
         const columnMapping = {
             'SENHA': 'ticket',
@@ -2006,28 +2012,42 @@
             return stepNames[stepField] || stepField;
         }
 
-        function getProcessStatus(driver) {
+        // ========== FUNÇÃO OTIMIZADA PARA GET PROCESS STATUS ========== //
+        function getProcessStatusOptimized(driver) {
             if (!driver) return 'Não definido';
             
+            const ticket = driver.ticket?.toString().trim();
+            if (!ticket) return 'Não definido';
+            
+            // Verificar cache primeiro
+            if (processStatusCache.has(ticket)) {
+                return processStatusCache.get(ticket);
+            }
+            
             // Garantir que temos os campos
-            if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
-            if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
-            if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+            const contatoFeito = driver.contatoFeito || '-';
+            const liberacaoEntregue = driver.liberacaoEntregue || '-';
+            const encostouDoca = driver.encostouDoca || '-';
             
-            const hasContatoFeito = driver.contatoFeito && driver.contatoFeito !== '-' && driver.contatoFeito !== '';
-            const hasLiberacaoEntregue = driver.liberacaoEntregue && driver.liberacaoEntregue !== '-' && driver.liberacaoEntregue !== '';
-            const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-' && driver.encostouDoca !== '';
+            let status;
             
-            if (hasEncostouDoca) {
-                return 'Encostou em Doca';
+            if (encostouDoca && encostouDoca !== '-') {
+                status = 'Encostou em Doca';
+            } else if (liberacaoEntregue && liberacaoEntregue !== '-') {
+                status = 'Liberação Entregue';
+            } else if (contatoFeito && contatoFeito !== '-') {
+                status = 'Contato Feito';
+            } else {
+                status = 'Aguardando Contato';
             }
-            if (hasLiberacaoEntregue) {
-                return 'Liberação Entregue';
-            }
-            if (hasContatoFeito) {
-                return 'Contato Feito';
-            }
-            return 'Aguardando Contato';
+            
+            // Armazenar no cache
+            processStatusCache.set(ticket, status);
+            return status;
+        }
+
+        function getProcessStatus(driver) {
+            return getProcessStatusOptimized(driver);
         }
 
         function truncateText(text, maxLength) {
@@ -2036,7 +2056,8 @@
             return text.substring(0, maxLength) + '...';
         }
 
-        function calculateWaitTime(arrivalDateTime) {
+        // ========== FUNÇÃO OTIMIZADA PARA CALCULAR ESPERA ========== //
+        function calculateWaitTimeOptimized(arrivalDateTime) {
             if (!arrivalDateTime || arrivalDateTime === '-') return '00:00:00';
             
             try {
@@ -2046,29 +2067,26 @@
                     const excelEpoch = new Date(1899, 11, 30);
                     arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
                 } else {
-                    const converted = convertToDisplayFormat(arrivalDateTime);
-                    if (converted && converted !== '-') {
-                        const parts = converted.split(' ');
-                        if (parts.length === 2) {
-                            const datePart = parts[0].split('/');
-                            const timePart = parts[1].split(':');
-                            if (datePart.length === 3 && timePart.length >= 2) {
-                                arrival = new Date(
-                                    parseInt(datePart[2]),
-                                    parseInt(datePart[1]) - 1,
-                                    parseInt(datePart[0]),
-                                    parseInt(timePart[0]),
-                                    parseInt(timePart[1]),
-                                    timePart[2] ? parseInt(timePart[2]) : 0
-                                );
-                            }
+                    const parts = arrivalDateTime.toString().split(' ');
+                    if (parts.length === 2) {
+                        const datePart = parts[0].split('/');
+                        const timePart = parts[1].split(':');
+                        if (datePart.length === 3 && timePart.length >= 2) {
+                            arrival = new Date(
+                                parseInt(datePart[2]),
+                                parseInt(datePart[1]) - 1,
+                                parseInt(datePart[0]),
+                                parseInt(timePart[0]),
+                                parseInt(timePart[1]),
+                                timePart[2] ? parseInt(timePart[2]) : 0
+                            );
                         }
                     }
                 }
                 
-                const now = new Date();
                 if (!arrival || isNaN(arrival.getTime())) return '00:00:00';
                 
+                const now = new Date();
                 const diffMs = now - arrival;
                 if (diffMs < 0) return '00:00:00';
                 
@@ -2083,6 +2101,10 @@
             }
         }
 
+        function calculateWaitTime(arrivalDateTime) {
+            return calculateWaitTimeOptimized(arrivalDateTime);
+        }
+
         function calculateWaitTimeValue(arrivalDateTime) {
             if (!arrivalDateTime || arrivalDateTime === '-') return 0;
             
@@ -2093,29 +2115,26 @@
                     const excelEpoch = new Date(1899, 11, 30);
                     arrival = new Date(excelEpoch.getTime() + arrivalDateTime * 86400 * 1000);
                 } else {
-                    const converted = convertToDisplayFormat(arrivalDateTime);
-                    if (converted && converted !== '-') {
-                        const parts = converted.split(' ');
-                        if (parts.length === 2) {
-                            const datePart = parts[0].split('/');
-                            const timePart = parts[1].split(':');
-                            if (datePart.length === 3 && timePart.length >= 2) {
-                                arrival = new Date(
-                                    parseInt(datePart[2]),
-                                    parseInt(datePart[1]) - 1,
-                                    parseInt(datePart[0]),
-                                    parseInt(timePart[0]),
-                                    parseInt(timePart[1]),
-                                    timePart[2] ? parseInt(timePart[2]) : 0
-                                );
-                            }
+                    const parts = arrivalDateTime.toString().split(' ');
+                    if (parts.length === 2) {
+                        const datePart = parts[0].split('/');
+                        const timePart = parts[1].split(':');
+                        if (datePart.length === 3 && timePart.length >= 2) {
+                            arrival = new Date(
+                                parseInt(datePart[2]),
+                                parseInt(datePart[1]) - 1,
+                                parseInt(datePart[0]),
+                                parseInt(timePart[0]),
+                                parseInt(timePart[1]),
+                                timePart[2] ? parseInt(timePart[2]) : 0
+                            );
                         }
                     }
                 }
                 
-                const now = new Date();
                 if (!arrival || isNaN(arrival.getTime())) return 0;
                 
+                const now = new Date();
                 return now - arrival;
                 
             } catch (e) {
@@ -2183,6 +2202,348 @@
             }
             
             return dateTimeValue;
+        }
+
+        // ========== FUNÇÃO PARA INVALIDAR CACHE DA ENCOSTA ========== //
+        function invalidateEncostaCache() {
+            encostaSortedCache = null;
+            processStatusCache.clear();
+            renderCache.encosta.data = null;
+            renderCache.encosta.timestamp = 0;
+        }
+
+        // ========== FUNÇÃO OTIMIZADA PARA BUSCAR DADOS DA ENCOSTA ========== //
+        function getEncostaDataOptimized() {
+            const now = Date.now();
+            
+            // Verificar cache primeiro
+            if (encostaSortedCache && (now - encostaCacheTimestamp) < encostaCacheTTL) {
+                console.log('📦 Usando cache otimizado da encosta');
+                return encostaSortedCache;
+            }
+            
+            console.time('EncostaProcessing');
+            
+            // 1. Criar índice rápido dos dados de processo
+            const processIndex = new Map();
+            driversData.forEach(driver => {
+                if (driver.ticket) {
+                    const ticket = driver.ticket.toString().trim();
+                    processIndex.set(ticket, {
+                        contatoFeito: driver.contatoFeito || '-',
+                        liberacaoEntregue: driver.liberacaoEntregue || '-',
+                        encostouDoca: driver.encostouDoca || '-',
+                        processStatus: getProcessStatusOptimized(driver)
+                    });
+                }
+            });
+            
+            // 2. Filtrar e processar em uma única passada
+            const filtered = [];
+            
+            for (const driver of currentFileData) {
+                if (!driver.status || driver.status.toString().trim().toUpperCase() !== 'AGENDADO') {
+                    continue;
+                }
+                
+                const hasPlaca = driver.truckPlate && 
+                                driver.truckPlate.toString().trim() !== '' && 
+                                driver.truckPlate.toString().trim() !== '-';
+                
+                const hasCarga = driver.load && 
+                                driver.load.toString().trim() !== '' && 
+                                driver.load.toString().trim() !== '-';
+                
+                if (!hasPlaca || !hasCarga) {
+                    continue;
+                }
+                
+                // Buscar status do processo do índice (O(1))
+                const processData = processIndex.get(driver.ticket?.toString().trim()) || {
+                    contatoFeito: '-',
+                    liberacaoEntregue: '-',
+                    encostouDoca: '-',
+                    processStatus: 'Aguardando Contato'
+                };
+                
+                // Calcular tempo de espera otimizado
+                const waitTime = calculateWaitTimeOptimized(driver.arrivalDateTime);
+                
+                // Verificar carga (acesso O(1) ao Set)
+                const hasCargaGerada = cargaData.has(driver.load?.toString().trim());
+                const cargaStatus = hasCargaGerada ? {
+                    status: 'Gerado',
+                    class: 'status-gerada'
+                } : {
+                    status: 'Pendente',
+                    class: 'status-pendente'
+                };
+                
+                filtered.push({
+                    ...driver,
+                    processData,
+                    waitTime,
+                    cargaStatus
+                });
+            }
+            
+            // 3. Ordenar com algoritmo otimizado
+            filtered.sort((a, b) => {
+                // Converter datas apenas uma vez para comparação
+                const timeA = calculateWaitTimeOptimized(a.arrivalDateTime);
+                const timeB = calculateWaitTimeOptimized(b.arrivalDateTime);
+                
+                // Comparar strings diretamente (formato HH:MM:SS)
+                return timeB.localeCompare(timeA);
+            });
+            
+            encostaSortedCache = filtered;
+            encostaCacheTimestamp = now;
+            
+            console.timeEnd('EncostaProcessing');
+            console.log(`✅ Encosta otimizada: ${filtered.length} registros processados`);
+            
+            return filtered;
+        }
+
+        // ========== FUNÇÃO OTIMIZADA DE RENDERIZAÇÃO DA ENCOSTA ========== //
+        function renderEncostaListOptimized() {
+            const encostaContent = document.getElementById('encosta-content');
+            if (!encostaContent) return;
+            
+            const now = Date.now();
+            const cache = renderCache.encosta;
+            
+            if (cache.data && (now - cache.timestamp) < cache.ttl) {
+                console.log('📦 Usando cache de renderização da encosta');
+                encostaContent.innerHTML = cache.data;
+                return;
+            }
+            
+            // Obter dados otimizados
+            const filteredDrivers = getEncostaDataOptimized();
+            
+            const cargasGeradasCount = filteredDrivers.filter(driver => 
+                driver.cargaStatus.status === 'Gerado'
+            ).length;
+            
+            if (filteredDrivers.length === 0) {
+                const html = `
+                    <div class="empty-state">
+                        <div>📋</div>
+                        <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
+                        <p><strong>Filtro aplicado:</strong> Apenas veículos do arquivo atual com placa e carga preenchidos.</p>
+                        <small>Total de veículos no arquivo: ${currentFileData.length}</small>
+                    </div>
+                `;
+                encostaContent.innerHTML = html;
+                renderCache.encosta.data = html;
+                renderCache.encosta.timestamp = now;
+                return;
+            }
+            
+            // Gerar HTML com dados já processados
+            let html;
+            if (encostaViewMode === 'table') {
+                html = renderEncostaTableViewOptimized(filteredDrivers, cargasGeradasCount);
+            } else {
+                html = renderEncostaCardsViewOptimized(filteredDrivers, cargasGeradasCount);
+            }
+            
+            encostaContent.innerHTML = html;
+            renderCache.encosta.data = html;
+            renderCache.encosta.timestamp = now;
+        }
+
+        // ========== RENDERIZAÇÃO OTIMIZADA DA TABELA ========== //
+        function renderEncostaTableViewOptimized(filteredDrivers, cargasGeradasCount) {
+            let html = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
+                <div class="encosta-table-container">
+                    <table class="encosta-table">
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Senha</th>
+                                <th>Motorista</th>
+                                <th>Fornecedor</th>
+                                <th>Placa</th>
+                                <th>Carga</th>
+                                <th>Chegada</th>
+                                <th>Espera</th>
+                                <th>Carga</th>
+                                <th>Processo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const processoStatus = driver.processData.processStatus;
+                
+                let statusClass = '';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass = 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass = 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass = 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass = 'status-doca';
+                        break;
+                    default:
+                        statusClass = 'status-aguardando';
+                }
+                
+                html += `
+                    <tr>
+                        <td><strong>${index + 1}º</strong></td>
+                        <td>${driver.ticket || '-'}</td>
+                        <td title="${driver.driverName || '-'}">${truncateText(driver.driverName || '-', 15)}</td>
+                        <td title="${driver.supplier || '-'}">${truncateText(driver.supplier || '-', 15)}</td>
+                        <td>${driver.truckPlate || '-'}</td>
+                        <td>${driver.load || '-'}</td>
+                        <td title="${driver.arrivalDateTime || '-'}">${truncateText(driver.arrivalDateTime || '-', 12)}</td>
+                        <td>${driver.waitTime}</td>
+                        <td><span class="${driver.cargaStatus.class}">${driver.cargaStatus.status}</span></td>
+                        <td><span class="${statusClass}">${truncateText(statusText, 12)}</span></td>
+                        <td>
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}" title="Abrir processo">Processo</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table></div>`;
+            
+            return html;
+        }
+
+        // ========== RENDERIZAÇÃO OTIMIZADA DOS CARDS ========== //
+        function renderEncostaCardsViewOptimized(filteredDrivers, cargasGeradasCount) {
+            let html = `
+                <div class="database-stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length}</div>
+                        <div class="stat-label">Veículos na Fila</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Geradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
+                        <div class="stat-label">Cargas Pendentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${currentFileData.length}</div>
+                        <div class="stat-label">Total no Arquivo</div>
+                    </div>
+                </div>
+                
+                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
+                <div class="encosta-cards">
+            `;
+            
+            filteredDrivers.forEach((driver, index) => {
+                const processoStatus = driver.processData.processStatus;
+                
+                let statusClass = '';
+                let statusText = processoStatus;
+                
+                switch(processoStatus) {
+                    case 'Aguardando Contato':
+                        statusClass = 'status-aguardando';
+                        break;
+                    case 'Contato Feito':
+                        statusClass = 'status-contato';
+                        break;
+                    case 'Liberação Entregue':
+                        statusClass = 'status-liberacao';
+                        break;
+                    case 'Encostou em Doca':
+                        statusClass = 'status-doca';
+                        break;
+                    default:
+                        statusClass = 'status-aguardando';
+                }
+                
+                html += `
+                    <div class="encosta-card">
+                        <div class="encosta-card-header">
+                            <div class="encosta-card-position">${index + 1}º</div>
+                            <div class="encosta-card-ticket">${driver.ticket || '-'}</div>
+                        </div>
+                        <div class="encosta-card-body">
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Motorista</span>
+                                <span class="encosta-card-value">${driver.driverName || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Fornecedor</span>
+                                <span class="encosta-card-value">${driver.supplier || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Placa</span>
+                                <span class="encosta-card-value">${driver.truckPlate || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Carga</span>
+                                <span class="encosta-card-value">${driver.load || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Chegada</span>
+                                <span class="encosta-card-value">${driver.arrivalDateTime || '-'}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Espera</span>
+                                <span class="encosta-card-value">${driver.waitTime}</span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Carga</span>
+                                <span class="encosta-card-value"><span class="${driver.cargaStatus.class}">${driver.cargaStatus.status}</span></span>
+                            </div>
+                            <div class="encosta-card-info">
+                                <span class="encosta-card-label">Status Processo</span>
+                                <span class="encosta-card-value"><span class="${statusClass}">${statusText}</span></span>
+                            </div>
+                        </div>
+                        <div class="encosta-card-actions">
+                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            
+            return html;
         }
 
         // ========== SISTEMA DE SINCRONIZAÇÃO ========== //
@@ -2255,6 +2616,9 @@
                                 localDriver.encostouDoca = item.encostou_doca;
                                 updatedCount++;
                             }
+                            
+                            // ✅ INVALIDAR CACHE
+                            processStatusCache.delete(ticketKey);
                             
                             // Atualizar também no currentFileData
                             const fileDataIndex = currentFileData.findIndex(d => 
@@ -2356,6 +2720,11 @@
             if (!updatedDriver || !updatedDriver.ticket) return;
 
             const ticketKey = updatedDriver.ticket.toString().trim();
+            
+            // ✅ INVALIDAR CACHE
+            processStatusCache.delete(ticketKey);
+            invalidateEncostaCache();
+            
             const existingIndex = driversData.findIndex(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
             );
@@ -2439,6 +2808,10 @@
             if (!deletedDriver || !deletedDriver.ticket) return;
 
             const ticketKey = deletedDriver.ticket.toString().trim();
+            
+            // ✅ INVALIDAR CACHE
+            processStatusCache.delete(ticketKey);
+            invalidateEncostaCache();
             
             const driver = driversData.find(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
@@ -2743,20 +3116,16 @@
                 currentFileData[currentFileDriverIndex][stepField] = formattedDateTime;
             }
             
+            // ✅ INVALIDAR CACHE
+            processStatusCache.delete(ticket);
+            invalidateEncostaCache();
+            
             // Salvar alterações
             dataChangeDetected = true;
             
             // Atualizar interface imediatamente
             if (currentDriver && currentDriver.ticket === ticket) {
                 currentDriver = driver;
-            }
-            
-            // Atualizar a encosta imediamente se estiver visível
-            if (document.getElementById('encosta-section')?.classList.contains('active')) {
-                // Invalidar cache
-                renderCache.encosta.data = null;
-                renderCache.encosta.timestamp = 0;
-                renderEncostaList();
             }
             
             // Salvar no Supabase em background
@@ -2802,6 +3171,10 @@
                     currentFileData[currentFileDriverIndex][stepField] = '-';
                 }
                 
+                // ✅ INVALIDAR CACHE
+                processStatusCache.delete(ticket);
+                invalidateEncostaCache();
+                
                 // Marcar alteração
                 dataChangeDetected = true;
                 
@@ -2814,12 +3187,6 @@
                     }
                     
                     // Atualizar interface
-                    if (document.getElementById('encosta-section')?.classList.contains('active')) {
-                        // Invalidar cache
-                        renderCache.encosta.data = null;
-                        renderCache.encosta.timestamp = 0;
-                        renderEncostaList();
-                    }
                     updateInterfacePartial();
                     
                     if (document.getElementById('report-section')?.classList.contains('active')) {
@@ -2930,7 +3297,7 @@
             if (targetLink) targetLink.classList.add('active');
             
             if (sectionId === 'report-section') generateReport();
-            else if (sectionId === 'encosta-section') renderEncostaList();
+            else if (sectionId === 'encosta-section') renderEncostaListOptimized();
         }
 
         function showTab(tabId) {
@@ -2986,7 +3353,7 @@
                 'driver-crit-time': driver.critTime || '-',
                 'driver-release': driver.releaseTime || '-',
                 'driver-warehouse': driver.warehouse || '-',
-                'driver-process-status': getProcessStatus(driver) || '-'
+                'driver-process-status': getProcessStatusOptimized(driver) || '-'
             };
 
             Object.keys(elements).forEach(id => {
@@ -3067,7 +3434,7 @@
                         </div>
                         <div class="info-item">
                             <span class="info-label">Status Atual</span>
-                            <span class="info-value">${getProcessStatus(currentDriver)}</span>
+                            <span class="info-value">${getProcessStatusOptimized(currentDriver)}</span>
                         </div>
                     </div>
                 </div>
@@ -3123,7 +3490,7 @@
                         <div class="stat-label">Etapas Concluídas</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${getProcessStatus(currentDriver)}</div>
+                        <div class="stat-value">${getProcessStatusOptimized(currentDriver)}</div>
                         <div class="stat-label">Status do Processo</div>
                     </div>
                 </div>
@@ -3175,270 +3542,7 @@
         }
 
         function renderEncostaList() {
-            const encostaContent = document.getElementById('encosta-content');
-            if (!encostaContent) return;
-            
-            // Verificar cache
-            const now = Date.now();
-            const cache = renderCache.encosta;
-            
-            if (cache.data && (now - cache.timestamp) < cache.ttl) {
-                console.log('📦 Usando cache da encosta (fast)');
-                encostaContent.innerHTML = cache.data;
-                return;
-            }
-            
-            // Filtrar dados
-            let filteredDrivers = currentFileData.filter(driver => {
-                if (!driver.status) return false;
-                
-                const status = driver.status.toString().trim().toUpperCase();
-                if (status !== 'AGENDADO') return false;
-                
-                const hasPlaca = driver.truckPlate && 
-                               driver.truckPlate.toString().trim() !== '' && 
-                               driver.truckPlate.toString().trim() !== '-';
-                
-                const hasCarga = driver.load && 
-                               driver.load.toString().trim() !== '' && 
-                               driver.load.toString().trim() !== '-';
-                
-                return hasPlaca && hasCarga;
-            });
-            
-            // Ordenar por tempo de espera
-            filteredDrivers.sort((a, b) => {
-                const timeA = calculateWaitTimeValue(a.arrivalDateTime);
-                const timeB = calculateWaitTimeValue(b.arrivalDateTime);
-                return timeB - timeA;
-            });
-
-            const cargasGeradasCount = filteredDrivers.filter(driver => 
-                checkCargaStatus(driver.ticket)
-            ).length;
-            
-            if (filteredDrivers.length === 0) {
-                const html = `
-                    <div class="empty-state">
-                        <div>📋</div>
-                        <p>Nenhum veículo com status AGENDADO encontrado no arquivo atual para exibir na encosta.</p>
-                        <p><strong>Filtro aplicado:</strong> Apenas veículos do arquivo atual com placa e carga preenchidos.</p>
-                        <small>Total de veículos no arquivo: ${currentFileData.length}</small>
-                    </div>
-                `;
-                encostaContent.innerHTML = html;
-                renderCache.encosta.data = html;
-                renderCache.encosta.timestamp = now;
-                return;
-            }
-            
-            // Gerar HTML
-            let html;
-            if (encostaViewMode === 'table') {
-                html = renderEncostaTableView(filteredDrivers, cargasGeradasCount);
-            } else {
-                html = renderEncostaCardsView(filteredDrivers, cargasGeradasCount);
-            }
-            
-            // Atribuir HTML
-            encostaContent.innerHTML = html;
-            
-            // Salvar no cache
-            renderCache.encosta.data = html;
-            renderCache.encosta.timestamp = Date.now();
-        }
-
-        function renderEncostaTableView(filteredDrivers, cargasGeradasCount) {
-            let html = `
-                <div class="database-stats">
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length}</div>
-                        <div class="stat-label">Veículos na Fila</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Geradas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Pendentes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${currentFileData.length}</div>
-                        <div class="stat-label">Total no Arquivo</div>
-                    </div>
-                </div>
-                
-                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
-                <div class="encosta-table-container">
-                    <table class="encosta-table">
-                        <thead>
-                            <tr>
-                                <th>Posição</th>
-                                <th>Senha</th>
-                                <th>Motorista</th>
-                                <th>Fornecedor</th>
-                                <th>Placa</th>
-                                <th>Carga</th>
-                                <th>Chegada</th>
-                                <th>Espera</th>
-                                <th>Carga</th>
-                                <th>Processo</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            
-            filteredDrivers.forEach((driver, index) => {
-                const waitTime = calculateWaitTime(driver.arrivalDateTime);
-                const cargaStatus = getCargaStatus(driver.ticket);
-                const processoStatus = getProcessStatus(driver);
-                
-                let statusClass = '';
-                let statusText = processoStatus;
-                
-                switch(processoStatus) {
-                    case 'Aguardando Contato':
-                        statusClass = 'status-aguardando';
-                        break;
-                    case 'Contato Feito':
-                        statusClass = 'status-contato';
-                        break;
-                    case 'Liberação Entregue':
-                        statusClass = 'status-liberacao';
-                        break;
-                    case 'Encostou em Doca':
-                        statusClass = 'status-doca';
-                        break;
-                    default:
-                        statusClass = 'status-aguardando';
-                }
-                
-                html += `
-                    <tr>
-                        <td><strong>${index + 1}º</strong></td>
-                        <td>${driver.ticket || '-'}</td>
-                        <td title="${driver.driverName || '-'}">${truncateText(driver.driverName || '-', 15)}</td>
-                        <td title="${driver.supplier || '-'}">${truncateText(driver.supplier || '-', 15)}</td>
-                        <td>${driver.truckPlate || '-'}</td>
-                        <td>${driver.load || '-'}</td>
-                        <td title="${driver.arrivalDateTime || '-'}">${truncateText(driver.arrivalDateTime || '-', 12)}</td>
-                        <td>${waitTime}</td>
-                        <td><span class="${cargaStatus.class}">${cargaStatus.status}</span></td>
-                        <td><span class="${statusClass}">${truncateText(statusText, 12)}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}" title="Abrir processo">Processo</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            html += `</tbody></table></div>`;
-            
-            return html;
-        }
-
-        function renderEncostaCardsView(filteredDrivers, cargasGeradasCount) {
-            let html = `
-                <div class="database-stats">
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length}</div>
-                        <div class="stat-label">Veículos na Fila</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Geradas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${filteredDrivers.length - cargasGeradasCount}</div>
-                        <div class="stat-label">Cargas Pendentes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${currentFileData.length}</div>
-                        <div class="stat-label">Total no Arquivo</div>
-                    </div>
-                </div>
-                
-                <h3>Ranking de Chamada - Ordem de Espera (Mais Tempo Esperando Primeiro)</h3>
-                <div class="encosta-cards">
-            `;
-            
-            filteredDrivers.forEach((driver, index) => {
-                const waitTime = calculateWaitTime(driver.arrivalDateTime);
-                const cargaStatus = getCargaStatus(driver.ticket);
-                const processoStatus = getProcessStatus(driver);
-                
-                let statusClass = '';
-                let statusText = processoStatus;
-                
-                switch(processoStatus) {
-                    case 'Aguardando Contato':
-                        statusClass = 'status-aguardando';
-                        break;
-                    case 'Contato Feito':
-                        statusClass = 'status-contato';
-                        break;
-                    case 'Liberação Entregue':
-                        statusClass = 'status-liberacao';
-                        break;
-                    case 'Encostou em Doca':
-                        statusClass = 'status-doca';
-                        break;
-                    default:
-                        statusClass = 'status-aguardando';
-                }
-                
-                html += `
-                    <div class="encosta-card">
-                        <div class="encosta-card-header">
-                            <div class="encosta-card-position">${index + 1}º</div>
-                            <div class="encosta-card-ticket">${driver.ticket || '-'}</div>
-                        </div>
-                        <div class="encosta-card-body">
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Motorista</span>
-                                <span class="encosta-card-value">${driver.driverName || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Fornecedor</span>
-                                <span class="encosta-card-value">${driver.supplier || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Placa</span>
-                                <span class="encosta-card-value">${driver.truckPlate || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Carga</span>
-                                <span class="encosta-card-value">${driver.load || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Chegada</span>
-                                <span class="encosta-card-value">${driver.arrivalDateTime || '-'}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Espera</span>
-                                <span class="encosta-card-value">${waitTime}</span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Status Carga</span>
-                                <span class="encosta-card-value"><span class="${cargaStatus.class}">${cargaStatus.status}</span></span>
-                            </div>
-                            <div class="encosta-card-info">
-                                <span class="encosta-card-label">Status Processo</span>
-                                <span class="encosta-card-value"><span class="${statusClass}">${statusText}</span></span>
-                            </div>
-                        </div>
-                        <div class="encosta-card-actions">
-                            <button class="btn btn-primary btn-small processo-encosta" data-ticket="${driver.ticket}">Processo</button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += `</div>`;
-            
-            return html;
+            renderEncostaListOptimized();
         }
 
         async function goToProcessFromEncosta(ticket) {
@@ -3577,9 +3681,8 @@
                 }
                 
                 // Invalidar cache da encosta
-                renderCache.encosta.data = null;
-                renderCache.encosta.timestamp = 0;
-                renderEncostaList();
+                invalidateEncostaCache();
+                renderEncostaListOptimized();
                 
                 showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
                 
@@ -3769,7 +3872,7 @@
             let tableHTML = '';
             
             data.forEach(driver => {
-                const status = getProcessStatus(driver);
+                const status = getProcessStatusOptimized(driver);
                 let rowClass = '';
                 
                 if (status === 'Encostou em Doca') rowClass = 'completed';
@@ -3826,7 +3929,7 @@
                 'Encostou em Doca': driver.encostouDoca || '',
                 'Motorista': driver.driverName || '',
                 'Fornecedor': driver.supplier || '',
-                'Status': getProcessStatus(driver) || ''
+                'Status': getProcessStatusOptimized(driver) || ''
             }));
             
             const ws = XLSX.utils.json_to_sheet(excelData);
@@ -4271,6 +4374,10 @@
                     driver.encostouDoca = '-';
                 });
 
+                // ✅ INVALIDAR CACHE
+                processStatusCache.clear();
+                invalidateEncostaCache();
+
                 // Salvar alterações
                 saveCurrentFileData();
                 dataChangeDetected = true;
@@ -4299,9 +4406,7 @@
 
                 // ✅ ATUALIZAR ENCOSTA
                 if (document.getElementById('encosta-section')?.classList.contains('active')) {
-                    renderCache.encosta.data = null;
-                    renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    renderEncostaListOptimized();
                 }
                 
                 updateInterface();
@@ -4392,9 +4497,8 @@
 
                 // 7️⃣ Atualizar interface
                 if (document.getElementById('encosta-section')?.classList.contains('active')) {
-                    renderCache.encosta.data = null;
-                    renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    invalidateEncostaCache();
+                    renderEncostaListOptimized();
                 }
                 updateInterface();
                 
@@ -4568,9 +4672,8 @@
             // ✅ ATUALIZAR A ENCOSTA COM OS DADOS DO ARQUIVO ATUAL
             if (document.getElementById('encosta-section')?.classList.contains('active')) {
                 // Invalidar cache
-                renderCache.encosta.data = null;
-                renderCache.encosta.timestamp = 0;
-                renderEncostaList();
+                invalidateEncostaCache();
+                renderEncostaListOptimized();
             }
         }
 
@@ -4622,7 +4725,7 @@
             
             switch(sectionId) {
                 case 'encosta-section':
-                    renderEncostaList();
+                    renderEncostaListOptimized();
                     break;
                 case 'report-section':
                     generateReport();
@@ -4650,9 +4753,8 @@
                 switch(sectionId) {
                     case 'encosta-section':
                         // Invalidar cache para forçar atualização
-                        renderCache.encosta.data = null;
-                        renderCache.encosta.timestamp = 0;
-                        renderEncostaList();
+                        invalidateEncostaCache();
+                        renderEncostaListOptimized();
                         break;
                     case 'report-section':
                         generateReport();
@@ -4750,6 +4852,11 @@
             } else {
                 console.log('📁 Supabase offline, usando dados locais...');
             }
+
+            // Inicializar cache de performance
+            processStatusCache.clear();
+            encostaSortedCache = null;
+            encostaCacheTimestamp = 0;
 
             // Iniciar sistema de persistência
             initializePersistenceSystem();
@@ -4943,9 +5050,8 @@
                     viewTableBtn.classList.add('active');
                     if (viewCardsBtn) viewCardsBtn.classList.remove('active');
                     // Invalidar cache
-                    renderCache.encosta.data = null;
-                    renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    invalidateEncostaCache();
+                    renderEncostaListOptimized();
                 });
             }
             
@@ -4955,9 +5061,8 @@
                     viewCardsBtn.classList.add('active');
                     if (viewTableBtn) viewTableBtn.classList.remove('active');
                     // Invalidar cache
-                    renderCache.encosta.data = null;
-                    renderCache.encosta.timestamp = 0;
-                    renderEncostaList();
+                    invalidateEncostaCache();
+                    renderEncostaListOptimized();
                 });
             }
             
@@ -4993,6 +5098,8 @@
                     if (processoBtn) {
                         const ticket = processoBtn.getAttribute('data-ticket');
                         if (ticket) {
+                            // Invalidar cache para este ticket específico
+                            processStatusCache.delete(ticket);
                             goToProcessFromEncosta(ticket);
                         }
                     }
