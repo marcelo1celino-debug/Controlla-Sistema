@@ -2551,7 +2551,7 @@
             try {
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca')
                     .limit(1);
                     
                 if (error) {
@@ -2577,17 +2577,16 @@
             }
         }
 
-        async function loadFromSupabase() {
-            const now = Date.now();
-            
+        // ✅ CORREÇÃO: FUNÇÃO MODIFICADA PARA CARREGAR APENAS PROCESSOS DO SUPABASE
+        async function loadProcessesFromSupabase() {
             try {
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, updated_at')
                     .order('updated_at', { ascending: false });
 
                 if (error) {
-                    console.error('❌ Erro ao carregar do Supabase:', error);
+                    console.error('❌ Erro ao carregar processos do Supabase:', error);
                     updateSyncStatus(false);
                     return false;
                 }
@@ -2595,44 +2594,42 @@
                 if (data && data.length > 0) {
                     let updatedCount = 0;
 
+                    // Criar mapa de processos do Supabase
+                    const supabaseProcesses = new Map();
                     data.forEach(item => {
-                        const ticketKey = item.ticket?.toString().trim();
-                        if (!ticketKey) return;
+                        if (item.ticket) {
+                            supabaseProcesses.set(item.ticket.toString().trim(), {
+                                contatoFeito: item.contato_feito || '-',
+                                liberacaoEntregue: item.liberacao_entregue || '-',
+                                encostouDoca: item.encostou_doca || '-'
+                            });
+                        }
+                    });
 
-                        const localDriver = driversData.find(d => 
-                            d.ticket && d.ticket.toString().trim() === ticketKey
-                        );
-                        
-                        if (localDriver) {
-                            if (item.contato_feito !== null && item.contato_feito !== undefined) {
-                                localDriver.contatoFeito = item.contato_feito;
-                                updatedCount++;
-                            }
-                            if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
-                                localDriver.liberacaoEntregue = item.liberacao_entregue;
-                                updatedCount++;
-                            }
-                            if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
-                                localDriver.encostouDoca = item.encostou_doca;
-                                updatedCount++;
-                            }
+                    // Atualizar driversData com os processos do Supabase
+                    driversData.forEach(driver => {
+                        if (driver.ticket) {
+                            const ticketKey = driver.ticket.toString().trim();
+                            const processData = supabaseProcesses.get(ticketKey);
                             
-                            // ✅ INVALIDAR CACHE
-                            processStatusCache.delete(ticketKey);
-                            
-                            // Atualizar também no currentFileData
-                            const fileDataIndex = currentFileData.findIndex(d => 
-                                d.ticket && d.ticket.toString().trim() === ticketKey
-                            );
-                            if (fileDataIndex !== -1) {
-                                if (item.contato_feito !== null && item.contato_feito !== undefined) {
-                                    currentFileData[fileDataIndex].contatoFeito = item.contato_feito;
-                                }
-                                if (item.liberacao_entregue !== null && item.liberacao_entregue !== undefined) {
-                                    currentFileData[fileDataIndex].liberacaoEntregue = item.liberacao_entregue;
-                                }
-                                if (item.encostou_doca !== null && item.encostou_doca !== undefined) {
-                                    currentFileData[fileDataIndex].encostouDoca = item.encostou_doca;
+                            if (processData) {
+                                // Atualizar apenas dados de processo, não dados dos motoristas
+                                driver.contatoFeito = processData.contatoFeito;
+                                driver.liberacaoEntregue = processData.liberacaoEntregue;
+                                driver.encostouDoca = processData.encostouDoca;
+                                updatedCount++;
+                                
+                                // Invalidar cache
+                                processStatusCache.delete(ticketKey);
+                                
+                                // Atualizar também no currentFileData
+                                const fileDataIndex = currentFileData.findIndex(d => 
+                                    d.ticket && d.ticket.toString().trim() === ticketKey
+                                );
+                                if (fileDataIndex !== -1) {
+                                    currentFileData[fileDataIndex].contatoFeito = processData.contatoFeito;
+                                    currentFileData[fileDataIndex].liberacaoEntregue = processData.liberacaoEntregue;
+                                    currentFileData[fileDataIndex].encostouDoca = processData.encostouDoca;
                                 }
                             }
                         }
@@ -2648,11 +2645,11 @@
                     return true;
                 }
                 
-                console.log('ℹ️ Nenhum dado novo no Supabase');
+                console.log('ℹ️ Nenhum processo novo no Supabase');
                 return true;
                 
             } catch (error) {
-                console.error('❌ Erro fatal ao carregar do Supabase:', error);
+                console.error('❌ Erro fatal ao carregar processos do Supabase:', error);
                 updateSyncStatus(false);
                 return false;
             }
@@ -2664,8 +2661,9 @@
                     realtimeSubscription.unsubscribe();
                 }
 
+                // ✅ CORREÇÃO: Sincronizar apenas processos
                 realtimeSubscription = supabase
-                    .channel('drivers-changes')
+                    .channel('processes-changes')
                     .on(
                         'postgres_changes',
                         {
@@ -2674,13 +2672,13 @@
                             table: 'drivers'
                         },
                         (payload) => {
-                            console.log('🔄 Mudança recebida em tempo real:', payload);
-                            handleRealtimeUpdate(payload);
+                            console.log('🔄 Mudança de processo recebida em tempo real:', payload);
+                            handleRealtimeProcessUpdate(payload);
                         }
                     )
                     .subscribe((status) => {
                         if (status === 'SUBSCRIBED') {
-                            console.log('✅ Sincronização em tempo real ativada');
+                            console.log('✅ Sincronização de processos em tempo real ativada');
                             updateSyncStatus(true, 'Sincronizado');
                         } else if (status === 'CHANNEL_ERROR') {
                             console.error('❌ Erro na sincronização em tempo real');
@@ -2697,50 +2695,51 @@
             }
         }
 
-        function handleRealtimeUpdate(payload) {
+        // ✅ CORREÇÃO: FUNÇÃO PARA LIDAR APENAS COM ATUALIZAÇÕES DE PROCESSO
+        function handleRealtimeProcessUpdate(payload) {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
-            if (newRecord && !newRecord.ticket) return;
+            if (!newRecord || !newRecord.ticket) return;
 
             switch (eventType) {
                 case 'INSERT':
                 case 'UPDATE':
-                    handleDriverUpdate(newRecord);
+                    updateProcessData(newRecord);
                     break;
                 case 'DELETE':
-                    handleDriverDelete(oldRecord);
+                    deleteProcessData(oldRecord);
                     break;
             }
 
             updateInterface();
-            console.log('🔄 Dados atualizados em tempo real');
+            console.log('🔄 Processos atualizados em tempo real');
         }
 
-        function handleDriverUpdate(updatedDriver) {
-            if (!updatedDriver || !updatedDriver.ticket) return;
+        // ✅ CORREÇÃO: FUNÇÃO PARA ATUALIZAR APENAS DADOS DE PROCESSO
+        function updateProcessData(updatedProcess) {
+            if (!updatedProcess || !updatedProcess.ticket) return;
 
-            const ticketKey = updatedDriver.ticket.toString().trim();
+            const ticketKey = updatedProcess.ticket.toString().trim();
             
-            // ✅ INVALIDAR CACHE
+            // Invalidar cache
             processStatusCache.delete(ticketKey);
             invalidateEncostaCache();
             
-            const existingIndex = driversData.findIndex(d => 
+            // Encontrar driver local
+            const localDriver = driversData.find(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
             );
 
-            if (existingIndex !== -1) {
-                const existingDriver = driversData[existingIndex];
-                
-                // Atualizar apenas se houver dados novos
-                if (updatedDriver.contato_feito !== undefined) {
-                    existingDriver.contatoFeito = updatedDriver.contato_feito !== null ? updatedDriver.contato_feito : '-';
+            if (localDriver) {
+                // Atualizar apenas dados de processo
+                if (updatedProcess.contato_feito !== undefined) {
+                    localDriver.contatoFeito = updatedProcess.contato_feito !== null ? updatedProcess.contato_feito : '-';
                 }
-                if (updatedDriver.liberacao_entregue !== undefined) {
-                    existingDriver.liberacaoEntregue = updatedDriver.liberacao_entregue !== null ? updatedDriver.liberacao_entregue : '-';
+                if (updatedProcess.liberacao_entregue !== undefined) {
+                    localDriver.liberacaoEntregue = updatedProcess.liberacao_entregue !== null ? updatedProcess.liberacao_entregue : '-';
                 }
-                if (updatedDriver.encostou_doca !== undefined) {
-                    existingDriver.encostouDoca = updatedDriver.encostou_doca !== null ? updatedDriver.encostou_doca : '-';
+                if (updatedProcess.encostou_doca !== undefined) {
+                    localDriver.encostouDoca = updatedProcess.encostou_doca !== null ? updatedProcess.encostou_doca : '-';
                 }
                 
                 // Atualizar também no currentFileData
@@ -2748,79 +2747,53 @@
                     d.ticket && d.ticket.toString().trim() === ticketKey
                 );
                 if (fileDataIndex !== -1) {
-                    if (updatedDriver.contato_feito !== undefined) {
-                        currentFileData[fileDataIndex].contatoFeito = updatedDriver.contato_feito !== null ? updatedDriver.contato_feito : '-';
+                    if (updatedProcess.contato_feito !== undefined) {
+                        currentFileData[fileDataIndex].contatoFeito = updatedProcess.contato_feito !== null ? updatedProcess.contato_feito : '-';
                     }
-                    if (updatedDriver.liberacao_entregue !== undefined) {
-                        currentFileData[fileDataIndex].liberacaoEntregue = updatedDriver.liberacao_entregue !== null ? updatedDriver.liberacao_entregue : '-';
+                    if (updatedProcess.liberacao_entregue !== undefined) {
+                        currentFileData[fileDataIndex].liberacaoEntregue = updatedProcess.liberacao_entregue !== null ? updatedProcess.liberacao_entregue : '-';
                     }
-                    if (updatedDriver.encostou_doca !== undefined) {
-                        currentFileData[fileDataIndex].encostouDoca = updatedDriver.encostou_doca !== null ? updatedDriver.encostou_doca : '-';
+                    if (updatedProcess.encostou_doca !== undefined) {
+                        currentFileData[fileDataIndex].encostouDoca = updatedProcess.encostou_doca !== null ? updatedProcess.encostou_doca : '-';
                     }
                     
-                    // Salvar alterações no localStorage
                     saveCurrentFileData();
                 }
 
-                console.log(`✅ Motorista ${ticketKey} atualizado via sincronização`);
+                console.log(`✅ Processo ${ticketKey} atualizado via sincronização`);
+                
+                // Se é o driver atual, atualizar
+                if (currentDriver && currentDriver.ticket === ticketKey) {
+                    currentDriver = localDriver;
+                }
             } else {
-                if (updatedDriver.driver_name || updatedDriver.supplier) {
-                    const newDriver = {
-                        ticket: updatedDriver.ticket,
-                        driverName: updatedDriver.driver_name || '-',
-                        supplier: updatedDriver.supplier || '-',
-                        cd: '-',
-                        status: updatedDriver.status || '-',
-                        arrivalDateTime: '-',
-                        scheduleDateTime: '-',
-                        truckPlate: '-',
-                        contatoFeito: updatedDriver.contato_feito !== null && updatedDriver.contato_feito !== undefined ? updatedDriver.contato_feito : '-',
-                        liberacaoEntregue: updatedDriver.liberacao_entregue !== null && updatedDriver.liberacao_entregue !== undefined ? updatedDriver.liberacao_entregue : '-',
-                        encostouDoca: updatedDriver.encostou_doca !== null && updatedDriver.encostou_doca !== undefined ? updatedDriver.encostou_doca : '-',
-                        load: '-'
-                    };
-                    
-                    driversData.push(newDriver);
-                    
-                    // Adicionar também ao currentFileData se não existir
-                    if (!currentFileData.some(d => d.ticket && d.ticket.toString().trim() === ticketKey)) {
-                        currentFileData.push(newDriver);
-                        saveCurrentFileData();
-                    }
-                    
-                    console.log(`✅ Motorista ${ticketKey} adicionado via sincronização`);
-                }
-            }
-
-            if (currentDriver && currentDriver.ticket === ticketKey) {
-                const updatedCurrentDriver = driversData.find(d => 
-                    d.ticket && d.ticket.toString().trim() === ticketKey
-                );
-                if (updatedCurrentDriver) {
-                    currentDriver = updatedCurrentDriver;
-                }
+                // Se não existe localmente, criar apenas o processo
+                // Não criamos driver completo porque isso é responsabilidade da seção Base de Dados
+                console.log(`ℹ️ Processo ${ticketKey} recebido, mas driver não existe localmente`);
             }
 
             highlightUpdatedRow(ticketKey);
         }
 
-        function handleDriverDelete(deletedDriver) {
-            if (!deletedDriver || !deletedDriver.ticket) return;
+        // ✅ CORREÇÃO: FUNÇÃO PARA EXCLUIR APENAS DADOS DE PROCESSO
+        function deleteProcessData(deletedProcess) {
+            if (!deletedProcess || !deletedProcess.ticket) return;
 
-            const ticketKey = deletedDriver.ticket.toString().trim();
+            const ticketKey = deletedProcess.ticket.toString().trim();
             
-            // ✅ INVALIDAR CACHE
+            // Invalidar cache
             processStatusCache.delete(ticketKey);
             invalidateEncostaCache();
             
-            const driver = driversData.find(d => 
+            const localDriver = driversData.find(d => 
                 d.ticket && d.ticket.toString().trim() === ticketKey
             );
             
-            if (driver) {
-                driver.contatoFeito = '-';
-                driver.liberacaoEntregue = '-';
-                driver.encostouDoca = '-';
+            if (localDriver) {
+                // Limpar apenas dados de processo
+                localDriver.contatoFeito = '-';
+                localDriver.liberacaoEntregue = '-';
+                localDriver.encostouDoca = '-';
                 
                 // Atualizar também no currentFileData
                 const fileDataIndex = currentFileData.findIndex(d => 
@@ -2833,10 +2806,10 @@
                     saveCurrentFileData();
                 }
                 
-                console.log(`🗑️ Processos do motorista ${ticketKey} removidos via sincronização`);
+                console.log(`🗑️ Processo do motorista ${ticketKey} removido via sincronização`);
                 
                 if (currentDriver && currentDriver.ticket === ticketKey) {
-                    currentDriver = driver;
+                    currentDriver = localDriver;
                 }
             }
         }
@@ -2856,14 +2829,14 @@
 
         async function forceSync() {
             updateSyncStatus(true, 'Sincronizando...');
-            showDiscreetNotification('Sincronizando...', 1000);
+            showDiscreetNotification('Sincronizando processos...', 1000);
             
             try {
-                const success = await loadFromSupabase();
+                const success = await loadProcessesFromSupabase();
                 if (success) {
                     updateInterface();
                     updateSyncStatus(true, 'Sincronizado');
-                    showDiscreetNotification('✓ Sincronizado', 1000);
+                    showDiscreetNotification('✓ Processos sincronizados', 1000);
                 } else {
                     updateSyncStatus(false, 'Sincronização parcial');
                     showDiscreetNotification('⚠ Sincronização parcial', 1500);
@@ -3067,7 +3040,7 @@
                 ]);
                 
                 if (isOnline) {
-                    // Salvar no Supabase em background sem bloquear
+                    // Salvar apenas processos no Supabase em background
                     saveProcessesToSupabase().then(success => {
                         if (success) {
                             console.log('✅ Processos salvos no Supabase (background)');
@@ -3128,7 +3101,7 @@
                 currentDriver = driver;
             }
             
-            // Salvar no Supabase em background
+            // Salvar APENAS o processo no Supabase
             saveProcessToSupabase(driver).then(success => {
                 if (success) {
                     console.log(`✅ Processo ${stepField} salvo no Supabase para senha ${ticket}`);
@@ -3178,7 +3151,7 @@
                 // Marcar alteração
                 dataChangeDetected = true;
                 
-                // Salvar no Supabase em background
+                // Salvar apenas o processo no Supabase
                 const success = await saveProcessToSupabase(driver);
                 
                 if (success) {
@@ -3202,22 +3175,22 @@
             }
         }
 
+        // ✅ CORREÇÃO: FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE
         async function saveProcessToSupabase(driver) {
             try {
-                const driverToSave = {
+                // Criar objeto com apenas dados de processo
+                const processToSave = {
                     ticket: driver.ticket,
-                    driver_name: driver.driverName,
-                    supplier: driver.supplier,
-                    status: driver.status,
                     contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
                     liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
                     encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
                     updated_at: new Date().toISOString()
                 };
                 
+                // ✅ NÃO salvar dados completos do motorista, apenas processo
                 const { error } = await supabase
                     .from('drivers')
-                    .upsert([driverToSave], {
+                    .upsert([processToSave], {
                         onConflict: 'ticket'
                     });
 
@@ -3231,6 +3204,7 @@
             }
         }
 
+        // ✅ CORREÇÃO: FUNÇÃO PARA SALVAR APENAS PROCESSOS NO SUPABASE
         async function saveProcessesToSupabase() {
             const driversWithProcesses = driversData.filter(driver => {
                 const hasProcess = (driver.contatoFeito && driver.contatoFeito !== '-') || 
@@ -3253,11 +3227,9 @@
 
             try {
                 for (const batch of batches) {
-                    const driversToSave = batch.map(driver => ({
+                    // Criar array apenas com dados de processo
+                    const processesToSave = batch.map(driver => ({
                         ticket: driver.ticket,
-                        driver_name: driver.driverName,
-                        supplier: driver.supplier,
-                        status: driver.status,
                         contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
                         liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
                         encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
@@ -3266,7 +3238,7 @@
                     
                     const { error } = await supabase
                         .from('drivers')
-                        .upsert(driversToSave, {
+                        .upsert(processesToSave, {
                             onConflict: 'ticket',
                             ignoreDuplicates: false
                         });
@@ -3567,22 +3539,23 @@
                 
                 return true;
             } else {
-                // Se não encontrou localmente, buscar no Supabase
+                // Se não encontrou localmente, buscar apenas processo no Supabase
                 if (isOnline) {
                     try {
-                        showDiscreetNotification(`Buscando senha ${ticket}...`, 1000);
+                        showDiscreetNotification(`Buscando processo ${ticket}...`, 1000);
                         const { data, error } = await supabase
                             .from('drivers')
-                            .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca')
+                            .select('ticket, contato_feito, liberacao_entregue, encostou_doca')
                             .eq('ticket', ticket)
                             .single();
 
                         if (!error && data) {
+                            // Criar driver básico apenas com dados de processo
                             driver = {
                                 ticket: data.ticket,
-                                driverName: data.driver_name,
-                                supplier: data.supplier,
-                                status: data.status,
+                                driverName: '-',
+                                supplier: '-',
+                                status: '-',
                                 contatoFeito: data.contato_feito || '-',
                                 liberacaoEntregue: data.liberacao_entregue || '-',
                                 encostouDoca: data.encostou_doca || '-',
@@ -3718,13 +3691,15 @@
             }
         }
 
+        // ✅ CORREÇÃO: FUNÇÃO PARA GERAR RELATÓRIO APENAS COM DADOS DO SUPABASE
         async function generateReport() {
             console.log('🔄 Gerando relatório com dados do Supabase...');
             
             try {
+                // Buscar apenas processos do Supabase
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, driver_name, supplier, status, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, updated_at')
                     .or('contato_feito.not.is.null,liberacao_entregue.not.is.null,encostou_doca.not.is.null')
                     .order('updated_at', { ascending: false });
 
@@ -3743,23 +3718,29 @@
 
                 console.log(`✅ ${data.length} registros carregados do Supabase para o relatório`);
 
+                // Buscar dados completos dos motoristas localmente
                 const reportData = data.map(item => {
                     const localDriver = driversData.find(d => d.ticket && d.ticket.toString().trim() === item.ticket.toString().trim());
                     
-                    return {
+                    // Criar objeto de relatório
+                    const reportItem = {
                         ticket: item.ticket,
-                        driverName: item.driver_name || (localDriver ? localDriver.driverName : '-'),
-                        supplier: item.supplier || (localDriver ? localDriver.supplier : '-'),
-                        cd: localDriver ? localDriver.cd : '-',
-                        status: item.status || (localDriver ? localDriver.status : '-'),
                         contatoFeito: item.contato_feito || '-',
                         liberacaoEntregue: item.liberacao_entregue || '-',
-                        encostouDoca: item.encostou_doca || '-',
-                        arrivalDateTime: localDriver ? localDriver.arrivalDateTime : '-',
-                        scheduleDateTime: localDriver ? localDriver.scheduleDateTime : '-',
-                        truckPlate: localDriver ? localDriver.truckPlate : '-',
-                        load: localDriver ? localDriver.load : '-'
+                        encostouDoca: item.encostou_doca || '-'
                     };
+                    
+                    // Adicionar dados do motorista se existirem localmente
+                    if (localDriver) {
+                        reportItem.driverName = localDriver.driverName || '-';
+                        reportItem.supplier = localDriver.supplier || '-';
+                    } else {
+                        // Se não existe localmente, buscar apenas do Supabase (apenas processo)
+                        reportItem.driverName = '-';
+                        reportItem.supplier = '-';
+                    }
+                    
+                    return reportItem;
                 });
 
                 const startDate = document.getElementById('report-start-date')?.value;
@@ -3796,6 +3777,7 @@
                 console.error('❌ Erro ao gerar relatório:', error);
                 showDiscreetNotification('❌ Erro ao gerar relatório', 2000);
                 
+                // Fallback: usar dados locais
                 const startDate = document.getElementById('report-start-date')?.value;
                 const endDate = document.getElementById('report-end-date')?.value;
                 
@@ -4360,59 +4342,61 @@
 
         async function clearAllProcessesConfirmed() {
             try {
-                // Coletar todos os tickets do Supabase
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .select('ticket');
-                
-                if (error) {
-                    console.error('❌ Erro ao buscar tickets do Supabase:', error);
-                    showDiscreetNotification('❌ Erro ao buscar dados do Supabase', 2000);
-                    return;
-                }
-                
-                if (!data || data.length === 0) {
-                    showDiscreetNotification('ℹ️ Nenhum registro encontrado no Supabase para excluir', 1500);
-                    return;
-                }
-                
-                const ticketsToDelete = data.map(item => item.ticket).filter(ticket => ticket);
-                
-                if (!confirm(`⚠️ ATENÇÃO: Você está prestes a excluir PERMANENTEMENTE ${ticketsToDelete.length} registros do Supabase.\n\nEsta ação:\n1️⃣ Removerá TODOS os dados do Supabase permanentemente\n2️⃣ Removerá os dados localmente\n3️⃣ NÃO poderá ser desfeita\n\nDeseja continuar?`)) {
-                    return;
-                }
-                
-                console.log(`🗑️ Excluindo ${ticketsToDelete.length} registros permanentemente do Supabase...`);
-                
-                // Excluir do Supabase
-                const supabaseDeleted = await deleteFromSupabasePermanently(ticketsToDelete);
-                
-                if (!supabaseDeleted) {
-                    showDiscreetNotification('❌ Erro ao excluir registros do Supabase', 2000);
-                    return;
-                }
-                
-                // Limpar dados locais
-                driversData = [];
-                currentFileData = [];
-                suppliersList = [];
-                cdList = [];
-                processBackupData = {};
-                
-                // Salvar alterações locais
-                saveToLocalStorage();
+                // Limpar em driversData
+                driversData.forEach(driver => {
+                    driver.contatoFeito = '-';
+                    driver.liberacaoEntregue = '-';
+                    driver.encostouDoca = '-';
+                });
+
+                // ✅ LIMPAR TAMBÉM NO currentFileData
+                currentFileData.forEach(driver => {
+                    driver.contatoFeito = '-';
+                    driver.liberacaoEntregue = '-';
+                    driver.encostouDoca = '-';
+                });
+
+                // ✅ INVALIDAR CACHE
+                processStatusCache.clear();
+                invalidateEncostaCache();
+
+                // Salvar alterações
                 saveCurrentFileData();
-                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
-                
                 dataChangeDetected = true;
+
+                // Enviar para Supabase em background (apenas processos)
+                const updates = driversData.map(driver => ({
+                    ticket: driver.ticket,
+                    contato_feito: null,
+                    liberacao_entregue: null,
+                    encostou_doca: null,
+                    updated_at: new Date().toISOString()
+                }));
+
+                // Processar em lotes menores
+                const batchSize = 30;
+                for (let i = 0; i < updates.length; i += batchSize) {
+                    const batch = updates.slice(i, i + batchSize);
+                    await supabase
+                        .from('drivers')
+                        .upsert(batch, {
+                            onConflict: 'ticket'
+                        });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                // ✅ ATUALIZAR ENCOSTA
+                if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                    renderEncostaListOptimized();
+                }
                 
-                // Atualizar interface
                 updateInterface();
-                showDiscreetNotification(`✅ ${ticketsToDelete.length} registros excluídos permanentemente do Supabase!`, 3000);
-                
+                showDiscreetNotification('✅ Todos os registros de processo foram limpos!', 2000);
+
             } catch (error) {
-                console.error('❌ Erro fatal ao limpar todos os registros:', error);
-                showDiscreetNotification('❌ Erro crítico ao excluir registros', 2000);
+                console.error('Erro ao limpar processos:', error);
+                showDiscreetNotification('❌ Erro ao limpar registros no Supabase', 2000);
             }
         }
 
@@ -4422,79 +4406,87 @@
 
         async function clearIncompleteProcessesConfirmed() {
             try {
-                // Buscar todos os processos "Em Andamento" do Supabase
-                const { data, error } = await supabase
-                    .from('drivers')
-                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca')
-                    .or('contato_feito.not.is.null,liberacao_entregue.not.is.null')
-                    .is('encostou_doca', null);
+                // Encontrar todos os processos em andamento
+                let incompleteProcesses = [];
+                let ticketsToDelete = [];
                 
-                if (error) {
-                    console.error('❌ Erro ao buscar processos incompletos do Supabase:', error);
-                    showDiscreetNotification('❌ Erro ao buscar dados do Supabase', 2000);
+                // Identificar processos em andamento
+                driversData.forEach(driver => {
+                    if (!driver.ticket) return;
+                    
+                    const hasEncostouDoca = driver.encostouDoca && driver.encostouDoca !== '-';
+                    const hasAnyProcessStep = (driver.contatoFeito && driver.contatoFeito !== '-') || 
+                                            (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-');
+                    
+                    // Se tem alguma etapa mas não tem "Encostou em Doca", é processo em andamento
+                    if (hasAnyProcessStep && !hasEncostouDoca) {
+                        incompleteProcesses.push(driver.ticket);
+                        ticketsToDelete.push(driver.ticket.toString().trim());
+                    }
+                });
+
+                if (incompleteProcesses.length === 0) {
+                    showDiscreetNotification('ℹ️ Nenhum processo em andamento encontrado', 1500);
                     return;
                 }
-                
-                if (!data || data.length === 0) {
-                    showDiscreetNotification('ℹ️ Nenhum processo em andamento encontrado no Supabase', 1500);
+
+                // ✅ CONFIRMAÇÃO FINAL
+                if (!confirm(`⚠️ ATENÇÃO: Você está prestes a excluir PERMANENTEMENTE ${incompleteProcesses.length} processo(s) em andamento.\n\nEsta ação:\n1️⃣ Removerá os dados do Supabase permanentemente\n2️⃣ Removerá os dados localmente\n3️⃣ NÃO poderá ser desfeita\n\nDeseja continuar?`)) {
                     return;
                 }
-                
-                const ticketsToDelete = data.map(item => item.ticket).filter(ticket => ticket);
-                
-                if (!confirm(`⚠️ ATENÇÃO: Você está prestes a excluir PERMANENTEMENTE ${ticketsToDelete.length} processos em andamento do Supabase.\n\nEsta ação:\n1️⃣ Removerá os dados do Supabase permanentemente\n2️⃣ Removerá os dados localmente\n3️⃣ NÃO poderá ser desfeita\n\nDeseja continuar?`)) {
-                    return;
-                }
-                
-                console.log(`🗑️ Excluindo ${ticketsToDelete.length} processos em andamento permanentemente...`);
-                
-                // Excluir do Supabase
+
+                console.log(`🗑️ Excluindo ${incompleteProcesses.length} processos em andamento permanentemente...`);
+
+                // 1️⃣ Excluir permanentemente do Supabase
                 const supabaseDeleted = await deleteFromSupabasePermanently(ticketsToDelete);
                 
                 if (!supabaseDeleted) {
                     showDiscreetNotification('❌ Erro ao excluir processos do Supabase', 2000);
                     return;
                 }
-                
-                // Remover dos dados locais
+
+                // 2️⃣ Remover dos dados locais
                 const newDriversData = driversData.filter(driver => {
                     if (!driver.ticket) return true;
                     return !ticketsToDelete.includes(driver.ticket.toString().trim());
                 });
-                
-                // Atualizar currentFileData também
+
+                // 3️⃣ Atualizar currentFileData também
                 const newCurrentFileData = currentFileData.filter(driver => {
                     if (!driver.ticket) return true;
                     return !ticketsToDelete.includes(driver.ticket.toString().trim());
                 });
-                
-                // Atualizar arrays principais
+
+                // 4️⃣ Atualizar arrays principais
                 driversData = newDriversData;
                 currentFileData = newCurrentFileData;
-                
-                // Remover do backup de processos
+
+                // 5️⃣ Remover do backup de processos
                 ticketsToDelete.forEach(ticket => {
                     if (processBackupData[ticket]) {
                         delete processBackupData[ticket];
                     }
                 });
-                
-                // Salvar todas as alterações
+
+                // 6️⃣ Salvar todas as alterações
                 saveToLocalStorage();
                 saveCurrentFileData();
                 localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
                 
                 dataChangeDetected = true;
-                
-                // Atualizar interface
+
+                // 7️⃣ Atualizar interface
+                if (document.getElementById('encosta-section')?.classList.contains('active')) {
+                    invalidateEncostaCache();
+                    renderEncostaListOptimized();
+                }
                 updateInterface();
                 
-                // Notificar sucesso
-                const message = `✅ ${ticketsToDelete.length} processo(s) em andamento excluído(s) permanentemente!`;
+                // 8️⃣ Notificar sucesso
+                const message = `✅ ${incompleteProcesses.length} processo(s) em andamento excluído(s) permanentemente!`;
                 showDiscreetNotification(message, 3000);
                 
-                // Log para debug
-                console.log(`✅ Processos em andamento excluídos: ${ticketsToDelete.join(', ')}`);
+                console.log(`✅ Processos em andamento excluídos: ${incompleteProcesses.join(', ')}`);
 
             } catch (error) {
                 console.error('❌ Erro fatal ao limpar processos em andamento:', error);
@@ -4658,7 +4650,6 @@
             
             // ✅ ATUALIZAR A ENCOSTA COM OS DADOS DO ARQUIVO ATUAL
             if (document.getElementById('encosta-section')?.classList.contains('active')) {
-                // Invalidar cache
                 invalidateEncostaCache();
                 renderEncostaListOptimized();
             }
@@ -4739,7 +4730,6 @@
                 
                 switch(sectionId) {
                     case 'encosta-section':
-                        // Invalidar cache para forçar atualização
                         invalidateEncostaCache();
                         renderEncostaListOptimized();
                         break;
@@ -4830,10 +4820,11 @@
             const supabaseConnected = await testSupabaseConnection();
             
             if (supabaseConnected) {
-                console.log('🔄 Sincronizando com Supabase...');
-                await loadFromSupabase();
+                console.log('🔄 Sincronizando processos com Supabase...');
+                // ✅ CORREÇÃO: CARREGAR APENAS PROCESSOS DO SUPABASE
+                await loadProcessesFromSupabase();
                 
-                // Iniciar sincronização em tempo real
+                // Iniciar sincronização em tempo real (apenas processos)
                 await startRealtimeSync();
                 
             } else {
@@ -5036,7 +5027,6 @@
                     encostaViewMode = 'table';
                     viewTableBtn.classList.add('active');
                     if (viewCardsBtn) viewCardsBtn.classList.remove('active');
-                    // Invalidar cache
                     invalidateEncostaCache();
                     renderEncostaListOptimized();
                 });
@@ -5047,7 +5037,6 @@
                     encostaViewMode = 'cards';
                     viewCardsBtn.classList.add('active');
                     if (viewTableBtn) viewTableBtn.classList.remove('active');
-                    // Invalidar cache
                     invalidateEncostaCache();
                     renderEncostaListOptimized();
                 });
@@ -5085,7 +5074,6 @@
                     if (processoBtn) {
                         const ticket = processoBtn.getAttribute('data-ticket');
                         if (ticket) {
-                            // Invalidar cache para este ticket específico
                             processStatusCache.delete(ticket);
                             goToProcessFromEncosta(ticket);
                         }
