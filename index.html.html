@@ -1793,33 +1793,94 @@
     </div>
 
     <script>
+        // ========== CORREÇÃO DOS ERROS CRÍTICOS ========== //
+        // Solução para "Tracking Prevention" e "supabase already declared"
+        
+        // ========== SISTEMA DE STORAGE SEGURO ========== //
+        // Wrapper seguro para localStorage que evita erros de Tracking Prevention
+        const safeStorage = {
+            setItem: function(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (error) {
+                    console.warn('Storage bloqueado pelo navegador, usando fallback:', error);
+                    // Fallback para sessionStorage
+                    try {
+                        sessionStorage.setItem(key, value);
+                    } catch (e) {
+                        console.warn('SessionStorage também bloqueado:', e);
+                        // Fallback final: objeto em memória
+                        if (!window.memoryStorage) window.memoryStorage = {};
+                        window.memoryStorage[key] = value;
+                    }
+                }
+            },
+            
+            getItem: function(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (error) {
+                    console.warn('Storage bloqueado pelo navegador, usando fallback:', error);
+                    // Tentar sessionStorage
+                    try {
+                        return sessionStorage.getItem(key);
+                    } catch (e) {
+                        console.warn('SessionStorage também bloqueado:', e);
+                        // Fallback final: objeto em memória
+                        if (window.memoryStorage && window.memoryStorage[key]) {
+                            return window.memoryStorage[key];
+                        }
+                        return null;
+                    }
+                }
+            },
+            
+            removeItem: function(key) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (error) {
+                    console.warn('Storage bloqueado pelo navegador:', error);
+                    // Tentar sessionStorage
+                    try {
+                        sessionStorage.removeItem(key);
+                    } catch (e) {
+                        console.warn('SessionStorage também bloqueado:', e);
+                        // Fallback final: objeto em memória
+                        if (window.memoryStorage) {
+                            delete window.memoryStorage[key];
+                        }
+                    }
+                }
+            }
+        };
+
         // ========== CONFIGURAÇÃO SUPABASE ========== //
         const SUPABASE_URL = 'https://nuebpjbozdcawkkgnqfe.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51ZWJwamJvemRjYXdra2ducWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1ODczOTYsImV4cCI6MjA3NzE2MzM5Nn0.2hpn6WyYJovBeoY50EeRcx3_qcgCgI6QKGKkkNi3AlI';
 
-        // ✅ CORREÇÃO: VERIFICAR SE SUPABASE EXISTE ANTES DE CRIAR CLIENTE
-        let supabase;
-        try {
-            if (window.supabase && window.supabase.createClient) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase inicializado com sucesso');
-            } else {
-                console.warn('Supabase não carregado, usando modo offline');
-                supabase = {
-                    from: () => ({ 
-                        select: () => Promise.resolve({ data: [], error: null }),
-                        upsert: () => Promise.resolve({ error: null }),
-                        delete: () => Promise.resolve({ error: null }),
-                        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) })
-                    }),
-                    channel: () => ({ 
-                        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }) 
-                    })
-                };
+        // ✅ CORREÇÃO: Declaração única da variável supabase
+        let supabaseClient;
+        
+        // Função para inicializar o Supabase de forma segura
+        function initializeSupabase() {
+            try {
+                if (window.supabase && window.supabase.createClient) {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    console.log('✅ Supabase inicializado com sucesso');
+                    return supabaseClient;
+                } else {
+                    console.warn('Supabase não carregado, usando modo offline');
+                    return createMockSupabase();
+                }
+            } catch (error) {
+                console.error('Erro ao inicializar Supabase:', error);
+                return createMockSupabase();
             }
-        } catch (error) {
-            console.error('Erro ao inicializar Supabase:', error);
-            supabase = {
+        }
+
+        // Função para criar um mock do Supabase quando não estiver disponível
+        function createMockSupabase() {
+            return {
                 from: () => ({ 
                     select: () => Promise.resolve({ data: [], error: null }),
                     upsert: () => Promise.resolve({ error: null }),
@@ -1831,6 +1892,9 @@
                 })
             };
         }
+
+        // Inicializar o Supabase
+        supabaseClient = initializeSupabase();
 
         // Estado da aplicação
         let currentDriver = null;
@@ -2523,7 +2587,7 @@
                             </div>
                             <div class="encosta-card-info">
                                 <span class="encosta-card-label">Espera</span>
-                                <span class="encosta-card-value">${driver.waitTime}</span>
+                                <span class="encosta-card-value">${driver.waitTime}</td>
                             </div>
                             <div class="encosta-card-info">
                                 <span class="encosta-card-label">Status Carga</span>
@@ -2549,7 +2613,7 @@
         // ========== SISTEMA DE SINCRONIZAÇÃO ========== //
         async function testSupabaseConnection() {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('drivers')
                     .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier')
                     .limit(1);
@@ -2580,7 +2644,7 @@
         // ✅ CORREÇÃO: FUNÇÃO MODIFICADA PARA CARREGAR APENAS PROCESSOS DO SUPABASE
         async function loadProcessesFromSupabase() {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('drivers')
                     .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier, updated_at')
                     .order('updated_at', { ascending: false });
@@ -2668,7 +2732,7 @@
                 }
 
                 // ✅ CORREÇÃO: Sincronizar apenas processos
-                realtimeSubscription = supabase
+                realtimeSubscription = supabaseClient
                     .channel('processes-changes')
                     .on(
                         'postgres_changes',
@@ -2868,22 +2932,28 @@
 
         // ========== SISTEMA DE PERSISTÊNCIA ========== //
         function saveToLocalStorage() {
-            localStorage.setItem('driversData', JSON.stringify(driversData));
-            localStorage.setItem('suppliersList', JSON.stringify(suppliersList));
-            localStorage.setItem('cdList', JSON.stringify(cdList));
+            try {
+                safeStorage.setItem('driversData', JSON.stringify(driversData));
+                safeStorage.setItem('suppliersList', JSON.stringify(suppliersList));
+                safeStorage.setItem('cdList', JSON.stringify(cdList));
+                return true;
+            } catch (e) {
+                console.warn('Não foi possível salvar no storage:', e);
+                return false;
+            }
         }
 
         function loadFromLocalStorage() {
-            const savedData = localStorage.getItem('driversData');
-            if (savedData) {
-                try {
+            try {
+                const savedData = safeStorage.getItem('driversData');
+                if (savedData) {
                     driversData = JSON.parse(savedData);
                     return true;
-                } catch (e) {
-                    console.error('Erro ao carregar dados do localStorage:', e);
-                    driversData = [];
-                    return false;
                 }
+            } catch (e) {
+                console.warn('Não foi possível carregar do storage:', e);
+                driversData = [];
+                return false;
             }
             return false;
         }
@@ -2895,18 +2965,18 @@
                     fileName: currentFileName,
                     lastUpdated: new Date().toISOString()
                 };
-                localStorage.setItem('currentFileData', JSON.stringify(dataToSave));
-                console.log('✅ Dados da encosta salvos no localStorage');
+                safeStorage.setItem('currentFileData', JSON.stringify(dataToSave));
+                console.log('✅ Dados da encosta salvos');
                 return true;
             } catch (error) {
-                console.error('❌ Erro ao salvar dados da encosta:', error);
+                console.warn('❌ Não foi possível salvar dados da encosta:', error);
                 return false;
             }
         }
 
         function loadCurrentFileData() {
             try {
-                const savedData = localStorage.getItem('currentFileData');
+                const savedData = safeStorage.getItem('currentFileData');
                 if (savedData) {
                     const parsedData = JSON.parse(savedData);
                     currentFileData = parsedData.data || [];
@@ -2922,7 +2992,7 @@
                     return true;
                 }
             } catch (error) {
-                console.error('❌ Erro ao carregar dados da encosta:', error);
+                console.warn('❌ Não foi possível carregar dados da encosta:', error);
                 currentFileData = [];
                 currentFileName = '';
             }
@@ -2931,14 +3001,14 @@
 
         function loadProcessBackup() {
             try {
-                const savedBackup = localStorage.getItem('processBackupData');
+                const savedBackup = safeStorage.getItem('processBackupData');
                 if (savedBackup) {
                     processBackupData = JSON.parse(savedBackup);
                     console.log('✅ Backup de processos carregado:', Object.keys(processBackupData).length, 'processos');
                     return true;
                 }
             } catch (error) {
-                console.error('❌ Erro ao carregar backup de processos:', error);
+                console.warn('❌ Não foi possível carregar backup de processos:', error);
             }
             return false;
         }
@@ -2975,11 +3045,11 @@
                 });
                 
                 processBackupData = newBackup;
-                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
+                safeStorage.setItem('processBackupData', JSON.stringify(processBackupData));
                 console.log('✅ Backup inteligente salvo:', Object.keys(processBackupData).length, 'processos');
                 return true;
             } catch (error) {
-                console.error('❌ Erro ao salvar backup de processos:', error);
+                console.warn('❌ Não foi possível salvar backup de processos:', error);
                 return false;
             }
         }
@@ -3007,7 +3077,7 @@
                             }
                         }
                     } catch (driverError) {
-                        console.error('Erro ao restaurar driver do backup:', driverError);
+                        console.warn('Erro ao restaurar driver do backup:', driverError);
                     }
                 });
                 
@@ -3017,7 +3087,7 @@
                 
                 return restoredCount;
             } catch (error) {
-                console.error('❌ Erro ao restaurar backup de processos:', error);
+                console.warn('❌ Erro ao restaurar backup de processos:', error);
                 return 0;
             }
         }
@@ -3066,7 +3136,7 @@
                             console.log('✅ Processos salvos no Supabase (background)');
                         }
                     }).catch(error => {
-                        console.error('❌ Erro background no Supabase:', error);
+                        console.warn('❌ Erro background no Supabase:', error);
                     });
                 }
                 
@@ -3074,7 +3144,7 @@
                 console.log('✅ Dados salvos automaticamente');
                 
             } catch (error) {
-                console.error('❌ Erro no salvamento automático:', error);
+                console.warn('❌ Erro no salvamento automático:', error);
                 // Fallback: salvar apenas localmente
                 saveToLocalStorage();
                 saveProcessBackup();
@@ -3235,7 +3305,7 @@
                 };
                 
                 // ✅ NÃO salvar dados completos do motorista, apenas processo
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('drivers')
                     .upsert([processToSave], {
                         onConflict: 'ticket'
@@ -3246,7 +3316,7 @@
                 console.log(`✅ Processo salvo no Supabase para senha ${driver.ticket}`);
                 return true;
             } catch (error) {
-                console.error('❌ Erro ao salvar processo no Supabase:', error);
+                console.warn('❌ Erro ao salvar processo no Supabase:', error);
                 return false;
             }
         }
@@ -3285,7 +3355,7 @@
                         updated_at: new Date().toISOString()
                     }));
                     
-                    const { error } = await supabase
+                    const { error } = await supabaseClient
                         .from('drivers')
                         .upsert(processesToSave, {
                             onConflict: 'ticket',
@@ -3301,7 +3371,7 @@
                 console.log(`✅ ${driversWithProcesses.length} processos salvos em ${batches.length} lotes`);
                 return true;
             } catch (error) {
-                console.error('❌ Erro ao salvar processos no Supabase:', error);
+                console.warn('❌ Erro ao salvar processos no Supabase:', error);
                 throw error;
             }
         }
@@ -3607,7 +3677,7 @@
                 if (isOnline) {
                     try {
                         showDiscreetNotification(`Buscando processo ${ticket}...`, 1000);
-                        const { data, error } = await supabase
+                        const { data, error } = await supabaseClient
                             .from('drivers')
                             .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier')
                             .eq('ticket', ticket)
@@ -3643,7 +3713,7 @@
                             return true;
                         }
                     } catch (error) {
-                        console.error('Erro ao buscar no Supabase:', error);
+                        console.warn('Erro ao buscar no Supabase:', error);
                     }
                 }
                 
@@ -3657,16 +3727,16 @@
         async function saveCargaData() {
             try {
                 const cargaArray = Array.from(cargaData);
-                localStorage.setItem('cargaData', JSON.stringify(cargaArray));
+                safeStorage.setItem('cargaData', JSON.stringify(cargaArray));
                 return true;
             } catch (error) {
-                console.error('Erro ao salvar carga:', error);
+                console.warn('Erro ao salvar carga:', error);
                 return false;
             }
         }
 
         function loadCargaData() {
-            const savedCargaData = localStorage.getItem('cargaData');
+            const savedCargaData = safeStorage.getItem('cargaData');
             if (savedCargaData) {
                 try {
                     const cargaArray = JSON.parse(savedCargaData);
@@ -3724,7 +3794,7 @@
                 showDiscreetNotification(`✅ ${cargaData.size} cargas identificadas`, 1500);
                 
             } catch (error) {
-                console.error('Erro ao processar arquivo de carga:', error);
+                console.warn('Erro ao processar arquivo de carga:', error);
                 showDiscreetNotification('❌ Erro ao processar arquivo de carga. Verifique o formato do arquivo.', 2000);
             }
         }
@@ -3761,14 +3831,14 @@
             
             try {
                 // Buscar apenas processos do Supabase
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('drivers')
                     .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier, updated_at')
                     .or('contato_feito.not.is.null,liberacao_entregue.not.is.null,encostou_doca.not.is.null')
                     .order('updated_at', { ascending: false });
 
                 if (error) {
-                    console.error('❌ Erro ao buscar dados do relatório do Supabase:', error);
+                    console.warn('❌ Erro ao buscar dados do relatório do Supabase:', error);
                     showDiscreetNotification('❌ Erro ao carregar relatório do Supabase', 2000);
                     return;
                 }
@@ -3827,7 +3897,7 @@
                 console.log(`📊 Relatório gerado: ${filteredData.length} registros`);
 
             } catch (error) {
-                console.error('❌ Erro ao gerar relatório:', error);
+                console.warn('❌ Erro ao gerar relatório:', error);
                 showDiscreetNotification('❌ Erro ao gerar relatório', 2000);
                 
                 // Fallback: usar dados locais
@@ -4030,7 +4100,7 @@
                 if (completedTodayEl) completedTodayEl.textContent = completedToday;
                 
             } catch (error) {
-                console.error('Erro ao atualizar estatísticas:', error);
+                console.warn('Erro ao atualizar estatísticas:', error);
                 const totalDriversEl = document.getElementById('total-drivers');
                 const totalSuppliersEl = document.getElementById('total-suppliers');
                 const activeProcessesEl = document.getElementById('active-processes');
@@ -4163,11 +4233,11 @@
                 plate: document.getElementById('filter-plate')?.value || '',
                 arrival: document.getElementById('filter-arrival')?.value || ''
             };
-            localStorage.setItem('activeFilters', JSON.stringify(filterValues));
+            safeStorage.setItem('activeFilters', JSON.stringify(filterValues));
         }
 
         function loadFilterValues() {
-            const savedFilters = localStorage.getItem('activeFilters');
+            const savedFilters = safeStorage.getItem('activeFilters');
             if (savedFilters) {
                 const filterValues = JSON.parse(savedFilters);
                 
@@ -4330,7 +4400,7 @@
                     
                     // Para cada ticket no batch, excluir do Supabase
                     const deletePromises = batch.map(ticket => 
-                        supabase
+                        supabaseClient
                             .from('drivers')
                             .delete()
                             .eq('ticket', ticket)
@@ -4341,7 +4411,7 @@
                     // Verificar erros
                     results.forEach((result, index) => {
                         if (result.error) {
-                            console.error(`❌ Erro ao excluir ticket ${batch[index]} do Supabase:`, result.error);
+                            console.warn(`❌ Erro ao excluir ticket ${batch[index]} do Supabase:`, result.error);
                         } else {
                             deletedCount++;
                         }
@@ -4354,7 +4424,7 @@
                 console.log(`✅ ${deletedCount} registros excluídos permanentemente do Supabase`);
                 return deletedCount > 0;
             } catch (error) {
-                console.error('❌ Erro ao excluir permanentemente do Supabase:', error);
+                console.warn('❌ Erro ao excluir permanentemente do Supabase:', error);
                 return false;
             }
         }
@@ -4402,7 +4472,7 @@
                 const batchSize = 30;
                 for (let i = 0; i < updates.length; i += batchSize) {
                     const batch = updates.slice(i, i + batchSize);
-                    await supabase
+                    await supabaseClient
                         .from('drivers')
                         .upsert(batch, {
                             onConflict: 'ticket'
@@ -4420,7 +4490,7 @@
                 showDiscreetNotification('✅ Todos os registros de processo foram limpos!', 2000);
 
             } catch (error) {
-                console.error('Erro ao limpar processos:', error);
+                console.warn('Erro ao limpar processos:', error);
                 showDiscreetNotification('❌ Erro ao limpar registros no Supabase', 2000);
             }
         }
@@ -4496,7 +4566,7 @@
                 // 6️⃣ Salvar todas as alterações
                 saveToLocalStorage();
                 saveCurrentFileData();
-                localStorage.setItem('processBackupData', JSON.stringify(processBackupData));
+                safeStorage.setItem('processBackupData', JSON.stringify(processBackupData));
                 
                 dataChangeDetected = true;
 
@@ -4514,7 +4584,7 @@
                 console.log(`✅ Processos em andamento excluídos: ${incompleteProcesses.join(', ')}`);
 
             } catch (error) {
-                console.error('❌ Erro fatal ao limpar processos em andamento:', error);
+                console.warn('❌ Erro fatal ao limpar processos em andamento:', error);
                 showDiscreetNotification('❌ Erro crítico ao excluir processos', 2000);
             }
         }
@@ -4706,13 +4776,13 @@
             if (activeOption) activeOption.classList.add('active');
             
             // Salvar preferência
-            localStorage.setItem('selectedTheme', themeName);
+            safeStorage.setItem('selectedTheme', themeName);
             
             showDiscreetNotification(`🎨 Tema aplicado!`, 1500);
         }
 
         function loadTheme() {
-            const savedTheme = localStorage.getItem('selectedTheme');
+            const savedTheme = safeStorage.getItem('selectedTheme');
             if (savedTheme && themes[savedTheme]) {
                 applyTheme(savedTheme);
             }
@@ -4885,19 +4955,32 @@
 
         // ========== CONFIGURAÇÃO DE EVENT LISTENERS ========== //
         function setupEventListeners() {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
+            // ✅ CORREÇÃO: Usar event delegation para navegação
+            document.addEventListener('click', function(e) {
+                // Navegação entre seções
+                if (e.target.closest('.nav-link')) {
                     e.preventDefault();
-                    const target = this.getAttribute('data-target');
-                    showSection(target);
-                });
-            });
-            
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    showTab(tabId);
-                });
+                    const link = e.target.closest('.nav-link');
+                    const target = link.getAttribute('data-target');
+                    if (target) showSection(target);
+                }
+                
+                // Tabs internas
+                if (e.target.closest('.tab')) {
+                    const tab = e.target.closest('.tab');
+                    const tabId = tab.getAttribute('data-tab');
+                    if (tabId) showTab(tabId);
+                }
+                
+                // Botões de processo na encosta
+                if (e.target.closest('.processo-encosta')) {
+                    const btn = e.target.closest('.processo-encosta');
+                    const ticket = btn.getAttribute('data-ticket');
+                    if (ticket) {
+                        processStatusCache.delete(ticket);
+                        goToProcessFromEncosta(ticket);
+                    }
+                }
             });
             
             const searchForm = document.getElementById('search-form');
@@ -5036,7 +5119,7 @@
                         ticket: '', driver: '', supplier: '', status: '', plate: '', arrival: ''
                     };
                     
-                    localStorage.removeItem('activeFilters');
+                    safeStorage.removeItem('activeFilters');
                     
                     renderDriversTable();
                     
@@ -5074,13 +5157,12 @@
             // ========== EVENT LISTENERS PARA SISTEMA DE TEMAS ========== //
             const themeToggle = document.getElementById('theme-toggle');
             const themePanel = document.getElementById('theme-panel');
-            const themeOptions = document.querySelectorAll('.theme-option');
             
             if (themeToggle) {
                 themeToggle.addEventListener('click', toggleThemePanel);
             }
             
-            themeOptions.forEach(option => {
+            document.querySelectorAll('.theme-option').forEach(option => {
                 option.addEventListener('click', function() {
                     const themeName = this.getAttribute('data-theme');
                     applyTheme(themeName);
@@ -5095,20 +5177,25 @@
                 }
             });
             
-            // Configurar delegação de eventos para encosta
-            const encostaContent = document.getElementById('encosta-content');
-            if (encostaContent) {
-                encostaContent.addEventListener('click', function(e) {
-                    const processoBtn = e.target.closest('.processo-encosta');
-                    if (processoBtn) {
-                        const ticket = processoBtn.getAttribute('data-ticket');
-                        if (ticket) {
-                            processStatusCache.delete(ticket);
-                            goToProcessFromEncosta(ticket);
-                        }
+            // Configurar delegação de eventos para botões na tabela de motoristas
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.view-driver')) {
+                    const btn = e.target.closest('.view-driver');
+                    const ticket = btn.getAttribute('data-ticket');
+                    if (ticket) {
+                        searchDriver(ticket);
+                        showSection('search-section');
                     }
-                });
-            }
+                }
+                
+                if (e.target.closest('.delete-driver')) {
+                    const btn = e.target.closest('.delete-driver');
+                    const ticket = btn.getAttribute('data-ticket');
+                    if (ticket) {
+                        deleteDriver(ticket);
+                    }
+                }
+            });
             
             // Configurar filtros
             let filterTimeout;
@@ -5124,7 +5211,7 @@
             const filterDriver = document.getElementById('filter-driver');
             const filterSupplier = document.getElementById('filter-supplier');
             const filterStatus = document.getElementById('filter-status');
-            const filterPlate = document.getElementById('filter-placa');
+            const filterPlate = document.getElementById('filter-plate');
             const filterArrival = document.getElementById('filter-arrival');
             
             if (filterTicket) {
