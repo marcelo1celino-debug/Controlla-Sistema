@@ -2551,7 +2551,7 @@
             try {
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier')
                     .limit(1);
                     
                 if (error) {
@@ -2582,7 +2582,7 @@
             try {
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier, updated_at')
                     .order('updated_at', { ascending: false });
 
                 if (error) {
@@ -2601,7 +2601,9 @@
                             supabaseProcesses.set(item.ticket.toString().trim(), {
                                 contatoFeito: item.contato_feito || '-',
                                 liberacaoEntregue: item.liberacao_entregue || '-',
-                                encostouDoca: item.encostou_doca || '-'
+                                encostouDoca: item.encostou_doca || '-',
+                                driverName: item.driver_name || '-',
+                                supplier: item.supplier || '-'
                             });
                         }
                     });
@@ -2617,6 +2619,8 @@
                                 driver.contatoFeito = processData.contatoFeito;
                                 driver.liberacaoEntregue = processData.liberacaoEntregue;
                                 driver.encostouDoca = processData.encostouDoca;
+                                driver.driverName = processData.driverName;
+                                driver.supplier = processData.supplier;
                                 updatedCount++;
                                 
                                 // Invalidar cache
@@ -2630,6 +2634,8 @@
                                     currentFileData[fileDataIndex].contatoFeito = processData.contatoFeito;
                                     currentFileData[fileDataIndex].liberacaoEntregue = processData.liberacaoEntregue;
                                     currentFileData[fileDataIndex].encostouDoca = processData.encostouDoca;
+                                    currentFileData[fileDataIndex].driverName = processData.driverName;
+                                    currentFileData[fileDataIndex].supplier = processData.supplier;
                                 }
                             }
                         }
@@ -2741,6 +2747,12 @@
                 if (updatedProcess.encostou_doca !== undefined) {
                     localDriver.encostouDoca = updatedProcess.encostou_doca !== null ? updatedProcess.encostou_doca : '-';
                 }
+                if (updatedProcess.driver_name !== undefined) {
+                    localDriver.driverName = updatedProcess.driver_name !== null ? updatedProcess.driver_name : '-';
+                }
+                if (updatedProcess.supplier !== undefined) {
+                    localDriver.supplier = updatedProcess.supplier !== null ? updatedProcess.supplier : '-';
+                }
                 
                 // Atualizar também no currentFileData
                 const fileDataIndex = currentFileData.findIndex(d => 
@@ -2755,6 +2767,12 @@
                     }
                     if (updatedProcess.encostou_doca !== undefined) {
                         currentFileData[fileDataIndex].encostouDoca = updatedProcess.encostou_doca !== null ? updatedProcess.encostou_doca : '-';
+                    }
+                    if (updatedProcess.driver_name !== undefined) {
+                        currentFileData[fileDataIndex].driverName = updatedProcess.driver_name !== null ? updatedProcess.driver_name : '-';
+                    }
+                    if (updatedProcess.supplier !== undefined) {
+                        currentFileData[fileDataIndex].supplier = updatedProcess.supplier !== null ? updatedProcess.supplier : '-';
                     }
                     
                     saveCurrentFileData();
@@ -2941,9 +2959,9 @@
                                 contatoFeito: driver.contatoFeito || '-',
                                 liberacaoEntregue: driver.liberacaoEntregue || '-',
                                 encostouDoca: driver.encostouDoca || '-',
-                                ticket: driver.ticket,
                                 driverName: driver.driverName || '-',
                                 supplier: driver.supplier || '-',
+                                ticket: driver.ticket,
                                 cd: driver.cd || '-',
                                 status: driver.status || '-',
                                 arrivalDateTime: driver.arrivalDateTime || '-',
@@ -2983,6 +3001,8 @@
                                 existingDriver.contatoFeito = backup.contatoFeito || '-';
                                 existingDriver.liberacaoEntregue = backup.liberacaoEntregue || '-';
                                 existingDriver.encostouDoca = backup.encostouDoca || '-';
+                                existingDriver.driverName = backup.driverName || '-';
+                                existingDriver.supplier = backup.supplier || '-';
                                 restoredCount++;
                             }
                         }
@@ -3069,14 +3089,24 @@
             let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (!driver) {
-                showDiscreetNotification(`❌ Senha ${ticket} não encontrada na base de dados`, 2000);
-                return;
+                // Tentar buscar no currentFileData
+                driver = currentFileData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+                
+                if (!driver) {
+                    showDiscreetNotification(`❌ Senha ${ticket} não encontrada na base de dados`, 2000);
+                    return;
+                }
+                
+                // Adicionar aos driversData se não existir
+                driversData.push(driver);
             }
             
             // Garantir propriedades
             if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
             if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
             if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+            if (!driver.hasOwnProperty('driverName')) driver.driverName = '-';
+            if (!driver.hasOwnProperty('supplier')) driver.supplier = '-';
             
             const now = new Date();
             const formattedDateTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
@@ -3087,6 +3117,13 @@
             const currentFileDriverIndex = currentFileData.findIndex(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             if (currentFileDriverIndex !== -1) {
                 currentFileData[currentFileDriverIndex][stepField] = formattedDateTime;
+                // Garantir que motorista e fornecedor também sejam copiados
+                if (driver.driverName && driver.driverName !== '-') {
+                    currentFileData[currentFileDriverIndex].driverName = driver.driverName;
+                }
+                if (driver.supplier && driver.supplier !== '-') {
+                    currentFileData[currentFileDriverIndex].supplier = driver.supplier;
+                }
             }
             
             // ✅ INVALIDAR CACHE
@@ -3120,11 +3157,19 @@
         async function undoProcessStep(ticket, stepField) {
             console.log(`Desfazendo etapa ${stepField} para senha ${ticket}`);
             
-            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
             
             if (!driver) {
-                showDiscreetNotification('❌ Motorista não encontrado', 2000);
-                return;
+                // Tentar buscar no currentFileData
+                driver = currentFileData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+                
+                if (!driver) {
+                    showDiscreetNotification('❌ Motorista não encontrado', 2000);
+                    return;
+                }
+                
+                // Adicionar aos driversData se não existir
+                driversData.push(driver);
             }
             
             const stepName = getStepName(stepField);
@@ -3184,6 +3229,8 @@
                     contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
                     liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
                     encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+                    driver_name: driver.driverName && driver.driverName !== '-' ? driver.driverName : null,
+                    supplier: driver.supplier && driver.supplier !== '-' ? driver.supplier : null,
                     updated_at: new Date().toISOString()
                 };
                 
@@ -3233,6 +3280,8 @@
                         contato_feito: driver.contatoFeito !== '-' ? driver.contatoFeito : null,
                         liberacao_entregue: driver.liberacaoEntregue !== '-' ? driver.liberacaoEntregue : null,
                         encostou_doca: driver.encostouDoca !== '-' ? driver.encostouDoca : null,
+                        driver_name: driver.driverName && driver.driverName !== '-' ? driver.driverName : null,
+                        supplier: driver.supplier && driver.supplier !== '-' ? driver.supplier : null,
                         updated_at: new Date().toISOString()
                     }));
                     
@@ -3284,7 +3333,14 @@
         }
 
         function searchDriver(ticket) {
-            const driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            // Primeiro tenta buscar nos driversData
+            let driver = driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            
+            // Se não encontrar, tenta no currentFileData
+            if (!driver) {
+                driver = currentFileData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim());
+            }
+            
             if (driver) {
                 currentDriver = driver;
                 displayDriverInfo(driver);
@@ -3292,6 +3348,12 @@
                 const driverNotFound = document.getElementById('driver-not-found');
                 if (driverResult) driverResult.style.display = 'block';
                 if (driverNotFound) driverNotFound.style.display = 'none';
+                
+                // Se não está em driversData, adiciona
+                if (!driversData.find(d => d.ticket && d.ticket.toString().trim() === ticket.toString().trim())) {
+                    driversData.push(driver);
+                    dataChangeDetected = true;
+                }
             } else {
                 const driverResult = document.getElementById('driver-result');
                 const driverNotFound = document.getElementById('driver-not-found');
@@ -3358,6 +3420,8 @@
             if (!currentDriver.hasOwnProperty('contatoFeito')) currentDriver.contatoFeito = '-';
             if (!currentDriver.hasOwnProperty('liberacaoEntregue')) currentDriver.liberacaoEntregue = '-';
             if (!currentDriver.hasOwnProperty('encostouDoca')) currentDriver.encostouDoca = '-';
+            if (!currentDriver.hasOwnProperty('driverName')) currentDriver.driverName = '-';
+            if (!currentDriver.hasOwnProperty('supplier')) currentDriver.supplier = '-';
             
             const steps = [
                 { 
@@ -3545,7 +3609,7 @@
                         showDiscreetNotification(`Buscando processo ${ticket}...`, 1000);
                         const { data, error } = await supabase
                             .from('drivers')
-                            .select('ticket, contato_feito, liberacao_entregue, encostou_doca')
+                            .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier')
                             .eq('ticket', ticket)
                             .single();
 
@@ -3553,8 +3617,8 @@
                             // Criar driver básico apenas com dados de processo
                             driver = {
                                 ticket: data.ticket,
-                                driverName: '-',
-                                supplier: '-',
+                                driverName: data.driver_name || '-',
+                                supplier: data.supplier || '-',
                                 status: '-',
                                 contatoFeito: data.contato_feito || '-',
                                 liberacaoEntregue: data.liberacao_entregue || '-',
@@ -3699,7 +3763,7 @@
                 // Buscar apenas processos do Supabase
                 const { data, error } = await supabase
                     .from('drivers')
-                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, updated_at')
+                    .select('ticket, contato_feito, liberacao_entregue, encostou_doca, driver_name, supplier, updated_at')
                     .or('contato_feito.not.is.null,liberacao_entregue.not.is.null,encostou_doca.not.is.null')
                     .order('updated_at', { ascending: false });
 
@@ -3718,27 +3782,16 @@
 
                 console.log(`✅ ${data.length} registros carregados do Supabase para o relatório`);
 
-                // Buscar dados completos dos motoristas localmente
+                // Processar dados do Supabase
                 const reportData = data.map(item => {
-                    const localDriver = driversData.find(d => d.ticket && d.ticket.toString().trim() === item.ticket.toString().trim());
-                    
-                    // Criar objeto de relatório
                     const reportItem = {
                         ticket: item.ticket,
                         contatoFeito: item.contato_feito || '-',
                         liberacaoEntregue: item.liberacao_entregue || '-',
-                        encostouDoca: item.encostou_doca || '-'
+                        encostouDoca: item.encostou_doca || '-',
+                        driverName: item.driver_name || '-',
+                        supplier: item.supplier || '-'
                     };
-                    
-                    // Adicionar dados do motorista se existirem localmente
-                    if (localDriver) {
-                        reportItem.driverName = localDriver.driverName || '-';
-                        reportItem.supplier = localDriver.supplier || '-';
-                    } else {
-                        // Se não existe localmente, buscar apenas do Supabase (apenas processo)
-                        reportItem.driverName = '-';
-                        reportItem.supplier = '-';
-                    }
                     
                     return reportItem;
                 });
@@ -3906,11 +3959,11 @@
             
             const excelData = filteredData.map(driver => ({
                 'Senha': driver.ticket || '',
+                'Motorista': driver.driverName || '',
+                'Fornecedor': driver.supplier || '',
                 'Contato Feito': driver.contatoFeito || '',
                 'Liberação Entregue': driver.liberacaoEntregue || '',
                 'Encostou em Doca': driver.encostouDoca || '',
-                'Motorista': driver.driverName || '',
-                'Fornecedor': driver.supplier || '',
                 'Status': getProcessStatusOptimized(driver) || ''
             }));
             
@@ -4065,47 +4118,17 @@
             }
         }
 
+        // ✅✅✅ FUNÇÃO ALTERADA: NÃO PRESERVAR PROCESSOS NA LIMPEZA DA BASE DE DADOS ✅✅✅
         function clearDatabase() {
-            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar a base de dados?\n\n📋 Isso irá remover TODOS os dados, MAS:\n• Todos os registros de processo (Contato Feito, Liberação Entregue, Encostou em Doca) serão PRESERVADOS\n• Os processos continuarão aparecendo no relatório\n\nPara remover processos do relatório, use a função "Desfazer" no menu Processo.\n\nEsta ação não pode ser desfeita.')) {
+            if (confirm('⚠️ ATENÇÃO: Tem certeza que deseja limpar COMPLETAMENTE a base de dados local?\n\n📋 Isso irá remover TODOS os dados localmente:\n• Todos os motoristas cadastrados\n• Todos os fornecedores\n• Todos os CDs\n\n🚫 NENHUM processo será preservado\n📊 Os processos continuarão apenas no Supabase (Relatório)\n\nEsta ação não pode ser desfeita.')) {
                 
-                // ✅ PRESERVAR APENAS PROCESSOS COM ETAPAS REGISTRADAS
-                const processosPreservados = [];
-                
-                driversData.forEach(driver => {
-                    if (driver.ticket && (
-                        (driver.contatoFeito && driver.contatoFeito !== '-') ||
-                        (driver.liberacaoEntregue && driver.liberacaoEntregue !== '-') || 
-                        (driver.encostouDoca && driver.encostouDoca !== '-')
-                    )) {
-                        processosPreservados.push({
-                            ticket: driver.ticket,
-                            contatoFeito: driver.contatoFeito || '-',
-                            liberacaoEntregue: driver.liberacaoEntregue || '-',
-                            encostouDoca: driver.encostouDoca || '-',
-                            driverName: driver.driverName || 'Motorista Não Cadastrado',
-                            supplier: driver.supplier || '-',
-                            cd: driver.cd || '-',
-                            status: 'AGENDADO',
-                            arrivalDateTime: driver.arrivalDateTime || '-',
-                            scheduleDateTime: driver.scheduleDateTime || '-',
-                            truckPlate: driver.truckPlate || '-',
-                            load: driver.load || '-'
-                        });
-                    }
-                });
-                
-                // LIMPAR BASE COMPLETA
+                // ✅✅✅ LIMPEZA COMPLETA - NÃO PRESERVAR NADA ✅✅✅
                 driversData = [];
                 suppliersList = [];
                 cdList = [];
                 
-                // ✅ RESTAURAR APENAS OS PROCESSOS PRESERVADOS
-                processosPreservados.forEach(processo => {
-                    const driverExistente = driversData.find(d => d.ticket === processo.ticket);
-                    if (!driverExistente) {
-                        driversData.push(processo);
-                    }
-                });
+                // ✅✅✅ NÃO RESTAURAR PROCESSOS DO BACKUP
+                // ✅✅✅ MANTER currentFileData (encosta) SEPARADO
                 
                 saveToLocalStorage();
                 renderDriversTable();
@@ -4117,7 +4140,7 @@
                     if (driverResult) driverResult.style.display = 'none';
                 }
                 
-                showDiscreetNotification(`🗑️ Base limpa! ${processosPreservados.length} processos preservados`, 800);
+                showDiscreetNotification(`🗑️ Base de dados local limpa completamente!`, 800);
             }
         }
 
@@ -4370,6 +4393,8 @@
                     contato_feito: null,
                     liberacao_entregue: null,
                     encostou_doca: null,
+                    driver_name: null,
+                    supplier: null,
                     updated_at: new Date().toISOString()
                 }));
 
@@ -4591,6 +4616,8 @@
                         driver.contatoFeito = existingProcess.contatoFeito || '-';
                         driver.liberacaoEntregue = existingProcess.liberacaoEntregue || '-';
                         driver.encostouDoca = existingProcess.encostouDoca || '-';
+                        driver.driverName = existingProcess.driverName || driver.driverName || '-';
+                        driver.supplier = existingProcess.supplier || driver.supplier || '-';
                         
                         preservedCount++;
                     } else {
@@ -4598,6 +4625,8 @@
                         if (!driver.hasOwnProperty('contatoFeito')) driver.contatoFeito = '-';
                         if (!driver.hasOwnProperty('liberacaoEntregue')) driver.liberacaoEntregue = '-';
                         if (!driver.hasOwnProperty('encostouDoca')) driver.encostouDoca = '-';
+                        if (!driver.hasOwnProperty('driverName')) driver.driverName = driver.driverName || '-';
+                        if (!driver.hasOwnProperty('supplier')) driver.supplier = driver.supplier || '-';
                         
                         newCount++;
                     }
@@ -4612,7 +4641,7 @@
             // ✅ ADICIONAR PROCESSOS PRESERVADOS QUE NÃO ESTÃO NO NOVO ARQUIVO
             existingProcessesMap.forEach((existingProcess, ticketKey) => {
                 const existsInNewData = newDrivers.some(driver => 
-                    driver.ticket && driver.ticket.toString().trim() === ticketKey
+                    driver.ticket && driver.ticket.toString().trim() === ticketKey.toString().trim()
                 );
                 
                 if (!existsInNewData) {
